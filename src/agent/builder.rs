@@ -9,7 +9,7 @@ use crate::config::{AgentProfile, AgentRegistry, AppConfig};
 use crate::persistence::Persistence;
 use crate::policy::PolicyEngine;
 use crate::tools::ToolRegistry;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use std::sync::Arc;
 
 /// Builder for constructing AgentCore instances
@@ -119,9 +119,9 @@ impl AgentBuilder {
         };
 
         // Get or generate session ID
-        let session_id = self.session_id.unwrap_or_else(|| {
-            format!("session-{}", chrono::Utc::now().timestamp_millis())
-        });
+        let session_id = self
+            .session_id
+            .unwrap_or_else(|| format!("session-{}", chrono::Utc::now().timestamp_millis()));
 
         // Get or create tool registry (defaults to empty registry)
         let tool_registry = self
@@ -181,18 +181,16 @@ pub fn create_agent_from_registry(
 mod tests {
     use super::*;
     use crate::agent::providers::MockProvider;
-    use crate::config::{AgentProfile, DatabaseConfig, ModelConfig, UiConfig, LoggingConfig};
-    use tempfile::tempdir;
+    use crate::config::{AgentProfile, DatabaseConfig, LoggingConfig, ModelConfig, UiConfig};
     use std::collections::HashMap;
+    use tempfile::tempdir;
 
     fn create_test_config() -> AppConfig {
         let dir = tempdir().unwrap();
         let db_path = dir.path().join("test.duckdb");
 
         AppConfig {
-            database: DatabaseConfig {
-                path: db_path,
-            },
+            database: DatabaseConfig { path: db_path },
             model: ModelConfig {
                 provider: "mock".to_string(),
                 model_name: Some("test-model".to_string()),
@@ -244,7 +242,10 @@ mod tests {
             .unwrap();
 
         assert_eq!(agent.session_id(), "test-session");
-        assert_eq!(agent.profile().prompt, Some("Test system prompt".to_string()));
+        assert_eq!(
+            agent.profile().prompt,
+            Some("Test system prompt".to_string())
+        );
     }
 
     #[test]
@@ -286,11 +287,13 @@ mod tests {
             .build();
 
         assert!(result.is_err());
-        assert!(result
-            .err()
-            .unwrap()
-            .to_string()
-            .contains("provider or config"));
+        assert!(
+            result
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("provider or config")
+        );
     }
 
     #[test]
@@ -323,11 +326,15 @@ mod tests {
         let registry = AgentRegistry::new(agents, persistence.clone());
         registry.set_active("test-agent").unwrap();
 
-        let agent = create_agent_from_registry(&registry, &config, Some("custom-session".to_string()))
-            .unwrap();
+        let agent =
+            create_agent_from_registry(&registry, &config, Some("custom-session".to_string()))
+                .unwrap();
 
         assert_eq!(agent.session_id(), "custom-session");
-        assert_eq!(agent.profile().prompt, Some("Test system prompt".to_string()));
+        assert_eq!(
+            agent.profile().prompt,
+            Some("Test system prompt".to_string())
+        );
     }
 
     #[test]

@@ -2,8 +2,11 @@ use spec_ai::agent::AgentCore;
 use spec_ai::agent::providers::MockProvider;
 use spec_ai::config::AgentProfile;
 use spec_ai::persistence::Persistence;
-use spec_ai::policy::{PolicyEngine, PolicyRule, PolicyEffect, PolicyDecision};
-use spec_ai::tools::{ToolRegistry, builtin::{EchoTool, MathTool}};
+use spec_ai::policy::{PolicyDecision, PolicyEffect, PolicyEngine, PolicyRule};
+use spec_ai::tools::{
+    ToolRegistry,
+    builtin::{EchoTool, MathTool},
+};
 use std::sync::Arc;
 use tempfile::tempdir;
 
@@ -16,7 +19,9 @@ fn create_test_agent_with_policy(
     let db_path = dir.path().join("test.duckdb");
     let persistence = Persistence::new(&db_path).unwrap();
 
-    let provider = Arc::new(MockProvider::new("TOOL_CALL: echo\nARGS: {\"message\": \"test\"}"));
+    let provider = Arc::new(MockProvider::new(
+        "TOOL_CALL: echo\nARGS: {\"message\": \"test\"}",
+    ));
 
     let mut tool_registry = ToolRegistry::new();
     tool_registry.register(Arc::new(EchoTool::new()));
@@ -60,7 +65,7 @@ fn test_policy_denies_tool_by_default() {
     // Check that policy decision is deny
     let decision = agent.policy_engine().check("agent", "tool_call", "echo");
     match decision {
-        PolicyDecision::Deny(_) => {}, // Expected
+        PolicyDecision::Deny(_) => {} // Expected
         PolicyDecision::Allow => panic!("Expected deny, got allow"),
     }
 }
@@ -99,7 +104,7 @@ fn test_policy_allows_specific_tool() {
     // Policy doesn't have rule for math, so it's denied by default
     let decision = agent.policy_engine().check("agent", "tool_call", "math");
     match decision {
-        PolicyDecision::Deny(_) => {},
+        PolicyDecision::Deny(_) => {}
         PolicyDecision::Allow => panic!("Expected deny for math"),
     }
 }
@@ -125,7 +130,7 @@ fn test_policy_denies_specific_tool() {
     match decision {
         PolicyDecision::Deny(reason) => {
             assert!(reason.contains("math"));
-        },
+        }
         PolicyDecision::Allow => panic!("Expected deny for math"),
     }
 }
@@ -153,7 +158,9 @@ fn test_policy_wildcard_allows_all_tools() {
     let decision = agent.policy_engine().check("agent", "tool_call", "math");
     assert_eq!(decision, PolicyDecision::Allow);
 
-    let decision = agent.policy_engine().check("agent", "tool_call", "any_tool");
+    let decision = agent
+        .policy_engine()
+        .check("agent", "tool_call", "any_tool");
     assert_eq!(decision, PolicyDecision::Allow);
 }
 
@@ -184,7 +191,7 @@ fn test_policy_first_match_wins() {
     // First rule should win - deny all
     let decision = agent.policy_engine().check("agent", "tool_call", "echo");
     match decision {
-        PolicyDecision::Deny(_) => {},
+        PolicyDecision::Deny(_) => {}
         PolicyDecision::Allow => panic!("Expected deny from first rule"),
     }
 }
@@ -224,7 +231,7 @@ fn test_policy_persistence_round_trip() {
 
     let decision = loaded_engine.check("anyone", "tool_call", "math");
     match decision {
-        PolicyDecision::Deny(_) => {},
+        PolicyDecision::Deny(_) => {}
         PolicyDecision::Allow => panic!("Expected deny for math"),
     }
 }
@@ -281,7 +288,7 @@ fn test_policy_reload_updates_agent() {
     // Verify updated policy denies echo
     let decision = agent.policy_engine().check("agent", "tool_call", "echo");
     match decision {
-        PolicyDecision::Deny(_) => {},
+        PolicyDecision::Deny(_) => {}
         PolicyDecision::Allow => panic!("Expected deny after reload"),
     }
 }

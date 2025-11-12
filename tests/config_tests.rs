@@ -1,9 +1,9 @@
+use spec_ai::config::{AgentProfile, AppConfig};
+use spec_ai::test_utils::env_lock;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
-use spec_ai::config::{AppConfig, AgentProfile};
-use spec_ai::test_utils::env_lock;
 
 #[test]
 fn test_load_valid_basic_config() {
@@ -33,7 +33,11 @@ fn test_load_config_with_agents() {
     assert_eq!(coder.temperature, Some(0.3));
     assert_eq!(
         coder.allowed_tools,
-        Some(vec!["file_read".to_string(), "file_write".to_string(), "bash".to_string()])
+        Some(vec![
+            "file_read".to_string(),
+            "file_write".to_string(),
+            "bash".to_string()
+        ])
     );
     assert!(coder.is_tool_allowed("file_read"));
     assert!(!coder.is_tool_allowed("unknown_tool"));
@@ -139,7 +143,11 @@ fn test_validate_default_agent_not_found() {
 
     // Should fail validation because 'nonexistent' agent doesn't exist in agents map
     let result = config.validate();
-    assert!(result.is_err(), "Expected validation error but got: {:?}", result);
+    assert!(
+        result.is_err(),
+        "Expected validation error but got: {:?}",
+        result
+    );
 }
 
 #[test]
@@ -201,7 +209,10 @@ fn test_multiple_env_overrides() {
 
     assert_eq!(config.model.provider, "ollama");
     assert_eq!(config.model.model_name, Some("llama3".to_string()));
-    assert_eq!(config.model.api_key_source, Some("env:OLLAMA_KEY".to_string()));
+    assert_eq!(
+        config.model.api_key_source,
+        Some("env:OLLAMA_KEY".to_string())
+    );
     assert_eq!(config.database.path, PathBuf::from("/tmp/test.duckdb"));
     assert_eq!(config.ui.theme, "dark");
     assert_eq!(config.default_agent, Some("test_agent".to_string()));
@@ -224,7 +235,10 @@ fn test_agent_profile_effective_values() {
     // Test defaults
     assert_eq!(profile.effective_temperature(0.7), 0.7);
     assert_eq!(profile.effective_provider("mock"), "mock");
-    assert_eq!(profile.effective_model_name(Some("default-model")), Some("default-model"));
+    assert_eq!(
+        profile.effective_model_name(Some("default-model")),
+        Some("default-model")
+    );
 
     // Test overrides
     profile.temperature = Some(0.3);
@@ -233,5 +247,8 @@ fn test_agent_profile_effective_values() {
 
     assert_eq!(profile.effective_temperature(0.7), 0.3);
     assert_eq!(profile.effective_provider("mock"), "openai");
-    assert_eq!(profile.effective_model_name(Some("default-model")), Some("gpt-4"));
+    assert_eq!(
+        profile.effective_model_name(Some("default-model")),
+        Some("gpt-4")
+    );
 }

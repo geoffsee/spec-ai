@@ -8,10 +8,13 @@ use crate::tools::ToolRegistry;
 use axum::{
     extract::{Json, State},
     http::StatusCode,
-    response::{IntoResponse, Response, sse::{Event, Sse}},
+    response::{
+        IntoResponse, Response,
+        sse::{Event, Sse},
+    },
 };
-use futures::stream::{self};
 use futures::StreamExt;
+use futures::stream::{self};
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
@@ -74,14 +77,14 @@ pub async fn list_agents(State(state): State<AppState>) -> impl IntoResponse {
         }
     }
 
-    Json(AgentListResponse { agents: agent_infos }).into_response()
+    Json(AgentListResponse {
+        agents: agent_infos,
+    })
+    .into_response()
 }
 
 /// Query endpoint - process a message and return response
-pub async fn query(
-    State(state): State<AppState>,
-    Json(request): Json<QueryRequest>,
-) -> Response {
+pub async fn query(State(state): State<AppState>, Json(request): Json<QueryRequest>) -> Response {
     // If streaming requested, delegate to streaming handler
     if request.stream {
         return (
@@ -103,13 +106,7 @@ pub async fn query(
         .unwrap_or_else(|| format!("api_{}", uuid_v4()));
 
     // Create agent instance
-    let agent_result = create_agent(
-        &state,
-        &agent_name,
-        &session_id,
-        request.temperature,
-    )
-    .await;
+    let agent_result = create_agent(&state, &agent_name, &session_id, request.temperature).await;
 
     let mut agent = match agent_result {
         Ok(agent) => agent,
@@ -118,7 +115,7 @@ pub async fn query(
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::new("agent_error", e.to_string())),
             )
-                .into_response()
+                .into_response();
         }
     };
 
@@ -162,13 +159,7 @@ pub async fn stream_query(
         .unwrap_or_else(|| format!("api_{}", uuid_v4()));
 
     // Create agent
-    let agent_result = create_agent(
-        &state,
-        &agent_name,
-        &session_id,
-        request.temperature,
-    )
-    .await;
+    let agent_result = create_agent(&state, &agent_name, &session_id, request.temperature).await;
 
     let agent = match agent_result {
         Ok(agent) => agent,
@@ -177,7 +168,7 @@ pub async fn stream_query(
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::new("agent_error", e.to_string())),
             )
-                .into_response()
+                .into_response();
         }
     };
 
@@ -187,12 +178,10 @@ pub async fn stream_query(
     let session_id_clone = session_id.clone();
     let agent_name_clone = agent_name.clone();
 
-    let stream = stream::iter(vec![
-        StreamChunk::Start {
-            session_id: session_id_clone.clone(),
-            agent: agent_name_clone.clone(),
-        },
-    ])
+    let stream = stream::iter(vec![StreamChunk::Start {
+        session_id: session_id_clone.clone(),
+        agent: agent_name_clone.clone(),
+    }])
     .chain(stream::once(async move {
         let _start = Instant::now();
         let mut agent_lock = agent.write().await;
@@ -201,7 +190,9 @@ pub async fn stream_query(
             Ok(output) => {
                 // For now, send the full response as a single chunk
                 // In a real implementation, we'd stream token by token
-                StreamChunk::Content { text: output.response }
+                StreamChunk::Content {
+                    text: output.response,
+                }
             }
             Err(e) => StreamChunk::Error {
                 message: e.to_string(),

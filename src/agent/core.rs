@@ -113,7 +113,10 @@ impl AgentCore {
                 // Check if tool is allowed
                 if !self.is_tool_allowed(&tool_name) {
                     let error_msg = format!("Tool '{}' is not allowed by agent policy", tool_name);
-                    prompt.push_str(&format!("\n\nTOOL_ERROR: {}\n\nPlease continue without using this tool.", error_msg));
+                    prompt.push_str(&format!(
+                        "\n\nTOOL_ERROR: {}\n\nPlease continue without using this tool.",
+                        error_msg
+                    ));
                     tool_calls.push(format!("{} (denied)", tool_name));
                     continue;
                 }
@@ -136,7 +139,10 @@ impl AgentCore {
                     }
                     Err(e) => {
                         let error_msg = format!("Error executing tool '{}': {}", tool_name, e);
-                        prompt.push_str(&format!("\n\nTOOL_ERROR: {}\n\nPlease continue without this tool.", error_msg));
+                        prompt.push_str(&format!(
+                            "\n\nTOOL_ERROR: {}\n\nPlease continue without this tool.",
+                            error_msg
+                        ));
                         tool_calls.push(format!("{} (error)", tool_name));
                         continue;
                     }
@@ -148,7 +154,8 @@ impl AgentCore {
         }
 
         // Step 5: Store assistant response
-        self.store_message(MessageRole::Assistant, &final_response).await?;
+        self.store_message(MessageRole::Assistant, &final_response)
+            .await?;
 
         // Step 6: Update conversation history
         self.conversation_history.push(Message {
@@ -193,9 +200,7 @@ impl AgentCore {
         // TODO: Implement vector similarity search when embeddings are available
         let limit = self.profile.memory_k as i64;
 
-        let messages = self
-            .persistence
-            .list_messages(&self.session_id, limit)?;
+        let messages = self.persistence.list_messages(&self.session_id, limit)?;
 
         Ok(messages)
     }
@@ -250,9 +255,7 @@ impl AgentCore {
 
     /// Load conversation history from persistence
     pub fn load_history(&mut self, limit: i64) -> Result<()> {
-        self.conversation_history = self
-            .persistence
-            .list_messages(&self.session_id, limit)?;
+        self.conversation_history = self.persistence.list_messages(&self.session_id, limit)?;
         Ok(())
     }
 
@@ -288,10 +291,7 @@ impl AgentCore {
     /// Execute a tool and log the result
     async fn execute_tool(&self, tool_name: &str, args: &Value) -> Result<ToolResult> {
         // Execute the tool
-        let result = self
-            .tool_registry
-            .execute(tool_name, args.clone())
-            .await?;
+        let result = self.tool_registry.execute(tool_name, args.clone()).await?;
 
         // Log to persistence
         let result_json = serde_json::json!({
@@ -423,9 +423,7 @@ mod tests {
             },
         ];
 
-        let prompt = agent
-            .build_prompt("Current question", &context)
-            .unwrap();
+        let prompt = agent.build_prompt("Current question", &context).unwrap();
 
         assert!(prompt.contains("You are a helpful assistant"));
         assert!(prompt.contains("Previous conversation"));

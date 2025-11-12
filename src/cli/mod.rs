@@ -27,7 +27,9 @@ pub enum Command {
 
 pub fn parse_command(input: &str) -> Command {
     let line = input.trim();
-    if line.is_empty() { return Command::Empty; }
+    if line.is_empty() {
+        return Command::Empty;
+    }
 
     if let Some(rest) = line.strip_prefix('/') {
         let mut parts = rest.split_whitespace();
@@ -35,47 +37,47 @@ pub fn parse_command(input: &str) -> Command {
         match cmd.as_str() {
             "help" | "h" | "?" => Command::Help,
             "quit" | "q" | "exit" => Command::Quit,
-            "config" => {
-                match parts.next() {
-                    Some("reload") => Command::ConfigReload,
-                    Some("show") => Command::ConfigShow,
-                    _ => Command::Help,
-                }
-            }
-            "policy" => {
-                match parts.next() {
-                    Some("reload") => Command::PolicyReload,
-                    _ => Command::Help,
-                }
-            }
+            "config" => match parts.next() {
+                Some("reload") => Command::ConfigReload,
+                Some("show") => Command::ConfigShow,
+                _ => Command::Help,
+            },
+            "policy" => match parts.next() {
+                Some("reload") => Command::PolicyReload,
+                _ => Command::Help,
+            },
             "agents" | "list" => Command::ListAgents,
             "switch" => {
                 let name = parts.next().unwrap_or("").to_string();
-                if name.is_empty() { Command::Help } else { Command::SwitchAgent(name) }
-            }
-            "memory" => {
-                match parts.next() {
-                    Some("show") => {
-                        let n = parts.next().and_then(|s| s.parse::<usize>().ok());
-                        Command::MemoryShow(n)
-                    }
-                    _ => Command::Help,
+                if name.is_empty() {
+                    Command::Help
+                } else {
+                    Command::SwitchAgent(name)
                 }
             }
-            "session" => {
-                match parts.next() {
-                    Some("new") => {
-                        let id = parts.next().map(|s| s.to_string());
-                        Command::SessionNew(id)
-                    }
-                    Some("list") => Command::SessionList,
-                    Some("switch") => {
-                        let id = parts.next().unwrap_or("").to_string();
-                        if id.is_empty() { Command::Help } else { Command::SessionSwitch(id) }
-                    }
-                    _ => Command::Help,
+            "memory" => match parts.next() {
+                Some("show") => {
+                    let n = parts.next().and_then(|s| s.parse::<usize>().ok());
+                    Command::MemoryShow(n)
                 }
-            }
+                _ => Command::Help,
+            },
+            "session" => match parts.next() {
+                Some("new") => {
+                    let id = parts.next().map(|s| s.to_string());
+                    Command::SessionNew(id)
+                }
+                Some("list") => Command::SessionList,
+                Some("switch") => {
+                    let id = parts.next().unwrap_or("").to_string();
+                    if id.is_empty() {
+                        Command::Help
+                    } else {
+                        Command::SessionSwitch(id)
+                    }
+                }
+                _ => Command::Help,
+            },
             _ => Command::Help,
         }
     } else {
@@ -99,8 +101,8 @@ impl CliState {
 
     /// Create a CLI state from a provided config
     pub fn new_with_config(config: AppConfig) -> Result<Self> {
-        let persistence = Persistence::new(&config.database.path)
-            .context("initializing persistence")?;
+        let persistence =
+            Persistence::new(&config.database.path).context("initializing persistence")?;
 
         // Build registry and ensure an active agent exists
         let initial_agents = config.agents.clone();
@@ -132,7 +134,12 @@ impl CliState {
         // Create the AgentCore from registry + config
         let agent = AgentBuilder::new_with_registry(&registry, &config, None)?;
 
-        Ok(Self { config, persistence, registry, agent })
+        Ok(Self {
+            config,
+            persistence,
+            registry,
+            agent,
+        })
     }
 
     /// Handle a single line of input. Returns an optional output string.
@@ -150,7 +157,11 @@ impl CliState {
                 } else {
                     let mut out = String::from("Available agents:\n");
                     for name in agents {
-                        let marker = if Some(&name) == active.as_ref() { " (active)" } else { "" };
+                        let marker = if Some(&name) == active.as_ref() {
+                            " (active)"
+                        } else {
+                            ""
+                        };
                         out.push_str(&format!("  - {}{}\n", name, marker));
                     }
                     Ok(Some(out))
@@ -162,11 +173,18 @@ impl CliState {
                 // rebuild persistence (path may have changed)
                 self.persistence = Persistence::new(&self.config.database.path)?;
                 // rebuild registry with new agents
-                self.registry = AgentRegistry::new(self.config.agents.clone(), self.persistence.clone());
+                self.registry =
+                    AgentRegistry::new(self.config.agents.clone(), self.persistence.clone());
                 self.registry.init()?;
-                if let Some(default_name) = &self.config.default_agent { let _ = self.registry.set_active(default_name); }
+                if let Some(default_name) = &self.config.default_agent {
+                    let _ = self.registry.set_active(default_name);
+                }
                 // Recreate agent preserving session
-                self.agent = AgentBuilder::new_with_registry(&self.registry, &self.config, Some(current_session))?;
+                self.agent = AgentBuilder::new_with_registry(
+                    &self.registry,
+                    &self.config,
+                    Some(current_session),
+                )?;
                 Ok(Some("Configuration reloaded.".to_string()))
             }
             Command::PolicyReload => {
@@ -176,14 +194,19 @@ impl CliState {
                 let rule_count = policy_engine.rule_count();
 
                 // Update the agent's policy engine
-                self.agent.set_policy_engine(std::sync::Arc::new(policy_engine));
+                self.agent
+                    .set_policy_engine(std::sync::Arc::new(policy_engine));
 
-                Ok(Some(format!("Policies reloaded. {} rule(s) active.", rule_count)))
+                Ok(Some(format!(
+                    "Policies reloaded. {} rule(s) active.",
+                    rule_count
+                )))
             }
             Command::SwitchAgent(name) => {
                 self.registry.set_active(&name)?;
                 let session = self.agent.session_id().to_string();
-                self.agent = AgentBuilder::new_with_registry(&self.registry, &self.config, Some(session))?;
+                self.agent =
+                    AgentBuilder::new_with_registry(&self.registry, &self.config, Some(session))?;
                 Ok(Some(format!("Switched active agent to '{}'.", name)))
             }
             Command::MemoryShow(n) => {
@@ -201,19 +224,33 @@ impl CliState {
                 }
             }
             Command::SessionNew(id_opt) => {
-                let new_id = id_opt.unwrap_or_else(|| format!("session-{}", chrono::Utc::now().timestamp_millis()));
-                self.agent = AgentBuilder::new_with_registry(&self.registry, &self.config, Some(new_id.clone()))?;
+                let new_id = id_opt.unwrap_or_else(|| {
+                    format!("session-{}", chrono::Utc::now().timestamp_millis())
+                });
+                self.agent = AgentBuilder::new_with_registry(
+                    &self.registry,
+                    &self.config,
+                    Some(new_id.clone()),
+                )?;
                 Ok(Some(format!("Started new session '{}'.", new_id)))
             }
             Command::SessionList => {
                 let sessions = self.persistence.list_sessions()?;
-                if sessions.is_empty() { return Ok(Some("No sessions yet.".to_string())); }
+                if sessions.is_empty() {
+                    return Ok(Some("No sessions yet.".to_string()));
+                }
                 let mut out = String::from("Sessions (most recent first):\n");
-                for s in sessions { out.push_str(&format!("- {}\n", s)); }
+                for s in sessions {
+                    out.push_str(&format!("- {}\n", s));
+                }
                 Ok(Some(out))
             }
             Command::SessionSwitch(id) => {
-                self.agent = AgentBuilder::new_with_registry(&self.registry, &self.config, Some(id.clone()))?;
+                self.agent = AgentBuilder::new_with_registry(
+                    &self.registry,
+                    &self.config,
+                    Some(id.clone()),
+                )?;
                 Ok(Some(format!("Switched to session '{}'.", id)))
             }
             Command::Message(text) => {
@@ -259,11 +296,17 @@ impl CliState {
             stdout.flush().await?;
             line.clear();
             let n = reader.read_line(&mut line).await?;
-            if n == 0 { break; } // EOF
+            if n == 0 {
+                break;
+            } // EOF
             if let Some(out) = self.handle_line(&line).await? {
-                if out == "__QUIT__" { break; }
+                if out == "__QUIT__" {
+                    break;
+                }
                 stdout.write_all(out.as_bytes()).await?;
-                if !out.ends_with('\n') { stdout.write_all(b"\n").await?; }
+                if !out.ends_with('\n') {
+                    stdout.write_all(b"\n").await?;
+                }
                 stdout.flush().await?;
             }
         }
@@ -274,9 +317,9 @@ impl CliState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{DatabaseConfig, ModelConfig, UiConfig, LoggingConfig};
-    use tempfile::tempdir;
+    use crate::config::{DatabaseConfig, LoggingConfig, ModelConfig, UiConfig};
     use std::collections::HashMap;
+    use tempfile::tempdir;
 
     #[test]
     fn test_parse_commands() {
@@ -286,12 +329,24 @@ mod tests {
         assert_eq!(parse_command("/config show"), Command::ConfigShow);
         assert_eq!(parse_command("/agents"), Command::ListAgents);
         assert_eq!(parse_command("/list"), Command::ListAgents);
-        assert_eq!(parse_command("/switch coder"), Command::SwitchAgent("coder".into()));
-        assert_eq!(parse_command("/memory show 5"), Command::MemoryShow(Some(5)));
+        assert_eq!(
+            parse_command("/switch coder"),
+            Command::SwitchAgent("coder".into())
+        );
+        assert_eq!(
+            parse_command("/memory show 5"),
+            Command::MemoryShow(Some(5))
+        );
         assert_eq!(parse_command("/session list"), Command::SessionList);
         assert_eq!(parse_command("/session new"), Command::SessionNew(None));
-        assert_eq!(parse_command("/session new s2"), Command::SessionNew(Some("s2".into())));
-        assert_eq!(parse_command("/session switch abc"), Command::SessionSwitch("abc".into()));
+        assert_eq!(
+            parse_command("/session new s2"),
+            Command::SessionNew(Some("s2".into()))
+        );
+        assert_eq!(
+            parse_command("/session switch abc"),
+            Command::SessionSwitch("abc".into())
+        );
         assert_eq!(parse_command("hello"), Command::Message("hello".into()));
         assert_eq!(parse_command("   "), Command::Empty);
     }
@@ -307,9 +362,19 @@ mod tests {
 
         let config = AppConfig {
             database: DatabaseConfig { path: db_path },
-            model: ModelConfig { provider: "mock".into(), model_name: None, api_key_source: None, temperature: 0.7 },
-            ui: UiConfig { prompt: "> ".into(), theme: "default".into() },
-            logging: LoggingConfig { level: "info".into() },
+            model: ModelConfig {
+                provider: "mock".into(),
+                model_name: None,
+                api_key_source: None,
+                temperature: 0.7,
+            },
+            ui: UiConfig {
+                prompt: "> ".into(),
+                theme: "default".into(),
+            },
+            logging: LoggingConfig {
+                level: "info".into(),
+            },
             agents,
             default_agent: Some("test".into()),
         };
@@ -349,9 +414,19 @@ mod tests {
 
         let config = AppConfig {
             database: DatabaseConfig { path: db_path },
-            model: ModelConfig { provider: "mock".into(), model_name: None, api_key_source: None, temperature: 0.7 },
-            ui: UiConfig { prompt: "> ".into(), theme: "default".into() },
-            logging: LoggingConfig { level: "info".into() },
+            model: ModelConfig {
+                provider: "mock".into(),
+                model_name: None,
+                api_key_source: None,
+                temperature: 0.7,
+            },
+            ui: UiConfig {
+                prompt: "> ".into(),
+                theme: "default".into(),
+            },
+            logging: LoggingConfig {
+                level: "info".into(),
+            },
             agents,
             default_agent: Some("coder".into()),
         };
@@ -379,10 +454,22 @@ mod tests {
         agents.insert("test".to_string(), AgentProfile::default());
 
         let config = AppConfig {
-            database: DatabaseConfig { path: db_path.clone() },
-            model: ModelConfig { provider: "mock".into(), model_name: Some("test-model".into()), api_key_source: None, temperature: 0.8 },
-            ui: UiConfig { prompt: "> ".into(), theme: "dark".into() },
-            logging: LoggingConfig { level: "debug".into() },
+            database: DatabaseConfig {
+                path: db_path.clone(),
+            },
+            model: ModelConfig {
+                provider: "mock".into(),
+                model_name: Some("test-model".into()),
+                api_key_source: None,
+                temperature: 0.8,
+            },
+            ui: UiConfig {
+                prompt: "> ".into(),
+                theme: "dark".into(),
+            },
+            logging: LoggingConfig {
+                level: "debug".into(),
+            },
             agents,
             default_agent: Some("test".into()),
         };
@@ -409,9 +496,19 @@ mod tests {
 
         let config = AppConfig {
             database: DatabaseConfig { path: db_path },
-            model: ModelConfig { provider: "mock".into(), model_name: None, api_key_source: None, temperature: 0.7 },
-            ui: UiConfig { prompt: "> ".into(), theme: "default".into() },
-            logging: LoggingConfig { level: "info".into() },
+            model: ModelConfig {
+                provider: "mock".into(),
+                model_name: None,
+                api_key_source: None,
+                temperature: 0.7,
+            },
+            ui: UiConfig {
+                prompt: "> ".into(),
+                theme: "default".into(),
+            },
+            logging: LoggingConfig {
+                level: "info".into(),
+            },
             agents,
             default_agent: Some("test".into()),
         };

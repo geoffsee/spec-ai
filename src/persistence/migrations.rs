@@ -10,7 +10,8 @@ pub fn run(conn: &Connection) -> Result<()> {
             applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         "#,
-    ).context("creating schema_migrations table")?;
+    )
+    .context("creating schema_migrations table")?;
 
     let current = current_version(conn)?;
     if current < 1 {
@@ -77,7 +78,8 @@ fn apply_v1(conn: &Connection) -> Result<()> {
         CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
         CREATE INDEX IF NOT EXISTS idx_memory_vectors_session ON memory_vectors(session_id);
         "#,
-    ).context("applying v1 schema")?;
+    )
+    .context("applying v1 schema")?;
 
     Ok(())
 }

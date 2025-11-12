@@ -1,3 +1,9 @@
+#[cfg(feature = "api")]
+pub mod handlers;
+#[cfg(feature = "api")]
+pub mod middleware;
+#[cfg(feature = "api")]
+pub mod models;
 /// REST API and WebSocket server for programmatic agent access
 ///
 /// This module provides:
@@ -8,14 +14,8 @@
 
 #[cfg(feature = "api")]
 pub mod server;
-#[cfg(feature = "api")]
-pub mod handlers;
-#[cfg(feature = "api")]
-pub mod middleware;
-#[cfg(feature = "api")]
-pub mod models;
 
 #[cfg(feature = "api")]
-pub use server::{ApiServer, ApiConfig};
+pub use models::{ErrorResponse, QueryRequest, QueryResponse, StreamChunk};
 #[cfg(feature = "api")]
-pub use models::{QueryRequest, QueryResponse, StreamChunk, ErrorResponse};
+pub use server::{ApiConfig, ApiServer};

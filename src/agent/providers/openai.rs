@@ -5,14 +5,14 @@
 use crate::agent::model::{
     GenerationConfig, ModelProvider, ModelResponse, ProviderKind, ProviderMetadata, TokenUsage,
 };
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use async_openai::{
+    Client,
     config::OpenAIConfig,
     types::{
         ChatCompletionRequestMessage, ChatCompletionRequestSystemMessageArgs,
         ChatCompletionRequestUserMessageArgs, CreateChatCompletionRequestArgs,
     },
-    Client,
 };
 use async_stream::stream;
 use async_trait::async_trait;
@@ -277,8 +277,7 @@ mod tests {
 
     #[test]
     fn test_openai_provider_with_system_message() {
-        let provider =
-            OpenAIProvider::new().with_system_message("You are a helpful assistant.");
+        let provider = OpenAIProvider::new().with_system_message("You are a helpful assistant.");
         assert_eq!(
             provider.system_message,
             Some("You are a helpful assistant.".to_string())
@@ -293,9 +292,11 @@ mod tests {
         assert_eq!(metadata.name, "OpenAI");
         assert!(metadata.supports_streaming);
         assert!(metadata.supported_models.contains(&"gpt-4.1".to_string()));
-        assert!(metadata
-            .supported_models
-            .contains(&"gpt-4.1-mini".to_string()));
+        assert!(
+            metadata
+                .supported_models
+                .contains(&"gpt-4.1-mini".to_string())
+        );
     }
 
     #[test]

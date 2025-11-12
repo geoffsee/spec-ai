@@ -63,15 +63,10 @@ pub struct ResponseMetadata {
 pub enum StreamChunk {
     /// Initial metadata
     #[serde(rename = "start")]
-    Start {
-        session_id: String,
-        agent: String,
-    },
+    Start { session_id: String, agent: String },
     /// Content chunk
     #[serde(rename = "chunk")]
-    Content {
-        text: String,
-    },
+    Content { text: String },
     /// Tool call notification
     #[serde(rename = "tool_call")]
     ToolCall {
@@ -86,14 +81,10 @@ pub enum StreamChunk {
     },
     /// End of stream
     #[serde(rename = "end")]
-    End {
-        metadata: ResponseMetadata,
-    },
+    End { metadata: ResponseMetadata },
     /// Error occurred
     #[serde(rename = "error")]
-    Error {
-        message: String,
-    },
+    Error { message: String },
 }
 
 /// Error response

@@ -5,7 +5,6 @@
 /// - Custom tool implementations
 /// - Extension of agent capabilities
 /// - Plugin lifecycle management
-
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -432,9 +431,18 @@ mod tests {
     async fn test_init_all_plugins() {
         let registry = PluginRegistry::new();
 
-        registry.register(Box::new(TestPlugin::new("test1"))).await.unwrap();
-        registry.register(Box::new(TestPlugin::new("test2"))).await.unwrap();
-        registry.register(Box::new(TestPlugin::new("test3"))).await.unwrap();
+        registry
+            .register(Box::new(TestPlugin::new("test1")))
+            .await
+            .unwrap();
+        registry
+            .register(Box::new(TestPlugin::new("test2")))
+            .await
+            .unwrap();
+        registry
+            .register(Box::new(TestPlugin::new("test3")))
+            .await
+            .unwrap();
 
         let failed = registry.init_all().await.unwrap();
 
@@ -453,7 +461,10 @@ mod tests {
         let result = registry.init_plugin("failing").await;
 
         assert!(result.is_err());
-        assert_eq!(registry.get_state("failing").await, Some(PluginState::Error));
+        assert_eq!(
+            registry.get_state("failing").await,
+            Some(PluginState::Error)
+        );
     }
 
     #[tokio::test]
@@ -473,14 +484,26 @@ mod tests {
     async fn test_shutdown_all_plugins() {
         let registry = PluginRegistry::new();
 
-        registry.register(Box::new(TestPlugin::new("test1"))).await.unwrap();
-        registry.register(Box::new(TestPlugin::new("test2"))).await.unwrap();
+        registry
+            .register(Box::new(TestPlugin::new("test1")))
+            .await
+            .unwrap();
+        registry
+            .register(Box::new(TestPlugin::new("test2")))
+            .await
+            .unwrap();
 
         registry.init_all().await.unwrap();
         registry.shutdown_all().await.unwrap();
 
-        assert_eq!(registry.get_state("test1").await, Some(PluginState::Shutdown));
-        assert_eq!(registry.get_state("test2").await, Some(PluginState::Shutdown));
+        assert_eq!(
+            registry.get_state("test1").await,
+            Some(PluginState::Shutdown)
+        );
+        assert_eq!(
+            registry.get_state("test2").await,
+            Some(PluginState::Shutdown)
+        );
     }
 
     #[tokio::test]
@@ -511,8 +534,14 @@ mod tests {
     async fn test_list_plugins() {
         let registry = PluginRegistry::new();
 
-        registry.register(Box::new(TestPlugin::new("test1"))).await.unwrap();
-        registry.register(Box::new(TestPlugin::new("test2"))).await.unwrap();
+        registry
+            .register(Box::new(TestPlugin::new("test1")))
+            .await
+            .unwrap();
+        registry
+            .register(Box::new(TestPlugin::new("test2")))
+            .await
+            .unwrap();
 
         let plugins = registry.list_plugins().await;
         assert_eq!(plugins.len(), 2);
@@ -539,8 +568,14 @@ mod tests {
     async fn test_health_check_all() {
         let registry = PluginRegistry::new();
 
-        registry.register(Box::new(TestPlugin::new("test1"))).await.unwrap();
-        registry.register(Box::new(TestPlugin::new("test2"))).await.unwrap();
+        registry
+            .register(Box::new(TestPlugin::new("test1")))
+            .await
+            .unwrap();
+        registry
+            .register(Box::new(TestPlugin::new("test2")))
+            .await
+            .unwrap();
 
         registry.init_all().await.unwrap();
 

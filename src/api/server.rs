@@ -1,12 +1,12 @@
 /// HTTP server implementation
-use crate::api::handlers::{health_check, list_agents, query, stream_query, AppState};
+use crate::api::handlers::{AppState, health_check, list_agents, query, stream_query};
 use crate::config::{AgentRegistry, AppConfig};
 use crate::persistence::Persistence;
 use crate::tools::ToolRegistry;
 use anyhow::Result;
 use axum::{
-    routing::{get, post},
     Router,
+    routing::{get, post},
 };
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
@@ -179,9 +179,7 @@ mod tests {
 
     #[test]
     fn test_bind_address() {
-        let config = ApiConfig::new()
-            .with_host("localhost")
-            .with_port(5000);
+        let config = ApiConfig::new().with_host("localhost").with_port(5000);
 
         assert_eq!(config.bind_address(), "localhost:5000");
     }

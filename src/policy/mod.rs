@@ -91,8 +91,7 @@ impl PolicyEngine {
 
     /// Save current policy set to persistence
     pub fn save_to_persistence(&self, persistence: &Persistence) -> Result<()> {
-        let value = serde_json::to_value(&self.policy_set)
-            .context("serializing policy set")?;
+        let value = serde_json::to_value(&self.policy_set).context("serializing policy set")?;
         persistence.policy_upsert("policies", &value)?;
         Ok(())
     }
@@ -239,7 +238,10 @@ mod tests {
     fn test_wildcard_match_multiple() {
         assert!(wildcard_match("/etc/*/*.conf", "/etc/nginx/nginx.conf"));
         assert!(wildcard_match("/etc/*/*.conf", "/etc/apache2/apache2.conf"));
-        assert!(!wildcard_match("/etc/*/*.conf", "/etc/nginx/sites-available/default"));
+        assert!(!wildcard_match(
+            "/etc/*/*.conf",
+            "/etc/nginx/sites-available/default"
+        ));
     }
 
     #[test]

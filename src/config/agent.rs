@@ -1,6 +1,6 @@
-use std::collections::HashSet;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -67,17 +67,21 @@ impl AgentProfile {
         // Validate temperature if specified
         if let Some(temp) = self.temperature {
             if temp < 0.0 || temp > 2.0 {
-                return Err(AgentError::Invalid(
-                    format!("temperature must be between 0.0 and 2.0, got {}", temp)
-                ).into());
+                return Err(AgentError::Invalid(format!(
+                    "temperature must be between 0.0 and 2.0, got {}",
+                    temp
+                ))
+                .into());
             }
         }
 
         // Validate top_p
         if self.top_p < 0.0 || self.top_p > 1.0 {
-            return Err(AgentError::Invalid(
-                format!("top_p must be between 0.0 and 1.0, got {}", self.top_p)
-            ).into());
+            return Err(AgentError::Invalid(format!(
+                "top_p must be between 0.0 and 1.0, got {}",
+                self.top_p
+            ))
+            .into());
         }
 
         // Validate that allowed_tools and denied_tools don't overlap
@@ -87,12 +91,11 @@ impl AgentProfile {
             let overlap: Vec<_> = allowed_set.intersection(&denied_set).collect();
 
             if !overlap.is_empty() {
-                return Err(AgentError::Invalid(
-                    format!(
-                        "tools cannot be both allowed and denied: {:?}",
-                        overlap
-                    )
-                ).into());
+                return Err(AgentError::Invalid(format!(
+                    "tools cannot be both allowed and denied: {:?}",
+                    overlap
+                ))
+                .into());
             }
         }
 
@@ -100,13 +103,12 @@ impl AgentProfile {
         if let Some(provider) = &self.model_provider {
             let valid_providers = vec!["mock", "openai", "anthropic", "ollama"];
             if !valid_providers.contains(&provider.as_str()) {
-                return Err(AgentError::Invalid(
-                    format!(
-                        "model_provider must be one of: {}. Got: {}",
-                        valid_providers.join(", "),
-                        provider
-                    )
-                ).into());
+                return Err(AgentError::Invalid(format!(
+                    "model_provider must be one of: {}. Got: {}",
+                    valid_providers.join(", "),
+                    provider
+                ))
+                .into());
             }
         }
 

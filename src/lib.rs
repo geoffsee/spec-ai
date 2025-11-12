@@ -1,12 +1,12 @@
 pub mod agent;
+pub mod cli;
 pub mod config;
 pub mod persistence;
-pub mod types;
-pub mod cli;
-pub mod tools;
-pub mod policy;
 pub mod plugin;
+pub mod policy;
 pub mod test_utils;
+pub mod tools;
+pub mod types;
 
 #[cfg(feature = "api")]
 pub mod api;

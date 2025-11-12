@@ -1,7 +1,7 @@
+use serde_json::json;
 use spec_ai::persistence::Persistence;
 use spec_ai::types::MessageRole;
 use tempfile::tempdir;
-use serde_json::json;
 
 fn temp_db_path() -> std::path::PathBuf {
     let dir = tempdir().unwrap();
@@ -31,7 +31,11 @@ fn messages_insert_list_and_prune() {
     let p = Persistence::new(&path).unwrap();
 
     for i in 0..5 {
-        let role = if i % 2 == 0 { MessageRole::User } else { MessageRole::Assistant };
+        let role = if i % 2 == 0 {
+            MessageRole::User
+        } else {
+            MessageRole::Assistant
+        };
         let _id = p.insert_message("s1", role, &format!("msg{}", i)).unwrap();
     }
 
@@ -56,7 +60,9 @@ fn memory_vectors_insert_and_recall() {
     // two vectors in different sessions and same
     let v1 = vec![1.0f32, 0.0, 0.0];
     let v2 = vec![0.0f32, 1.0, 0.0];
-    let _m1 = p.insert_message("sess", MessageRole::User, "hello").unwrap();
+    let _m1 = p
+        .insert_message("sess", MessageRole::User, "hello")
+        .unwrap();
     let _id1 = p.insert_memory_vector("sess", None, &v1).unwrap();
     let _id2 = p.insert_memory_vector("sess", None, &v2).unwrap();
 
@@ -64,7 +70,14 @@ fn memory_vectors_insert_and_recall() {
     let recalled = p.recall_top_k("sess", &q, 2).unwrap();
     assert_eq!(recalled.len(), 2);
     assert!(recalled[0].1 >= recalled[1].1);
-    assert!(recalled[0].0.embedding.iter().zip(v1.iter()).all(|(a,b)| (*a - *b).abs() < 1e-6));
+    assert!(
+        recalled[0]
+            .0
+            .embedding
+            .iter()
+            .zip(v1.iter())
+            .all(|(a, b)| (*a - *b).abs() < 1e-6)
+    );
 }
 
 #[test]

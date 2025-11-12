@@ -1,9 +1,9 @@
+use anyhow::{Context, Result, anyhow};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use anyhow::{anyhow, Context, Result};
 
-use crate::persistence::Persistence;
 use super::agent::AgentProfile;
+use crate::persistence::Persistence;
 
 const ACTIVE_AGENT_KEY: &str = "active_agent";
 
@@ -48,7 +48,11 @@ impl AgentRegistry {
                 if agents.is_empty() {
                     "none".to_string()
                 } else {
-                    agents.keys().map(|s| s.as_str()).collect::<Vec<_>>().join(", ")
+                    agents
+                        .keys()
+                        .map(|s| s.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
                 }
             ));
         }
@@ -62,7 +66,8 @@ impl AgentRegistry {
 
         // Persist to database
         let value = serde_json::json!(name);
-        self.persistence.policy_upsert(ACTIVE_AGENT_KEY, &value)
+        self.persistence
+            .policy_upsert(ACTIVE_AGENT_KEY, &value)
             .context("persisting active agent")?;
 
         Ok(())
@@ -109,7 +114,8 @@ impl AgentRegistry {
 
     /// Add or update an agent profile
     pub fn upsert(&self, name: String, profile: AgentProfile) -> Result<()> {
-        profile.validate()
+        profile
+            .validate()
             .with_context(|| format!("validating agent profile '{}'", name))?;
 
         let mut agents = self.agents.write().unwrap();
@@ -245,7 +251,9 @@ mod tests {
         registry.init().unwrap();
 
         // Add an agent
-        registry.upsert("new_agent".to_string(), create_test_profile()).unwrap();
+        registry
+            .upsert("new_agent".to_string(), create_test_profile())
+            .unwrap();
         assert!(registry.exists("new_agent"));
         assert_eq!(registry.count(), 1);
 

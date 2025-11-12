@@ -81,8 +81,8 @@ impl Tool for MathTool {
     }
 
     async fn execute(&self, args: Value) -> Result<ToolResult> {
-        let math_args: MathArgs = serde_json::from_value(args)
-            .context("Failed to parse math arguments")?;
+        let math_args: MathArgs =
+            serde_json::from_value(args).context("Failed to parse math arguments")?;
 
         match self.evaluate(&math_args.operation, math_args.a, math_args.b) {
             Ok(result) => Ok(ToolResult::success(result.to_string())),

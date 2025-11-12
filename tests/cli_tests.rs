@@ -1,5 +1,7 @@
 use spec_ai::cli::CliState;
-use spec_ai::config::{AgentProfile, AppConfig, DatabaseConfig, LoggingConfig, ModelConfig, UiConfig};
+use spec_ai::config::{
+    AgentProfile, AppConfig, DatabaseConfig, LoggingConfig, ModelConfig, UiConfig,
+};
 use std::collections::HashMap;
 use tempfile::TempDir;
 
@@ -34,7 +36,9 @@ async fn test_full_cli_workflow() {
             prompt: "> ".into(),
             theme: "default".into(),
         },
-        logging: LoggingConfig { level: "info".into() },
+        logging: LoggingConfig {
+            level: "info".into(),
+        },
         agents,
         default_agent: Some("coder".into()),
     };
@@ -64,7 +68,11 @@ async fn test_full_cli_workflow() {
     assert!(memory.contains("Hello, world!"));
 
     // 5. Create a new session
-    let new_session = cli.handle_line("/session new research-project").await.unwrap().unwrap();
+    let new_session = cli
+        .handle_line("/session new research-project")
+        .await
+        .unwrap()
+        .unwrap();
     assert!(new_session.contains("research-project"));
 
     // 6. In new session, memory should be empty initially
@@ -72,16 +80,27 @@ async fn test_full_cli_workflow() {
     assert!(empty_memory.contains("No messages in this session."));
 
     // 7. Switch agent while in new session
-    let switch = cli.handle_line("/switch researcher").await.unwrap().unwrap();
+    let switch = cli
+        .handle_line("/switch researcher")
+        .await
+        .unwrap()
+        .unwrap();
     assert!(switch.contains("researcher"));
 
     // 8. Verify active agent changed
     let agents_after_switch = cli.handle_line("/agents").await.unwrap().unwrap();
-    assert!(agents_after_switch.contains("researcher (active)") ||
-            agents_after_switch.contains("researcher") && agents_after_switch.contains("(active)"));
+    assert!(
+        agents_after_switch.contains("researcher (active)")
+            || agents_after_switch.contains("researcher")
+                && agents_after_switch.contains("(active)")
+    );
 
     // 9. Send message with new agent
-    let response2 = cli.handle_line("Research this topic").await.unwrap().unwrap();
+    let response2 = cli
+        .handle_line("Research this topic")
+        .await
+        .unwrap()
+        .unwrap();
     assert!(!response2.is_empty());
 
     // 10. List sessions - should show both
@@ -117,7 +136,9 @@ async fn test_session_isolation() {
             prompt: "> ".into(),
             theme: "default".into(),
         },
-        logging: LoggingConfig { level: "info".into() },
+        logging: LoggingConfig {
+            level: "info".into(),
+        },
         agents,
         default_agent: Some("test".into()),
     };
@@ -166,7 +187,9 @@ async fn test_agent_switching_preserves_session() {
             prompt: "> ".into(),
             theme: "default".into(),
         },
-        logging: LoggingConfig { level: "info".into() },
+        logging: LoggingConfig {
+            level: "info".into(),
+        },
         agents,
         default_agent: Some("agent1".into()),
     };
@@ -209,7 +232,9 @@ async fn test_config_reload() {
             prompt: "> ".into(),
             theme: "default".into(),
         },
-        logging: LoggingConfig { level: "info".into() },
+        logging: LoggingConfig {
+            level: "info".into(),
+        },
         agents,
         default_agent: Some("test".into()),
     };
@@ -259,7 +284,9 @@ async fn test_empty_commands() {
             prompt: "> ".into(),
             theme: "default".into(),
         },
-        logging: LoggingConfig { level: "info".into() },
+        logging: LoggingConfig {
+            level: "info".into(),
+        },
         agents,
         default_agent: Some("test".into()),
     };
@@ -294,7 +321,9 @@ async fn test_list_agents_empty() {
             prompt: "> ".into(),
             theme: "default".into(),
         },
-        logging: LoggingConfig { level: "info".into() },
+        logging: LoggingConfig {
+            level: "info".into(),
+        },
         agents: HashMap::new(),
         default_agent: None,
     };

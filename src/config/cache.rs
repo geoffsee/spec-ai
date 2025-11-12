@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
 use serde_json;
 
-use crate::persistence::Persistence;
 use super::AppConfig;
+use crate::persistence::Persistence;
 
 const CONFIG_CACHE_KEY: &str = "effective_config";
 const POLICIES_CACHE_KEY: &str = "effective_policies";
@@ -20,18 +20,18 @@ impl ConfigCache {
 
     /// Store the effective configuration in the cache
     pub fn store_effective_config(&self, config: &AppConfig) -> Result<()> {
-        let value = serde_json::to_value(config)
-            .context("serializing config to JSON")?;
+        let value = serde_json::to_value(config).context("serializing config to JSON")?;
 
-        self.persistence.policy_upsert(CONFIG_CACHE_KEY, &value)
+        self.persistence
+            .policy_upsert(CONFIG_CACHE_KEY, &value)
             .context("storing effective config in cache")
     }
 
     /// Load the effective configuration from the cache
     pub fn load_effective_config(&self) -> Result<Option<AppConfig>> {
         if let Some(entry) = self.persistence.policy_get(CONFIG_CACHE_KEY)? {
-            let config: AppConfig = serde_json::from_value(entry.value)
-                .context("deserializing cached config")?;
+            let config: AppConfig =
+                serde_json::from_value(entry.value).context("deserializing cached config")?;
             Ok(Some(config))
         } else {
             Ok(None)
@@ -40,7 +40,8 @@ impl ConfigCache {
 
     /// Store effective policies in the cache
     pub fn store_effective_policies(&self, policies: &serde_json::Value) -> Result<()> {
-        self.persistence.policy_upsert(POLICIES_CACHE_KEY, policies)
+        self.persistence
+            .policy_upsert(POLICIES_CACHE_KEY, policies)
             .context("storing effective policies in cache")
     }
 
@@ -58,10 +59,9 @@ impl ConfigCache {
     pub fn has_config_changed(&self, current: &AppConfig) -> Result<bool> {
         if let Some(cached) = self.load_effective_config()? {
             // Compare serialized versions
-            let current_json = serde_json::to_value(current)
-                .context("serializing current config")?;
-            let cached_json = serde_json::to_value(&cached)
-                .context("serializing cached config")?;
+            let current_json =
+                serde_json::to_value(current).context("serializing current config")?;
+            let cached_json = serde_json::to_value(&cached).context("serializing cached config")?;
 
             Ok(current_json != cached_json)
         } else {
@@ -100,14 +100,16 @@ impl ConfigCache {
             if current.database.path != cached.database.path {
                 changes.push(format!(
                     "Database path: {} -> {}",
-                    cached.database.path.display(), current.database.path.display()
+                    cached.database.path.display(),
+                    current.database.path.display()
                 ));
             }
 
             if current.agents.len() != cached.agents.len() {
                 changes.push(format!(
                     "Number of agents: {} -> {}",
-                    cached.agents.len(), current.agents.len()
+                    cached.agents.len(),
+                    current.agents.len()
                 ));
             }
 
@@ -127,8 +129,10 @@ impl ConfigCache {
     /// Clear all cached configuration and policies
     pub fn clear(&self) -> Result<()> {
         // We can't delete from policy_cache, but we can overwrite with null
-        self.persistence.policy_upsert(CONFIG_CACHE_KEY, &serde_json::Value::Null)?;
-        self.persistence.policy_upsert(POLICIES_CACHE_KEY, &serde_json::Value::Null)?;
+        self.persistence
+            .policy_upsert(CONFIG_CACHE_KEY, &serde_json::Value::Null)?;
+        self.persistence
+            .policy_upsert(POLICIES_CACHE_KEY, &serde_json::Value::Null)?;
         Ok(())
     }
 }

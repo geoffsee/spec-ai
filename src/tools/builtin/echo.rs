@@ -48,8 +48,8 @@ impl Tool for EchoTool {
     }
 
     async fn execute(&self, args: Value) -> Result<ToolResult> {
-        let echo_args: EchoArgs = serde_json::from_value(args)
-            .context("Failed to parse echo arguments")?;
+        let echo_args: EchoArgs =
+            serde_json::from_value(args).context("Failed to parse echo arguments")?;
 
         Ok(ToolResult::success(echo_args.message))
     }

@@ -2,13 +2,13 @@ pub mod agent;
 pub mod cache;
 pub mod registry;
 
+use anyhow::{Context, Result};
+use directories::BaseDirs;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use anyhow::{Context, Result};
-use directories::BaseDirs;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub use self::agent::AgentProfile;
@@ -320,7 +320,8 @@ impl AppConfig {
 
         // Validate each agent profile
         for (name, profile) in &self.agents {
-            profile.validate()
+            profile
+                .validate()
                 .with_context(|| format!("validating agent profile '{}'", name))?;
         }
 
@@ -362,11 +363,11 @@ impl AppConfig {
 mod tests {
     use super::*;
     use std::env;
-    use tempfile::TempDir;
     use std::sync::{Mutex, OnceLock};
+    use tempfile::TempDir;
 
     fn env_lock() -> &'static Mutex<()> {
-        static LOCK: OnceLock<Mutex<()> > = OnceLock::new();
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
         LOCK.get_or_init(|| Mutex::new(()))
     }
 

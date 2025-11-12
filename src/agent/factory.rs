@@ -7,7 +7,7 @@ use crate::agent::providers::MockProvider;
 #[cfg(feature = "openai")]
 use crate::agent::providers::OpenAIProvider;
 use crate::config::ModelConfig;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use std::sync::Arc;
 
 /// Create a model provider from configuration

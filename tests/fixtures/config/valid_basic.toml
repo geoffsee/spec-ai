@@ -1,0 +1,6 @@
+[model]
+provider = "openai"
+temperature = 0.8
+
+[logging]
+level = "debug"

@@ -1,0 +1,198 @@
+pub mod builtin;
+
+use anyhow::Result;
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::HashMap;
+use std::sync::Arc;
+
+/// Result of tool execution
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolResult {
+    /// Whether execution succeeded
+    pub success: bool,
+    /// Output from the tool
+    pub output: String,
+    /// Error message if execution failed
+    pub error: Option<String>,
+}
+
+impl ToolResult {
+    /// Create a successful result
+    pub fn success(output: impl Into<String>) -> Self {
+        Self {
+            success: true,
+            output: output.into(),
+            error: None,
+        }
+    }
+
+    /// Create a failure result
+    pub fn failure(error: impl Into<String>) -> Self {
+        Self {
+            success: false,
+            output: String::new(),
+            error: Some(error.into()),
+        }
+    }
+}
+
+/// Trait for all tools that can be executed by the agent
+#[async_trait]
+pub trait Tool: Send + Sync {
+    /// Unique name of the tool
+    fn name(&self) -> &str;
+
+    /// Human-readable description of what the tool does
+    fn description(&self) -> &str;
+
+    /// JSON Schema describing the tool's parameters
+    fn parameters(&self) -> Value;
+
+    /// Execute the tool with the given arguments
+    async fn execute(&self, args: Value) -> Result<ToolResult>;
+}
+
+/// Registry for managing and executing tools
+pub struct ToolRegistry {
+    tools: HashMap<String, Arc<dyn Tool>>,
+}
+
+impl ToolRegistry {
+    /// Create a new empty tool registry
+    pub fn new() -> Self {
+        Self {
+            tools: HashMap::new(),
+        }
+    }
+
+    /// Register a tool in the registry
+    pub fn register(&mut self, tool: Arc<dyn Tool>) {
+        let name = tool.name().to_string();
+        self.tools.insert(name, tool);
+    }
+
+    /// Get a tool by name
+    pub fn get(&self, name: &str) -> Option<Arc<dyn Tool>> {
+        self.tools.get(name).cloned()
+    }
+
+    /// List all registered tool names
+    pub fn list(&self) -> Vec<&str> {
+        self.tools.keys().map(|s| s.as_str()).collect()
+    }
+
+    /// Check if a tool is registered
+    pub fn has(&self, name: &str) -> bool {
+        self.tools.contains_key(name)
+    }
+
+    /// Execute a tool by name with the given arguments
+    pub async fn execute(&self, name: &str, args: Value) -> Result<ToolResult> {
+        let tool = self
+            .get(name)
+            .ok_or_else(|| anyhow::anyhow!("Tool not found: {}", name))?;
+
+        tool.execute(args).await
+    }
+
+    /// Get the number of registered tools
+    pub fn len(&self) -> usize {
+        self.tools.len()
+    }
+
+    /// Check if the registry is empty
+    pub fn is_empty(&self) -> bool {
+        self.tools.is_empty()
+    }
+}
+
+impl Default for ToolRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct DummyTool;
+
+    #[async_trait]
+    impl Tool for DummyTool {
+        fn name(&self) -> &str {
+            "dummy"
+        }
+
+        fn description(&self) -> &str {
+            "A dummy tool for testing"
+        }
+
+        fn parameters(&self) -> Value {
+            serde_json::json!({
+                "type": "object",
+                "properties": {}
+            })
+        }
+
+        async fn execute(&self, _args: Value) -> Result<ToolResult> {
+            Ok(ToolResult::success("dummy output"))
+        }
+    }
+
+    #[tokio::test]
+    async fn test_register_and_get_tool() {
+        let mut registry = ToolRegistry::new();
+        let tool = Arc::new(DummyTool);
+
+        registry.register(tool.clone());
+
+        assert!(registry.has("dummy"));
+        assert!(registry.get("dummy").is_some());
+        assert_eq!(registry.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_list_tools() {
+        let mut registry = ToolRegistry::new();
+        registry.register(Arc::new(DummyTool));
+
+        let tools = registry.list();
+        assert_eq!(tools.len(), 1);
+        assert!(tools.contains(&"dummy"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_tool() {
+        let mut registry = ToolRegistry::new();
+        registry.register(Arc::new(DummyTool));
+
+        let result = registry.execute("dummy", Value::Null).await.unwrap();
+        assert!(result.success);
+        assert_eq!(result.output, "dummy output");
+    }
+
+    #[tokio::test]
+    async fn test_execute_nonexistent_tool() {
+        let registry = ToolRegistry::new();
+        let result = registry.execute("nonexistent", Value::Null).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_tool_result_success() {
+        let result = ToolResult::success("test output");
+        assert!(result.success);
+        assert_eq!(result.output, "test output");
+        assert!(result.error.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_tool_result_failure() {
+        let result = ToolResult::failure("test error");
+        assert!(!result.success);
+        assert_eq!(result.error, Some("test error".to_string()));
+    }
+}

@@ -1,0 +1,20 @@
+default_agent = "coder"
+
+[model]
+provider = "anthropic"
+model_name = "claude-3-opus"
+temperature = 0.7
+
+[logging]
+level = "info"
+
+[agents.coder]
+prompt = "You are a helpful coding assistant"
+temperature = 0.3
+allowed_tools = ["file_read", "file_write", "bash"]
+
+[agents.researcher]
+prompt = "You are a research assistant"
+temperature = 0.9
+denied_tools = ["bash", "file_write"]
+memory_k = 20

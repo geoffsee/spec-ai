@@ -1,0 +1,95 @@
+# Example configuration file for SpecAI Agent CLI
+# Copy this file to config.toml in your project root or ~/.agent_cli/config.toml
+
+# Default agent to use (optional)
+# Must match one of the agent names defined in [agents.*] sections
+default_agent = "coder"
+
+# Database configuration
+[database]
+# Path to the DuckDB database file
+# Default: ~/.agent_cli/agent_data.duckdb
+path = "~/.agent_cli/agent_data.duckdb"
+
+# Model configuration
+[model]
+# Model provider: "mock", "openai", "anthropic", or "ollama"
+provider = "mock"
+
+# Model name (provider-specific, optional)
+# Examples: "gpt-4", "claude-3-opus", "llama3"
+# model_name = "gpt-4"
+
+# API key source (optional)
+# Examples: "env:OPENAI_API_KEY", "file:~/.secrets/api_key"
+# api_key_source = "env:OPENAI_API_KEY"
+
+# Temperature for generation (0.0 to 2.0)
+temperature = 0.7
+
+# UI configuration
+[ui]
+# Theme: "default", "dark", "light"
+theme = "default"
+
+# Prompt string
+prompt = "> "
+
+# Logging configuration
+[logging]
+# Log level: "trace", "debug", "info", "warn", "error"
+level = "info"
+
+# Agent profiles
+# Define multiple agents with different configurations
+
+[agents.coder]
+# System prompt for this agent
+prompt = "You are a helpful coding assistant. You write clean, well-documented code and follow best practices."
+
+# Conversational style
+style = "professional"
+
+# Temperature override for this agent
+temperature = 0.3
+
+# Tools this agent is allowed to use
+allowed_tools = ["file_read", "file_write", "bash", "search"]
+
+# Memory parameters
+memory_k = 10  # Number of messages to recall
+top_p = 0.9    # Top-p sampling for memory recall
+
+[agents.researcher]
+# Research-focused agent
+prompt = "You are a research assistant. You help gather, analyze, and synthesize information from various sources."
+temperature = 0.8
+
+# Tools this agent is NOT allowed to use
+denied_tools = ["bash", "file_write"]
+
+# Use more memory for research tasks
+memory_k = 20
+top_p = 0.95
+
+[agents.creative]
+# Creative writing agent
+prompt = "You are a creative writing assistant. You help with storytelling, brainstorming, and creative expression."
+temperature = 1.2
+style = "casual"
+
+# Override model for this agent
+model_provider = "anthropic"
+model_name = "claude-3-opus"
+
+memory_k = 15
+
+# Environment variable overrides (highest precedence):
+# AGENT_DB_PATH - Override database path
+# AGENT_MODEL_PROVIDER - Override model provider
+# AGENT_MODEL_NAME - Override model name
+# AGENT_MODEL_TEMPERATURE - Override temperature
+# AGENT_API_KEY_SOURCE - Override API key source
+# AGENT_LOG_LEVEL - Override logging level
+# AGENT_UI_THEME - Override UI theme
+# AGENT_DEFAULT_AGENT - Override default agent

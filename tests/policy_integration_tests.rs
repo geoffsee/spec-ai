@@ -33,6 +33,7 @@ fn create_test_agent_with_policy(
         None,
         persistence,
         "test-session".to_string(),
+        Some("policy-test".to_string()),
         Arc::new(tool_registry),
         policy_engine,
     );
@@ -265,6 +266,7 @@ fn test_policy_reload_updates_agent() {
         None,
         persistence.clone(),
         "test-session".to_string(),
+        Some("policy-reload".to_string()),
         tool_registry,
         Arc::new(policy_engine),
     );

@@ -183,6 +183,9 @@ impl Persistence {
 
     pub fn log_tool(
         &self,
+        session_id: &str,
+        agent_name: &str,
+        run_id: &str,
         tool_name: &str,
         arguments: &JsonValue,
         result: &JsonValue,
@@ -190,9 +193,12 @@ impl Persistence {
         error: Option<&str>,
     ) -> Result<i64> {
         let conn = self.conn()?;
-        let mut stmt = conn.prepare("INSERT INTO tool_log (tool_name, arguments, result, success, error) VALUES (?, ?, ?, ?, ?) RETURNING id")?;
+        let mut stmt = conn.prepare("INSERT INTO tool_log (session_id, agent, run_id, tool_name, arguments, result, success, error) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id")?;
         let id: i64 = stmt.query_row(
             params![
+                session_id,
+                agent_name,
+                run_id,
                 tool_name,
                 arguments.to_string(),
                 result.to_string(),

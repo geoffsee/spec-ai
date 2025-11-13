@@ -23,6 +23,7 @@ pub struct AgentBuilder {
     config: Option<AppConfig>,
     tool_registry: Option<Arc<ToolRegistry>>,
     policy_engine: Option<Arc<PolicyEngine>>,
+    agent_name: Option<String>,
 }
 
 impl AgentBuilder {
@@ -37,6 +38,7 @@ impl AgentBuilder {
             config: None,
             tool_registry: None,
             policy_engine: None,
+            agent_name: None,
         }
     }
 
@@ -95,6 +97,12 @@ impl AgentBuilder {
     /// Set the policy engine
     pub fn with_policy_engine(mut self, policy_engine: Arc<PolicyEngine>) -> Self {
         self.policy_engine = Some(policy_engine);
+        self
+    }
+
+    /// Set the logical agent name (used for telemetry/logging)
+    pub fn with_agent_name(mut self, agent_name: impl Into<String>) -> Self {
+        self.agent_name = Some(agent_name.into());
         self
     }
 
@@ -162,6 +170,7 @@ impl AgentBuilder {
             embeddings_client,
             persistence,
             session_id,
+            self.agent_name,
             tool_registry,
             policy_engine,
         ))
@@ -180,14 +189,15 @@ pub fn create_agent_from_registry(
     config: &AppConfig,
     session_id: Option<String>,
 ) -> Result<AgentCore> {
-    let (_, profile) = registry
+    let (agent_name, profile) = registry
         .active()
         .context("No active agent profile in registry")?
         .ok_or_else(|| anyhow!("No active agent set in registry"))?;
 
     let mut builder = AgentBuilder::new()
         .with_profile(profile)
-        .with_config(config.clone());
+        .with_config(config.clone())
+        .with_agent_name(agent_name.clone());
 
     if let Some(sid) = session_id {
         builder = builder.with_session_id(sid);

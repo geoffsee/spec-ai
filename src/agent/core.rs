@@ -23,12 +23,76 @@ use tracing::warn;
 pub struct AgentOutput {
     /// The response text
     pub response: String,
+    /// Message identifier for the persisted assistant response
+    pub response_message_id: Option<i64>,
     /// Token usage information
     pub token_usage: Option<crate::agent::model::TokenUsage>,
-    /// Tool calls made (future enhancement)
-    pub tool_calls: Vec<String>,
+    /// Detailed tool invocations performed during this turn
+    pub tool_invocations: Vec<ToolInvocation>,
     /// Finish reason
     pub finish_reason: Option<String>,
+    /// Semantic memory recall statistics for this turn (if embeddings enabled)
+    pub recall_stats: Option<MemoryRecallStats>,
+    /// Unique identifier for correlating this run with logs/telemetry
+    pub run_id: String,
+}
+
+/// A single tool invocation, including arguments and outcome metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolInvocation {
+    pub name: String,
+    pub arguments: Value,
+    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+impl ToolInvocation {
+    pub fn from_result(name: &str, arguments: Value, result: &ToolResult) -> Self {
+        let output = if result.output.trim().is_empty() {
+            None
+        } else {
+            Some(result.output.clone())
+        };
+
+        Self {
+            name: name.to_string(),
+            arguments,
+            success: result.success,
+            output,
+            error: result.error.clone(),
+        }
+    }
+}
+
+/// Telemetry about memory recall for a single turn
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryRecallStats {
+    pub strategy: MemoryRecallStrategy,
+    pub matches: Vec<MemoryRecallMatch>,
+}
+
+/// Strategy used for memory recall
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum MemoryRecallStrategy {
+    Semantic { requested: usize, returned: usize },
+    RecentContext { limit: usize },
+}
+
+/// Summary of an individual recalled memory
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryRecallMatch {
+    pub message_id: Option<i64>,
+    pub score: f32,
+    pub role: MessageRole,
+    pub preview: String,
+}
+
+struct RecallResult {
+    messages: Vec<Message>,
+    stats: Option<MemoryRecallStats>,
 }
 
 /// Core agent execution engine
@@ -43,6 +107,8 @@ pub struct AgentCore {
     persistence: Persistence,
     /// Current session ID
     session_id: String,
+    /// Optional logical agent name from the registry
+    agent_name: Option<String>,
     /// Conversation history (in-memory cache)
     conversation_history: Vec<Message>,
     /// Tool registry for executing tools
@@ -59,6 +125,7 @@ impl AgentCore {
         embeddings_client: Option<EmbeddingsClient>,
         persistence: Persistence,
         session_id: String,
+        agent_name: Option<String>,
         tool_registry: Arc<ToolRegistry>,
         policy_engine: Arc<PolicyEngine>,
     ) -> Self {
@@ -68,6 +135,7 @@ impl AgentCore {
             embeddings_client,
             persistence,
             session_id,
+            agent_name,
             conversation_history: Vec::new(),
             tool_registry,
             policy_engine,
@@ -83,8 +151,12 @@ impl AgentCore {
 
     /// Execute a single interaction step
     pub async fn run_step(&mut self, input: &str) -> Result<AgentOutput> {
+        let run_id = format!("run-{}", Utc::now().timestamp_micros());
+
         // Step 1: Recall relevant memories
-        let recalled_messages = self.recall_memories(input).await?;
+        let recall_result = self.recall_memories(input).await?;
+        let recalled_messages = recall_result.messages;
+        let recall_stats = recall_result.stats;
 
         // Step 2: Build prompt with context
         let mut prompt = self.build_prompt(input, &recalled_messages)?;
@@ -93,7 +165,7 @@ impl AgentCore {
         self.store_message(MessageRole::User, input).await?;
 
         // Step 4: Agent loop with tool execution
-        let mut tool_calls = Vec::new();
+        let mut tool_invocations = Vec::new();
         let mut final_response = String::new();
         let mut token_usage = None;
         let mut finish_reason = None;
@@ -124,20 +196,35 @@ impl AgentCore {
                         "\n\nTOOL_ERROR: {}\n\nPlease continue without using this tool.",
                         error_msg
                     ));
-                    tool_calls.push(format!("{} (denied)", tool_name));
                     continue;
                 }
 
                 // Execute tool
-                match self.execute_tool(&tool_name, &tool_args).await {
+                match self.execute_tool(&run_id, &tool_name, &tool_args).await {
                     Ok(result) => {
-                        tool_calls.push(tool_name.clone());
+                        let invocation =
+                            ToolInvocation::from_result(&tool_name, tool_args.clone(), &result);
+                        let tool_output = invocation.output.clone().unwrap_or_default();
+                        let was_success = invocation.success;
+                        let error_message = invocation
+                            .error
+                            .clone()
+                            .unwrap_or_else(|| "Tool execution failed".to_string());
+                        tool_invocations.push(invocation);
 
-                        // Add tool result to prompt for next iteration
-                        prompt.push_str(&format!(
-                            "\n\nTOOL_RESULT from {}:\n{}\n\nBased on this result, please continue.",
-                            tool_name, result.output
-                        ));
+                        if was_success {
+                            // Add tool result to prompt for next iteration
+                            prompt.push_str(&format!(
+                                "\n\nTOOL_RESULT from {}:\n{}\n\nBased on this result, please continue.",
+                                tool_name, tool_output
+                            ));
+                        } else {
+                            prompt.push_str(&format!(
+                                "\n\nTOOL_ERROR: {}\n\nPlease continue without this tool.",
+                                error_message
+                            ));
+                            continue;
+                        }
 
                         // If the model response contains only the tool call, continue loop
                         if response.content.trim().starts_with("TOOL_CALL:") {
@@ -150,7 +237,13 @@ impl AgentCore {
                             "\n\nTOOL_ERROR: {}\n\nPlease continue without this tool.",
                             error_msg
                         ));
-                        tool_calls.push(format!("{} (error)", tool_name));
+                        tool_invocations.push(ToolInvocation {
+                            name: tool_name,
+                            arguments: tool_args,
+                            success: false,
+                            output: None,
+                            error: Some(error_msg),
+                        });
                         continue;
                     }
                 }
@@ -161,7 +254,8 @@ impl AgentCore {
         }
 
         // Step 5: Store assistant response
-        self.store_message(MessageRole::Assistant, &final_response)
+        let response_message_id = self
+            .store_message(MessageRole::Assistant, &final_response)
             .await?;
 
         // Step 6: Update conversation history
@@ -183,9 +277,12 @@ impl AgentCore {
 
         Ok(AgentOutput {
             response: final_response,
+            response_message_id: Some(response_message_id),
             token_usage,
-            tool_calls,
+            tool_invocations,
             finish_reason,
+            recall_stats,
+            run_id,
         })
     }
 
@@ -202,7 +299,7 @@ impl AgentCore {
     }
 
     /// Recall relevant memories for the given input
-    async fn recall_memories(&self, query: &str) -> Result<Vec<Message>> {
+    async fn recall_memories(&self, query: &str) -> Result<RecallResult> {
         const RECENT_CONTEXT: i64 = 2;
         let mut context = Vec::new();
         let mut seen_ids = HashSet::new();
@@ -218,7 +315,10 @@ impl AgentCore {
 
         if let Some(client) = &self.embeddings_client {
             if self.profile.memory_k == 0 || query.trim().is_empty() {
-                return Ok(context);
+                return Ok(RecallResult {
+                    messages: context,
+                    stats: None,
+                });
             }
 
             match client.embed(query).await {
@@ -229,7 +329,9 @@ impl AgentCore {
                         self.profile.memory_k,
                     )?;
 
-                    for (memory, _score) in recalled {
+                    let mut matches = Vec::new();
+
+                    for (memory, score) in recalled {
                         if let Some(message_id) = memory.message_id {
                             if seen_ids.contains(&message_id) {
                                 continue;
@@ -237,25 +339,67 @@ impl AgentCore {
 
                             if let Some(message) = self.persistence.get_message(message_id)? {
                                 seen_ids.insert(message.id);
+                                matches.push(MemoryRecallMatch {
+                                    message_id: Some(message.id),
+                                    score,
+                                    role: message.role,
+                                    preview: preview_text(&message.content),
+                                });
                                 context.push(message);
                             }
                         }
                     }
+
+                    return Ok(RecallResult {
+                        messages: context,
+                        stats: Some(MemoryRecallStats {
+                            strategy: MemoryRecallStrategy::Semantic {
+                                requested: self.profile.memory_k,
+                                returned: matches.len(),
+                            },
+                            matches,
+                        }),
+                    });
                 }
-                Ok(_) => {}
+                Ok(_) => {
+                    return Ok(RecallResult {
+                        messages: context,
+                        stats: Some(MemoryRecallStats {
+                            strategy: MemoryRecallStrategy::Semantic {
+                                requested: self.profile.memory_k,
+                                returned: 0,
+                            },
+                            matches: Vec::new(),
+                        }),
+                    });
+                }
                 Err(err) => {
                     warn!("Failed to embed recall query: {}", err);
                 }
             }
 
-            return Ok(context);
+            return Ok(RecallResult {
+                messages: context,
+                stats: None,
+            });
         }
 
         // Fallback when embeddings are unavailable
         let limit = self.profile.memory_k as i64;
         let messages = self.persistence.list_messages(&self.session_id, limit)?;
 
-        Ok(messages)
+        let stats = if self.profile.memory_k > 0 {
+            Some(MemoryRecallStats {
+                strategy: MemoryRecallStrategy::RecentContext {
+                    limit: self.profile.memory_k,
+                },
+                matches: Vec::new(),
+            })
+        } else {
+            None
+        };
+
+        Ok(RecallResult { messages, stats })
     }
 
     /// Build the prompt from system prompt, context, and user input
@@ -330,6 +474,11 @@ impl AgentCore {
         &self.profile
     }
 
+    /// Get the logical agent name (if provided)
+    pub fn agent_name(&self) -> Option<&str> {
+        self.agent_name.as_deref()
+    }
+
     /// Get conversation history
     pub fn conversation_history(&self) -> &[Message] {
         &self.conversation_history
@@ -371,9 +520,18 @@ impl AgentCore {
     }
 
     /// Execute a tool and log the result
-    async fn execute_tool(&self, tool_name: &str, args: &Value) -> Result<ToolResult> {
-        // Execute the tool
-        let result = self.tool_registry.execute(tool_name, args.clone()).await?;
+    async fn execute_tool(
+        &self,
+        run_id: &str,
+        tool_name: &str,
+        args: &Value,
+    ) -> Result<ToolResult> {
+        // Execute the tool (convert execution failures into ToolResult failures)
+        let exec_result = self.tool_registry.execute(tool_name, args.clone()).await;
+        let result = match exec_result {
+            Ok(res) => res,
+            Err(err) => ToolResult::failure(err.to_string()),
+        };
 
         // Log to persistence
         let result_json = serde_json::json!({
@@ -384,7 +542,16 @@ impl AgentCore {
 
         let error_str = result.error.as_deref();
         self.persistence
-            .log_tool(tool_name, args, &result_json, result.success, error_str)
+            .log_tool(
+                &self.session_id,
+                self.agent_name.as_deref().unwrap_or("unknown"),
+                run_id,
+                tool_name,
+                args,
+                &result_json,
+                result.success,
+                error_str,
+            )
             .context("Failed to log tool execution")?;
 
         Ok(result)
@@ -403,6 +570,24 @@ impl AgentCore {
     /// Set a new policy engine (useful for reloading policies)
     pub fn set_policy_engine(&mut self, policy_engine: Arc<PolicyEngine>) {
         self.policy_engine = policy_engine;
+    }
+}
+
+fn preview_text(content: &str) -> String {
+    const MAX_CHARS: usize = 80;
+    let trimmed = content.trim();
+    let mut preview = String::new();
+    for (idx, ch) in trimmed.chars().enumerate() {
+        if idx >= MAX_CHARS {
+            preview.push_str("...");
+            break;
+        }
+        preview.push(ch);
+    }
+    if preview.is_empty() {
+        trimmed.to_string()
+    } else {
+        preview
     }
 }
 
@@ -451,6 +636,7 @@ mod tests {
                 embeddings_client,
                 persistence,
                 session_id.to_string(),
+                Some(session_id.to_string()),
                 tool_registry,
                 policy_engine,
             ),
@@ -490,7 +676,7 @@ mod tests {
 
         assert!(!output.response.is_empty());
         assert!(output.token_usage.is_some());
-        assert_eq!(output.tool_calls.len(), 0);
+        assert_eq!(output.tool_invocations.len(), 0);
     }
 
     #[tokio::test]
@@ -607,8 +793,21 @@ mod tests {
             .await
             .unwrap();
 
-        let recalled = agent.recall_memories("alpha follow up").await.unwrap();
+        let recall = agent.recall_memories("alpha follow up").await.unwrap();
+        assert!(matches!(
+            recall.stats.as_ref().map(|s| &s.strategy),
+            Some(MemoryRecallStrategy::Semantic { .. })
+        ));
+        assert_eq!(
+            recall
+                .stats
+                .as_ref()
+                .map(|s| s.matches.len())
+                .unwrap_or_default(),
+            2
+        );
 
+        let recalled = recall.messages;
         assert_eq!(recalled.len(), 4);
         assert_eq!(recalled[0].content, "Beta prompt");
         assert_eq!(recalled[1].content, "Beta reply");
@@ -679,6 +878,7 @@ mod tests {
             None,
             persistence.clone(),
             "test-session".to_string(),
+            Some("policy-test".to_string()),
             tool_registry.clone(),
             policy_engine.clone(),
         );
@@ -696,6 +896,7 @@ mod tests {
             None,
             persistence,
             "test-session-2".to_string(),
+            Some("policy-test-2".to_string()),
             tool_registry,
             policy_engine,
         );
@@ -737,13 +938,17 @@ mod tests {
             None,
             persistence.clone(),
             "tool-exec-test".to_string(),
+            Some("tool-agent".to_string()),
             Arc::new(tool_registry),
             policy_engine,
         );
 
         // Execute tool directly
         let args = serde_json::json!({"message": "test message"});
-        let result = agent.execute_tool("echo", &args).await.unwrap();
+        let result = agent
+            .execute_tool("run-tool-test", "echo", &args)
+            .await
+            .unwrap();
 
         assert!(result.success);
         assert_eq!(result.output, "test message");

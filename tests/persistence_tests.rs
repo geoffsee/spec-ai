@@ -103,7 +103,11 @@ fn tool_log_insert() {
     let p = Persistence::new(&path).unwrap();
     let args = json!({"path":"/tmp/a.txt"});
     let result = json!({"ok":true});
-    let id = p.log_tool("FileTool", &args, &result, true, None).unwrap();
+    let id = p
+        .log_tool(
+            "sess-1", "tester", "run-1", "FileTool", &args, &result, true, None,
+        )
+        .unwrap();
     assert!(id > 0);
 
     let conn = p.conn().unwrap();

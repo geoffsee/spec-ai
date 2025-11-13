@@ -1,6 +1,6 @@
 //! CLI module for Epic 4 — minimal REPL and command parser
 
-mod formatting;
+pub mod formatting;
 
 use anyhow::{Context, Result};
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -259,7 +259,12 @@ impl CliState {
             }
             Command::Message(text) => {
                 let output = self.agent.run_step(&text).await?;
-                let formatted = formatting::render_agent_response("assistant", &output.response);
+                let mut formatted =
+                    formatting::render_agent_response("assistant", &output.response);
+                if let Some(stats) = formatting::render_run_stats(&output) {
+                    formatted.push('\n');
+                    formatted.push_str(&stats);
+                }
                 Ok(Some(formatted))
             }
         }
@@ -339,6 +344,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_cli_smoke() {
+        // Force plain text mode for consistent test output
+        formatting::set_plain_text_mode(true);
+
         let dir = tempdir().unwrap();
         let db_path = dir.path().join("cli.duckdb");
 
@@ -391,6 +399,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_agents_command() {
+        // Force plain text mode for consistent test output
+        formatting::set_plain_text_mode(true);
+
         let dir = tempdir().unwrap();
         let db_path = dir.path().join("cli_agents.duckdb");
 

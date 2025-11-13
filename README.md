@@ -2,62 +2,6 @@
 
 A "production-quality", completely vibe coded, agentic AI CLI built in Rust with persistent state, flexible configuration, and extensible architecture.
 
-## Features
-
-### ✅ Completed
-
-#### Epic 1: Persistence Layer
-- DuckDB-based persistence with automatic migrations
-- Message history storage and retrieval
-- Memory vectors with cosine similarity search
-- Tool execution logging
-- Policy/configuration caching
-
-#### Epic 2: Configuration System
-- TOML-based configuration with multiple precedence levels
-- Environment variable overrides (`AGENT_*` prefix)
-- Multiple agent profiles with custom settings
-- Agent registry with persistence
-- Configuration caching and change detection
-
-#### Epic 3: Core Agent Architecture
-- Structured agent reasoning loop (interpret → plan → execute → reflect)
-- Model abstraction layer supporting multiple providers
-- Memory subsystem with embedding-based recall
-- Conversation history and context management
-
-#### Epic 4: CLI Interface
-- Interactive terminal REPL with markdown support
-- Command parser for control commands
-- Multi-agent session management
-- Session switching and isolation
-
-#### Epic 5: Tool Registry
-- Dynamic tool registration and execution
-- Built-in tools (echo, math, file operations)
-- Tool permission system with allowlist/denylist
-- Tool execution logging
-
-#### Epic 6: Policy Framework
-- Declarative policy engine for behavior control
-- Wildcard pattern matching for flexible rules
-- Runtime policy reload
-- Integration with agent permission system
-- Default-deny security model
-
-#### Epic 7: Extensibility and Integration
-- Plugin system with lifecycle management
-  - Dynamic plugin registration and initialization
-  - Plugin health checking
-  - Thread-safe concurrent access
-- REST API server (optional `api` feature)
-  - `/health` - Service health monitoring
-  - `/agents` - Agent discovery
-  - `/query` - Synchronous queries
-  - `/stream` - Server-Sent Events streaming
-  - API key authentication
-  - CORS support
-
 ## Quick Start
 
 ### Installation
@@ -208,10 +152,6 @@ cargo test --lib policy
 cargo test --test policy_integration_tests
 ```
 
-**Current test coverage: 162 tests passing**
-- 136 unit tests (plugin: 13, api: 13, agent: 26, config: 28, tools: 26, policy: 18, cli: 6, other: 6)
-- 26 integration tests (cli: 6, config: 11, persistence: 5, policy: 8, tools: 9)
-
 ## API Server Usage
 
 The API server is available as an optional feature. To use it:
@@ -227,22 +167,6 @@ curl -X POST http://localhost:3000/query \
   -H "Content-Type: application/json" \
   -d '{"message": "Hello!", "agent": "coder"}'
 ```
-
-See [EPIC7_SUMMARY.md](EPIC7_SUMMARY.md) for detailed API documentation.
-
-## Next Steps
-
-All planned epics (1-7) are now complete! The system is production-ready with:
-
-- ✅ **Epic 1**: Persistence Layer (DuckDB integration)
-- ✅ **Epic 2**: Configuration System (TOML, env vars, profiles)
-- ✅ **Epic 3**: Core Agent Architecture (reasoning loop, model abstraction)
-- ✅ **Epic 4**: CLI Interface (REPL, commands, sessions)
-- ✅ **Epic 5**: Tool Registry (dynamic tools, permissions)
-- ✅ **Epic 6**: Policy Framework (declarative rules, runtime reload)
-- ✅ **Epic 7**: Extensibility and Integration (plugins, REST API)
-
-See [docs/spec.md](docs/spec.md) for the complete specification and [EPIC7_SUMMARY.md](EPIC7_SUMMARY.md) for the latest implementation details.
 
 ## Development
 

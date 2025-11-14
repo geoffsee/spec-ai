@@ -88,6 +88,7 @@ pub enum NodeType {
     Message,    // Linked to messages table
     ToolResult, // Linked to tool_log
     Event,      // Temporal events
+    Goal,       // User goals / tasks
 }
 
 impl NodeType {
@@ -99,6 +100,7 @@ impl NodeType {
             NodeType::Message => "message",
             NodeType::ToolResult => "tool_result",
             NodeType::Event => "event",
+            NodeType::Goal => "goal",
         }
     }
 
@@ -110,6 +112,7 @@ impl NodeType {
             "message" => NodeType::Message,
             "tool_result" => NodeType::ToolResult,
             "event" => NodeType::Event,
+            "goal" => NodeType::Goal,
             _ => NodeType::Entity,
         }
     }

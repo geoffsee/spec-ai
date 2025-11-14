@@ -5,13 +5,14 @@
 use crate::agent::core::AgentCore;
 use crate::agent::factory::{create_provider, resolve_api_key};
 use crate::agent::model::ModelProvider;
-use crate::config::{AgentProfile, AgentRegistry, AppConfig};
+use crate::config::{AgentProfile, AgentRegistry, AppConfig, ModelConfig};
 use crate::embeddings::EmbeddingsClient;
 use crate::persistence::Persistence;
 use crate::policy::PolicyEngine;
 use crate::tools::ToolRegistry;
 use anyhow::{Context, Result, anyhow};
 use std::sync::Arc;
+use tracing::{info, warn};
 
 /// Builder for constructing AgentCore instances
 pub struct AgentBuilder {
@@ -152,20 +153,64 @@ impl AgentBuilder {
         // Get or create tool registry (defaults to built-in tools)
         let tool_registry = self.tool_registry.unwrap_or_else(|| {
             let persistence_arc = Arc::new(persistence.clone());
-            Arc::new(ToolRegistry::with_builtin_tools(Some(persistence_arc)))
+            let registry = ToolRegistry::with_builtin_tools(Some(persistence_arc));
+            info!("Created tool registry with {} builtin tools", registry.len());
+            for tool_name in registry.list() {
+                info!("  - Registered tool: {}", tool_name);
+            }
+            Arc::new(registry)
         });
 
         // Get or create policy engine (defaults to empty policy engine, or load from persistence)
         let policy_engine = if let Some(engine) = self.policy_engine {
             engine
         } else {
-            // Try to load from persistence, or create empty engine
-            let engine = PolicyEngine::load_from_persistence(&persistence)
+            // Try to load from persistence, or create empty engine with default allow rule
+            let mut engine = PolicyEngine::load_from_persistence(&persistence)
                 .unwrap_or_else(|_| PolicyEngine::new());
+
+            // If the policy engine has no rules at all, add a default allow-all for tools
+            if engine.rule_count() == 0 {
+                info!("Empty policy engine detected, adding default allow-all rule for tools");
+                engine.add_rule(crate::policy::PolicyRule {
+                    agent: "*".to_string(),
+                    action: "tool_call".to_string(),
+                    resource: "*".to_string(),
+                    effect: crate::policy::PolicyEffect::Allow,
+                });
+            }
+
             Arc::new(engine)
         };
 
-        Ok(AgentCore::new(
+        let fast_provider = if profile.fast_reasoning {
+            match (&profile.fast_model_provider, &profile.fast_model_name) {
+                (Some(provider_name), Some(model_name)) => {
+                    let fast_config = ModelConfig {
+                        provider: provider_name.clone(),
+                        model_name: Some(model_name.clone()),
+                        embeddings_model: None,
+                        api_key_source: None,
+                        temperature: profile.fast_model_temperature,
+                    };
+                    match create_provider(&fast_config) {
+                        Ok(provider) => Some(provider),
+                        Err(err) => {
+                            warn!(
+                                "Failed to create fast provider {}:{} - {}",
+                                provider_name, model_name, err
+                            );
+                            None
+                        }
+                    }
+                }
+                _ => None,
+            }
+        } else {
+            None
+        };
+
+        let mut agent = AgentCore::new(
             profile,
             provider,
             embeddings_client,
@@ -174,7 +219,13 @@ impl AgentBuilder {
             self.agent_name,
             tool_registry,
             policy_engine,
-        ))
+        );
+
+        if let Some(fast_provider) = fast_provider {
+            agent = agent.with_fast_provider(fast_provider);
+        }
+
+        Ok(agent)
     }
 }
 

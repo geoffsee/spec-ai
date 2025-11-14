@@ -79,6 +79,8 @@ impl ToolRegistry {
     /// an [`Arc<Persistence>`] is provided.
     pub fn with_builtin_tools(persistence: Option<Arc<Persistence>>) -> Self {
         let mut registry = Self::new();
+
+        // Register all built-in tools
         registry.register(Arc::new(EchoTool::new()));
         registry.register(Arc::new(MathTool::new()));
         registry.register(Arc::new(FileReadTool::new()));
@@ -90,6 +92,11 @@ impl ToolRegistry {
 
         if let Some(persistence) = persistence {
             registry.register(Arc::new(GraphTool::new(persistence)));
+        }
+
+        tracing::info!("ToolRegistry created with {} tools", registry.tools.len());
+        for name in registry.tools.keys() {
+            tracing::info!("  - Tool: {}", name);
         }
 
         registry

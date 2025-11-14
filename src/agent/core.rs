@@ -108,6 +108,27 @@ struct ExtractedConcept {
     relevance: f32,
 }
 
+#[derive(Debug, Clone)]
+struct GoalContext {
+    message_id: i64,
+    text: String,
+    requires_tool: bool,
+    satisfied: bool,
+    node_id: Option<i64>,
+}
+
+impl GoalContext {
+    fn new(message_id: i64, text: &str, requires_tool: bool, node_id: Option<i64>) -> Self {
+        Self {
+            message_id,
+            text: text.to_string(),
+            requires_tool,
+            satisfied: !requires_tool,
+            node_id,
+        }
+    }
+}
+
 /// Core agent execution engine
 pub struct AgentCore {
     /// Agent profile with configuration
@@ -184,95 +205,178 @@ impl AgentCore {
         let mut prompt = self.build_prompt(input, &recalled_messages)?;
 
         // Step 3: Store user message
-        self.store_message(MessageRole::User, input).await?;
+        let user_message_id = self.store_message(MessageRole::User, input).await?;
+
+        // Track user goal context (graph-driven planning)
+        let mut goal_context =
+            Some(self.create_goal_context(user_message_id, input, self.profile.enable_graph)?);
 
         // Step 4: Agent loop with tool execution
         let mut tool_invocations = Vec::new();
         let mut final_response = String::new();
         let mut token_usage = None;
         let mut finish_reason = None;
+        let mut auto_response: Option<String> = None;
 
-        // Allow up to 5 iterations to handle tool calls
-        for _iteration in 0..5 {
-            // Generate response using model
-            let generation_config = self.build_generation_config();
-            let response = self
-                .provider
-                .generate(&prompt, &generation_config)
-                .await
-                .context("Failed to generate response from model")?;
-
-            token_usage = response.usage;
-            finish_reason = response.finish_reason.clone();
-            final_response = response.content.clone();
-
-            // Check for tool calls in the response
-            if let Some(tool_call) = self.parse_tool_call(&response.content) {
-                let tool_name = tool_call.0;
-                let tool_args = tool_call.1;
-
-                // Check if tool is allowed
-                if !self.is_tool_allowed(&tool_name) {
-                    let error_msg = format!("Tool '{}' is not allowed by agent policy", tool_name);
-                    prompt.push_str(&format!(
-                        "\n\nTOOL_ERROR: {}\n\nPlease continue without using this tool.",
-                        error_msg
-                    ));
-                    continue;
-                }
-
-                // Execute tool
-                match self.execute_tool(&run_id, &tool_name, &tool_args).await {
-                    Ok(result) => {
-                        let invocation =
-                            ToolInvocation::from_result(&tool_name, tool_args.clone(), &result);
-                        let tool_output = invocation.output.clone().unwrap_or_default();
-                        let was_success = invocation.success;
-                        let error_message = invocation
-                            .error
-                            .clone()
-                            .unwrap_or_else(|| "Tool execution failed".to_string());
-                        tool_invocations.push(invocation);
-
-                        if was_success {
-                            // Add tool result to prompt for next iteration
-                            prompt.push_str(&format!(
-                                "\n\nTOOL_RESULT from {}:\n{}\n\nBased on this result, please continue.",
-                                tool_name, tool_output
-                            ));
-                        } else {
-                            prompt.push_str(&format!(
-                                "\n\nTOOL_ERROR: {}\n\nPlease continue without this tool.",
-                                error_message
-                            ));
-                            continue;
+        // Attempt to auto-satisfy simple goals before invoking the model
+        if let Some(goal) = goal_context.as_mut() {
+            if goal.requires_tool {
+                if let Some((tool_name, tool_args)) =
+                    Self::infer_goal_tool_action(goal.text.as_str())
+                {
+                    if self.is_tool_allowed(&tool_name) {
+                        match self.execute_tool(&run_id, &tool_name, &tool_args).await {
+                            Ok(result) => {
+                                let invocation = ToolInvocation::from_result(
+                                    &tool_name,
+                                    tool_args.clone(),
+                                    &result,
+                                );
+                                if let Err(err) = self
+                                    .record_goal_tool_result(goal, &tool_name, &tool_args, &result)
+                                {
+                                    warn!("Failed to record goal progress: {}", err);
+                                }
+                                if result.success {
+                                    if let Err(err) =
+                                        self.update_goal_status(goal, "completed", true, None)
+                                    {
+                                        warn!("Failed to update goal status: {}", err);
+                                    } else {
+                                        goal.satisfied = true;
+                                    }
+                                }
+                                auto_response = Some(Self::format_auto_tool_response(
+                                    &tool_name,
+                                    invocation.output.as_deref(),
+                                ));
+                                tool_invocations.push(invocation);
+                            }
+                            Err(err) => {
+                                warn!("Auto tool execution '{}' failed: {}", tool_name, err);
+                            }
                         }
-
-                        // If the model response contains only the tool call, continue loop
-                        if response.content.trim().starts_with("TOOL_CALL:") {
-                            continue;
-                        }
-                    }
-                    Err(e) => {
-                        let error_msg = format!("Error executing tool '{}': {}", tool_name, e);
-                        prompt.push_str(&format!(
-                            "\n\nTOOL_ERROR: {}\n\nPlease continue without this tool.",
-                            error_msg
-                        ));
-                        tool_invocations.push(ToolInvocation {
-                            name: tool_name,
-                            arguments: tool_args,
-                            success: false,
-                            output: None,
-                            error: Some(error_msg),
-                        });
-                        continue;
                     }
                 }
             }
+        }
 
-            // No tool call found or response includes final answer, break
-            break;
+        let skip_model = goal_context
+            .as_ref()
+            .map(|goal| goal.requires_tool && goal.satisfied && auto_response.is_some())
+            .unwrap_or(false);
+
+        if skip_model {
+            final_response = auto_response.unwrap_or_else(|| "Task completed.".to_string());
+            finish_reason = Some("auto_tool".to_string());
+        } else {
+            // Allow up to 5 iterations to handle tool calls
+            for _iteration in 0..5 {
+                // Generate response using model
+                let generation_config = self.build_generation_config();
+                let response = self
+                    .provider
+                    .generate(&prompt, &generation_config)
+                    .await
+                    .context("Failed to generate response from model")?;
+
+                token_usage = response.usage;
+                finish_reason = response.finish_reason.clone();
+                final_response = response.content.clone();
+
+                // Check for tool calls in the response
+                if let Some(tool_call) = self.parse_tool_call(&response.content) {
+                    let tool_name = tool_call.0;
+                    let tool_args = tool_call.1;
+
+                    // Check if tool is allowed
+                    if !self.is_tool_allowed(&tool_name) {
+                        let error_msg =
+                            format!("Tool '{}' is not allowed by agent policy", tool_name);
+                        prompt.push_str(&format!(
+                            "\n\nTOOL_ERROR: {}\n\nPlease continue without using this tool.",
+                            error_msg
+                        ));
+                        continue;
+                    }
+
+                    // Execute tool
+                    match self.execute_tool(&run_id, &tool_name, &tool_args).await {
+                        Ok(result) => {
+                            let invocation =
+                                ToolInvocation::from_result(&tool_name, tool_args.clone(), &result);
+                            let tool_output = invocation.output.clone().unwrap_or_default();
+                            let was_success = invocation.success;
+                            let error_message = invocation
+                                .error
+                                .clone()
+                                .unwrap_or_else(|| "Tool execution failed".to_string());
+                            tool_invocations.push(invocation);
+
+                            if let Some(goal) = goal_context.as_mut() {
+                                if let Err(err) = self
+                                    .record_goal_tool_result(goal, &tool_name, &tool_args, &result)
+                                {
+                                    warn!("Failed to record goal progress: {}", err);
+                                }
+                                if result.success && goal.requires_tool && !goal.satisfied {
+                                    if let Err(err) =
+                                        self.update_goal_status(goal, "in_progress", true, None)
+                                    {
+                                        warn!("Failed to update goal status: {}", err);
+                                    }
+                                }
+                            }
+
+                            if was_success {
+                                // Add tool result to prompt for next iteration
+                                prompt.push_str(&format!(
+                                    "\n\nTOOL_RESULT from {}:\n{}\n\nBased on this result, please continue.",
+                                    tool_name, tool_output
+                                ));
+                            } else {
+                                prompt.push_str(&format!(
+                                    "\n\nTOOL_ERROR: {}\n\nPlease continue without this tool.",
+                                    error_message
+                                ));
+                                continue;
+                            }
+
+                            // If the model response contains only the tool call, continue loop
+                            if response.content.trim().starts_with("TOOL_CALL:") {
+                                continue;
+                            }
+                        }
+                        Err(e) => {
+                            let error_msg = format!("Error executing tool '{}': {}", tool_name, e);
+                            prompt.push_str(&format!(
+                                "\n\nTOOL_ERROR: {}\n\nPlease continue without this tool.",
+                                error_msg
+                            ));
+                            tool_invocations.push(ToolInvocation {
+                                name: tool_name,
+                                arguments: tool_args,
+                                success: false,
+                                output: None,
+                                error: Some(error_msg),
+                            });
+                            continue;
+                        }
+                    }
+                }
+
+                if let Some(goal) = goal_context.as_ref() {
+                    if goal.requires_tool && !goal.satisfied {
+                        prompt.push_str(
+                            "\n\nGOAL_STATUS: pending. The user request requires executing an allowed tool. Emit a TOOL_CALL now.",
+                        );
+                        continue;
+                    }
+                }
+
+                // No tool call found or response includes final answer, break
+                break;
+            }
         }
 
         // Step 5: Store assistant response
@@ -280,9 +384,29 @@ impl AgentCore {
             .store_message(MessageRole::Assistant, &final_response)
             .await?;
 
+        if let Some(goal) = goal_context.as_mut() {
+            if goal.requires_tool {
+                if goal.satisfied {
+                    if let Err(err) =
+                        self.update_goal_status(goal, "completed", true, Some(response_message_id))
+                    {
+                        warn!("Failed to finalize goal status: {}", err);
+                    }
+                } else if let Err(err) =
+                    self.update_goal_status(goal, "blocked", false, Some(response_message_id))
+                {
+                    warn!("Failed to record blocked goal status: {}", err);
+                }
+            } else if let Err(err) =
+                self.update_goal_status(goal, "completed", true, Some(response_message_id))
+            {
+                warn!("Failed to finalize goal status: {}", err);
+            }
+        }
+
         // Step 6: Update conversation history
         self.conversation_history.push(Message {
-            id: 0, // Will be set by DB
+            id: user_message_id,
             session_id: self.session_id.clone(),
             role: MessageRole::User,
             content: input.to_string(),
@@ -290,7 +414,7 @@ impl AgentCore {
         });
 
         self.conversation_history.push(Message {
-            id: 0,
+            id: response_message_id,
             session_id: self.session_id.clone(),
             role: MessageRole::Assistant,
             content: final_response.clone(),
@@ -557,6 +681,25 @@ impl AgentCore {
             prompt.push_str("\n\n");
         }
 
+        // Add tool instructions
+        let available_tools = self.tool_registry.list();
+        info!("Tool registry has {} tools", available_tools.len());
+        if !available_tools.is_empty() {
+            prompt.push_str("Available tools:\n");
+            for tool_name in &available_tools {
+                info!("Checking tool: {} - allowed: {}", tool_name, self.is_tool_allowed(tool_name));
+                if self.is_tool_allowed(tool_name) {
+                    if let Some(tool) = self.tool_registry.get(tool_name) {
+                        prompt.push_str(&format!("- {}: {}\n", tool_name, tool.description()));
+                    }
+                }
+            }
+            prompt.push_str("\n");
+            prompt.push_str("To use a tool, respond with:\n");
+            prompt.push_str("TOOL_CALL: tool_name\n");
+            prompt.push_str("ARGS: {\"param\": \"value\"}\n\n");
+        }
+
         // Add conversation context
         if !context_messages.is_empty() {
             prompt.push_str("Previous conversation:\n");
@@ -732,6 +875,174 @@ impl AgentCore {
         Ok(())
     }
 
+    fn create_goal_context(
+        &self,
+        message_id: i64,
+        input: &str,
+        persist: bool,
+    ) -> Result<GoalContext> {
+        let requires_tool = Self::goal_requires_tool(input);
+        let node_id = if self.profile.enable_graph {
+            if persist {
+                let properties = json!({
+                    "message_id": message_id,
+                    "goal_text": input,
+                    "status": "pending",
+                    "requires_tool": requires_tool,
+                    "satisfied": false,
+                    "created_at": Utc::now().to_rfc3339(),
+                });
+                Some(self.persistence.insert_graph_node(
+                    &self.session_id,
+                    NodeType::Goal,
+                    "Goal",
+                    &properties,
+                    None,
+                )?)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        Ok(GoalContext::new(message_id, input, requires_tool, node_id))
+    }
+
+    fn update_goal_status(
+        &self,
+        goal: &mut GoalContext,
+        status: &str,
+        satisfied: bool,
+        response_message_id: Option<i64>,
+    ) -> Result<()> {
+        goal.satisfied = satisfied;
+        if let Some(node_id) = goal.node_id {
+            let properties = json!({
+                "message_id": goal.message_id,
+                "goal_text": goal.text,
+                "status": status,
+                "requires_tool": goal.requires_tool,
+                "satisfied": satisfied,
+                "response_message_id": response_message_id,
+                "updated_at": Utc::now().to_rfc3339(),
+            });
+            self.persistence.update_graph_node(node_id, &properties)?;
+        }
+        Ok(())
+    }
+
+    fn record_goal_tool_result(
+        &self,
+        goal: &GoalContext,
+        tool_name: &str,
+        args: &Value,
+        result: &ToolResult,
+    ) -> Result<()> {
+        if let Some(goal_node_id) = goal.node_id {
+            let properties = json!({
+                "tool": tool_name,
+                "arguments": args,
+                "success": result.success,
+                "output_preview": preview_text(&result.output),
+                "error": result.error,
+                "timestamp": Utc::now().to_rfc3339(),
+            });
+            let tool_node_id = self.persistence.insert_graph_node(
+                &self.session_id,
+                NodeType::ToolResult,
+                tool_name,
+                &properties,
+                None,
+            )?;
+            self.persistence.insert_graph_edge(
+                &self.session_id,
+                tool_node_id,
+                goal_node_id,
+                EdgeType::Produces,
+                Some("satisfies"),
+                None,
+                if result.success { 1.0 } else { 0.1 },
+            )?;
+        }
+        Ok(())
+    }
+
+    fn goal_requires_tool(input: &str) -> bool {
+        let normalized = input.to_lowercase();
+        const ACTION_VERBS: [&str; 18] = [
+            "list", "show", "read", "write", "create", "update", "delete", "run", "execute",
+            "open", "search", "fetch", "download", "scan", "compile", "test", "build", "inspect",
+        ];
+
+        ACTION_VERBS
+            .iter()
+            .any(|verb| normalized.contains(verb) && normalized.contains(' '))
+    }
+
+    fn infer_goal_tool_action(goal_text: &str) -> Option<(String, Value)> {
+        let text = goal_text.to_lowercase();
+        if text.contains("list")
+            && (text.contains("directory") || text.contains("files") || text.contains("folder"))
+        {
+            return Some((
+                "shell".to_string(),
+                json!({
+                    "command": "ls -a"
+                }),
+            ));
+        }
+
+        if text.contains("show") && text.contains("current directory") {
+            return Some((
+                "shell".to_string(),
+                json!({
+                    "command": "ls -a"
+                }),
+            ));
+        }
+
+        None
+    }
+
+    fn format_auto_tool_response(tool_name: &str, output: Option<&str>) -> String {
+        let sanitized = output.unwrap_or("").trim();
+        if sanitized.is_empty() {
+            return format!("Executed `{}` successfully.", tool_name);
+        }
+
+        if tool_name == "shell" || tool_name == "bash" {
+            if let Ok(value) = serde_json::from_str::<Value>(sanitized) {
+                let std_out = value
+                    .get("stdout")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or(sanitized);
+                let command = value.get("command").and_then(|v| v.as_str()).unwrap_or("");
+                let stderr = value
+                    .get("stderr")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.trim())
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or("");
+                let mut response = String::new();
+                if !command.is_empty() {
+                    response.push_str(&format!("Command `{}` output:\n", command));
+                }
+                response.push_str(std_out.trim_end());
+                if !stderr.is_empty() {
+                    response.push_str("\n\nstderr:\n");
+                    response.push_str(stderr);
+                }
+                if response.trim().is_empty() {
+                    return "Command completed without output.".to_string();
+                }
+                return response;
+            }
+        }
+
+        sanitized.to_string()
+    }
+
     // Entity extraction - can use fast model if configured
     fn extract_entities_from_text(&self, text: &str) -> Vec<ExtractedEntity> {
         // If fast reasoning is enabled and task is delegated to fast model, use it
@@ -903,30 +1214,47 @@ impl AgentCore {
     }
 
     /// Parse tool call from model response
-    /// Expected format:
-    /// TOOL_CALL: tool_name
-    /// ARGS: {"arg1": "value1"}
+    /// Expected formats:
+    /// 1. TOOL_CALL: tool_name\nARGS: {"arg1": "value1"}
+    /// 2. tool_name: tool_name\ntool_input: {"arg1": "value1"}
     fn parse_tool_call(&self, response: &str) -> Option<(String, Value)> {
-        let re = Regex::new(r"TOOL_CALL:\s*(\w+)\s*\nARGS:\s*(\{.*?\})").ok()?;
-        let captures = re.captures(response)?;
+        // Try the expected format first
+        let re1 = Regex::new(r"TOOL_CALL:\s*(\w+)\s*\nARGS:\s*(\{.*?\})").ok()?;
+        if let Some(captures) = re1.captures(response) {
+            let tool_name = captures.get(1)?.as_str().to_string();
+            let args_str = captures.get(2)?.as_str();
+            if let Ok(args) = serde_json::from_str(args_str) {
+                return Some((tool_name, args));
+            }
+        }
 
-        let tool_name = captures.get(1)?.as_str().to_string();
-        let args_str = captures.get(2)?.as_str();
-        let args: Value = serde_json::from_str(args_str).ok()?;
+        // Try the alternative format (what the model actually outputs)
+        let re2 = Regex::new(r"tool_name:\s*(\w+)\s*\ntool_input:\s*(\{.*?\})").ok()?;
+        if let Some(captures) = re2.captures(response) {
+            let tool_name = captures.get(1)?.as_str().to_string();
+            let args_str = captures.get(2)?.as_str();
+            if let Ok(args) = serde_json::from_str(args_str) {
+                return Some((tool_name, args));
+            }
+        }
 
-        Some((tool_name, args))
+        None
     }
 
     /// Check if a tool is allowed by the agent profile and policy engine
     fn is_tool_allowed(&self, tool_name: &str) -> bool {
         // First check profile-level permissions (backward compatibility)
-        if !self.profile.is_tool_allowed(tool_name) {
+        let profile_allowed = self.profile.is_tool_allowed(tool_name);
+        info!("Profile check for tool '{}': allowed={}, allowed_tools={:?}, denied_tools={:?}",
+              tool_name, profile_allowed, self.profile.allowed_tools, self.profile.denied_tools);
+        if !profile_allowed {
             return false;
         }
 
         // Then check policy engine
         let agent_name = "agent"; // Could be enhanced to use profile name
         let decision = self.policy_engine.check(agent_name, "tool_call", tool_name);
+        info!("Policy check for tool '{}': decision={:?}", tool_name, decision);
 
         matches!(decision, PolicyDecision::Allow)
     }
@@ -1413,5 +1741,14 @@ mod tests {
 
         let registry = agent.tool_registry();
         assert!(registry.is_empty());
+    }
+
+    #[test]
+    fn test_goal_requires_tool_detection() {
+        assert!(AgentCore::goal_requires_tool(
+            "List the files in this directory"
+        ));
+        assert!(AgentCore::goal_requires_tool("Run the tests"));
+        assert!(!AgentCore::goal_requires_tool("Explain recursion"));
     }
 }

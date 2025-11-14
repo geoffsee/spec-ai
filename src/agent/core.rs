@@ -703,6 +703,12 @@ impl AgentCore {
             prompt.push_str("To use a tool, respond with:\n");
             prompt.push_str("TOOL_CALL: tool_name\n");
             prompt.push_str("ARGS: {\"param\": \"value\"}\n\n");
+
+            // Add specific parameter hints for file_write tool
+            if available_tools.iter().any(|t| t.to_string() == "file_write" && self.is_tool_allowed(t)) {
+                prompt.push_str("For file_write, use: ARGS: {\"path\": \"filename\", \"content\": \"file content\"}\n");
+                prompt.push_str("Example: TOOL_CALL: file_write\nARGS: {\"path\": \"example.py\", \"content\": \"print('hello')\"}\n\n");
+            }
         }
 
         // Add conversation context

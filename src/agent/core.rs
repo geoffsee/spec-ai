@@ -687,7 +687,11 @@ impl AgentCore {
         if !available_tools.is_empty() {
             prompt.push_str("Available tools:\n");
             for tool_name in &available_tools {
-                info!("Checking tool: {} - allowed: {}", tool_name, self.is_tool_allowed(tool_name));
+                info!(
+                    "Checking tool: {} - allowed: {}",
+                    tool_name,
+                    self.is_tool_allowed(tool_name)
+                );
                 if self.is_tool_allowed(tool_name) {
                     if let Some(tool) = self.tool_registry.get(tool_name) {
                         prompt.push_str(&format!("- {}: {}\n", tool_name, tool.description()));
@@ -1245,8 +1249,10 @@ impl AgentCore {
     fn is_tool_allowed(&self, tool_name: &str) -> bool {
         // First check profile-level permissions (backward compatibility)
         let profile_allowed = self.profile.is_tool_allowed(tool_name);
-        info!("Profile check for tool '{}': allowed={}, allowed_tools={:?}, denied_tools={:?}",
-              tool_name, profile_allowed, self.profile.allowed_tools, self.profile.denied_tools);
+        info!(
+            "Profile check for tool '{}': allowed={}, allowed_tools={:?}, denied_tools={:?}",
+            tool_name, profile_allowed, self.profile.allowed_tools, self.profile.denied_tools
+        );
         if !profile_allowed {
             return false;
         }
@@ -1254,7 +1260,10 @@ impl AgentCore {
         // Then check policy engine
         let agent_name = "agent"; // Could be enhanced to use profile name
         let decision = self.policy_engine.check(agent_name, "tool_call", tool_name);
-        info!("Policy check for tool '{}': decision={:?}", tool_name, decision);
+        info!(
+            "Policy check for tool '{}': decision={:?}",
+            tool_name, decision
+        );
 
         matches!(decision, PolicyDecision::Allow)
     }

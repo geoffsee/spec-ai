@@ -5,12 +5,16 @@
 use crate::agent::core::AgentCore;
 use crate::agent::factory::{create_provider, resolve_api_key};
 use crate::agent::model::ModelProvider;
+#[cfg(feature = "mlx")]
+use crate::agent::model::ProviderKind;
 use crate::config::{AgentProfile, AgentRegistry, AppConfig, ModelConfig};
 use crate::embeddings::EmbeddingsClient;
 use crate::persistence::Persistence;
 use crate::policy::PolicyEngine;
 use crate::tools::ToolRegistry;
 use anyhow::{Context, Result, anyhow};
+#[cfg(feature = "mlx")]
+use async_openai::config::OpenAIConfig;
 use std::sync::Arc;
 use tracing::{info, warn};
 
@@ -154,7 +158,10 @@ impl AgentBuilder {
         let tool_registry = self.tool_registry.unwrap_or_else(|| {
             let persistence_arc = Arc::new(persistence.clone());
             let registry = ToolRegistry::with_builtin_tools(Some(persistence_arc));
-            info!("Created tool registry with {} builtin tools", registry.len());
+            info!(
+                "Created tool registry with {} builtin tools",
+                registry.len()
+            );
             for tool_name in registry.list() {
                 info!("  - Registered tool: {}", tool_name);
             }
@@ -264,6 +271,13 @@ fn create_embeddings_client_from_config(config: &AppConfig) -> Result<Option<Emb
         return Ok(None);
     };
 
+    #[cfg(feature = "mlx")]
+    {
+        if ProviderKind::from_str(&model.provider) == Some(ProviderKind::MLX) {
+            return Ok(Some(build_mlx_embeddings_client(model_name)));
+        }
+    }
+
     let client = if let Some(source) = &model.api_key_source {
         let api_key = resolve_api_key(source)?;
         EmbeddingsClient::with_api_key(model_name.clone(), api_key)
@@ -272,6 +286,23 @@ fn create_embeddings_client_from_config(config: &AppConfig) -> Result<Option<Emb
     };
 
     Ok(Some(client))
+}
+
+#[cfg(feature = "mlx")]
+fn build_mlx_embeddings_client(model_name: &str) -> EmbeddingsClient {
+    let endpoint =
+        std::env::var("MLX_ENDPOINT").unwrap_or_else(|_| "http://localhost:10240".to_string());
+    let api_base = if endpoint.ends_with("/v1") {
+        endpoint
+    } else {
+        format!("{}/v1", endpoint)
+    };
+
+    let config = OpenAIConfig::new()
+        .with_api_base(api_base)
+        .with_api_key("mlx-key");
+
+    EmbeddingsClient::with_config(model_name.to_string(), config)
 }
 
 #[cfg(test)]

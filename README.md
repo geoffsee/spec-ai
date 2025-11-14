@@ -4,6 +4,10 @@ A "production-quality", completely vibe coded, agentic AI CLI built in Rust with
 
 ## Quick Start
 
+```shell
+cargo binstall spec-ai
+```
+
 ### Installation
 
 ```bash

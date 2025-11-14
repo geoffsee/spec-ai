@@ -10,6 +10,7 @@ use crate::policy::{PolicyDecision, PolicyEngine};
 use crate::tools::{ToolRegistry, ToolResult};
 use crate::types::{EdgeType, Message, MessageRole, NodeType, TraversalDirection};
 use anyhow::{Context, Result};
+use std::path::Path;
 use chrono::Utc;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -420,6 +421,23 @@ impl AgentCore {
             content: final_response.clone(),
             created_at: Utc::now(),
         });
+
+        // Step 7: Re-evaluate knowledge graph to recommend next action
+        let next_action_recommendation = if self.profile.enable_graph {
+            self.evaluate_graph_for_next_action(
+                user_message_id,
+                response_message_id,
+                &final_response,
+                &tool_invocations,
+            )?
+        } else {
+            None
+        };
+
+        // Log the recommendation if available
+        if let Some(ref recommendation) = next_action_recommendation {
+            info!("Knowledge graph recommends next action: {}", recommendation);
+        }
 
         Ok(AgentOutput {
             response: final_response,
@@ -988,13 +1006,92 @@ impl AgentCore {
             "open", "search", "fetch", "download", "scan", "compile", "test", "build", "inspect",
         ];
 
-        ACTION_VERBS
+        if ACTION_VERBS
             .iter()
             .any(|verb| normalized.contains(verb) && normalized.contains(' '))
+        {
+            return true;
+        }
+
+        // Treat common "what is the project here" style questions
+        // as requiring a tool so the agent can inspect the local workspace.
+        let mentions_local_context = normalized.contains("this directory")
+            || normalized.contains("current directory")
+            || normalized.contains("this folder")
+            || normalized.contains("here");
+
+        let mentions_project = normalized.contains("this project")
+            || normalized.contains("this repo")
+            || normalized.contains("this repository")
+            || normalized.contains("this codebase")
+            // e.g., "project in this directory", "repo in the current directory"
+            || ((normalized.contains("project")
+                || normalized.contains("repo")
+                || normalized.contains("repository")
+                || normalized.contains("codebase"))
+                && mentions_local_context);
+
+        let asks_about_project = normalized.contains("what can")
+            || normalized.contains("what is")
+            || normalized.contains("what does")
+            || normalized.contains("tell me")
+            || normalized.contains("describe")
+            || normalized.contains("about");
+
+        mentions_project && asks_about_project
     }
 
     fn infer_goal_tool_action(goal_text: &str) -> Option<(String, Value)> {
         let text = goal_text.to_lowercase();
+
+        // Handle project/repo description requests by reading the README when available
+        let mentions_local_context = text.contains("this directory")
+            || text.contains("current directory")
+            || text.contains("this folder")
+            || text.contains("here");
+
+        let mentions_project = text.contains("this project")
+            || text.contains("this repo")
+            || text.contains("this repository")
+            || text.contains("this codebase")
+            || ((text.contains("project")
+                || text.contains("repo")
+                || text.contains("repository")
+                || text.contains("codebase"))
+                && mentions_local_context);
+
+        let asks_about_project = text.contains("what can")
+            || text.contains("what is")
+            || text.contains("what does")
+            || text.contains("tell me")
+            || text.contains("describe")
+            || text.contains("about");
+
+        if mentions_project && asks_about_project {
+            // Prefer a README file if present in the current directory
+            for candidate in &["README.md", "Readme.md", "readme.md"] {
+                if Path::new(candidate).exists() {
+                    return Some((
+                        "file_read".to_string(),
+                        json!({
+                            "path": candidate,
+                            "max_bytes": 65536
+                        }),
+                    ));
+                }
+            }
+
+            // Fallback: scan common manifest files to infer project type
+            return Some((
+                "search".to_string(),
+                json!({
+                    "query": "Cargo.toml|package.json|pyproject.toml|setup.py",
+                    "regex": true,
+                    "case_sensitive": false,
+                    "max_results": 20
+                }),
+            ));
+        }
 
         // Handle directory listing requests
         if text.contains("list")
@@ -1027,6 +1124,77 @@ impl AgentCore {
         let sanitized = output.unwrap_or("").trim();
         if sanitized.is_empty() {
             return format!("Executed `{}` successfully.", tool_name);
+        }
+
+        if tool_name == "file_read" {
+            if let Ok(value) = serde_json::from_str::<Value>(sanitized) {
+                let path = value
+                    .get("path")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("file");
+                let content = value
+                    .get("content")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+
+                // Truncate very large files for display
+                let max_chars = 4000;
+                let display_content = if content.len() > max_chars {
+                    let mut snippet = content[..max_chars].to_string();
+                    snippet.push_str("\n...\n[truncated]");
+                    snippet
+                } else {
+                    content.to_string()
+                };
+
+                return format!("Contents of {}:\n{}", path, display_content);
+            }
+        }
+
+        if tool_name == "search" {
+            if let Ok(value) = serde_json::from_str::<Value>(sanitized) {
+                let query = value
+                    .get("query")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+
+                if let Some(results) = value.get("results").and_then(|v| v.as_array()) {
+                    if results.is_empty() {
+                        return if query.is_empty() {
+                            "Search returned no results.".to_string()
+                        } else {
+                            format!("Search for {:?} returned no results.", query)
+                        };
+                    }
+
+                    let mut lines = Vec::new();
+                    if query.is_empty() {
+                        lines.push("Search results:".to_string());
+                    } else {
+                        lines.push(format!("Search results for {:?}:", query));
+                    }
+
+                    for entry in results.iter().take(5) {
+                        let path = entry
+                            .get("path")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("<unknown>");
+                        let line = entry
+                            .get("line")
+                            .and_then(|v| v.as_u64())
+                            .unwrap_or(0);
+                        let snippet = entry
+                            .get("snippet")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .replace('\n', " ");
+
+                        lines.push(format!("- {}:{} - {}", path, line, snippet));
+                    }
+
+                    return lines.join("\n");
+                }
+            }
         }
 
         if tool_name == "shell" || tool_name == "bash" {
@@ -1335,6 +1503,263 @@ impl AgentCore {
     /// Set a new policy engine (useful for reloading policies)
     pub fn set_policy_engine(&mut self, policy_engine: Arc<PolicyEngine>) {
         self.policy_engine = policy_engine;
+    }
+
+    /// Evaluate the knowledge graph to recommend a next action based on context
+    fn evaluate_graph_for_next_action(
+        &self,
+        user_message_id: i64,
+        assistant_message_id: i64,
+        response_content: &str,
+        tool_invocations: &[ToolInvocation],
+    ) -> Result<Option<String>> {
+        // Find the assistant message node in the graph
+        let nodes = self.persistence.list_graph_nodes(
+            &self.session_id,
+            Some(NodeType::Message),
+            Some(50),
+        )?;
+
+        let mut assistant_node_id = None;
+        let mut _user_node_id = None;
+
+        for node in &nodes {
+            if let Some(msg_id) = node.properties["message_id"].as_i64() {
+                if msg_id == assistant_message_id {
+                    assistant_node_id = Some(node.id);
+                } else if msg_id == user_message_id {
+                    _user_node_id = Some(node.id);
+                }
+            }
+        }
+
+        if assistant_node_id.is_none() {
+            debug!("Assistant message node not found in graph");
+            return Ok(None);
+        }
+
+        let assistant_node_id = assistant_node_id.unwrap();
+
+        // Analyze the graph context around the current conversation
+        let neighbors = self.persistence.traverse_neighbors(
+            &self.session_id,
+            assistant_node_id,
+            TraversalDirection::Both,
+            2, // Look 2 hops away
+        )?;
+
+        // Analyze goals in the graph
+        let goal_nodes = self.persistence.list_graph_nodes(
+            &self.session_id,
+            Some(NodeType::Goal),
+            Some(10),
+        )?;
+
+        let mut pending_goals = Vec::new();
+        let mut completed_goals = Vec::new();
+
+        for goal in &goal_nodes {
+            if let Some(status) = goal.properties["status"].as_str() {
+                match status {
+                    "pending" | "in_progress" => {
+                        if let Some(goal_text) = goal.properties["goal_text"].as_str() {
+                            pending_goals.push(goal_text.to_string());
+                        }
+                    }
+                    "completed" => {
+                        if let Some(goal_text) = goal.properties["goal_text"].as_str() {
+                            completed_goals.push(goal_text.to_string());
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // Analyze tool results in the graph
+        let tool_nodes = self.persistence.list_graph_nodes(
+            &self.session_id,
+            Some(NodeType::ToolResult),
+            Some(10),
+        )?;
+
+        let mut recent_tool_failures = Vec::new();
+        let mut recent_tool_successes = Vec::new();
+
+        for tool_node in &tool_nodes {
+            if let Some(success) = tool_node.properties["success"].as_bool() {
+                let tool_name = tool_node.properties["tool"]
+                    .as_str()
+                    .unwrap_or("unknown");
+                if success {
+                    recent_tool_successes.push(tool_name.to_string());
+                } else {
+                    recent_tool_failures.push(tool_name.to_string());
+                }
+            }
+        }
+
+        // Analyze entities and concepts in the graph
+        let mut key_entities = HashSet::new();
+        let mut key_concepts = HashSet::new();
+
+        for neighbor in &neighbors {
+            match neighbor.node_type {
+                NodeType::Entity => {
+                    if let Some(name) = neighbor.properties["name"].as_str() {
+                        key_entities.insert(name.to_string());
+                    }
+                }
+                NodeType::Concept => {
+                    if let Some(name) = neighbor.properties["name"].as_str() {
+                        key_concepts.insert(name.to_string());
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // Generate recommendation based on graph analysis
+        let recommendation = self.generate_action_recommendation(
+            &pending_goals,
+            &completed_goals,
+            &recent_tool_failures,
+            &recent_tool_successes,
+            &key_entities,
+            &key_concepts,
+            response_content,
+            tool_invocations,
+        );
+
+        // If we have a recommendation, create a node for it
+        if let Some(ref rec) = recommendation {
+            let properties = json!({
+                "recommendation": rec,
+                "user_message_id": user_message_id,
+                "assistant_message_id": assistant_message_id,
+                "pending_goals": pending_goals,
+                "completed_goals": completed_goals,
+                "tool_failures": recent_tool_failures,
+                "tool_successes": recent_tool_successes,
+                "key_entities": key_entities.into_iter().collect::<Vec<_>>(),
+                "key_concepts": key_concepts.into_iter().collect::<Vec<_>>(),
+                "timestamp": Utc::now().to_rfc3339(),
+            });
+
+            let rec_node_id = self.persistence.insert_graph_node(
+                &self.session_id,
+                NodeType::Event,
+                "NextActionRecommendation",
+                &properties,
+                None,
+            )?;
+
+            // Link recommendation to assistant message
+            self.persistence.insert_graph_edge(
+                &self.session_id,
+                assistant_node_id,
+                rec_node_id,
+                EdgeType::Produces,
+                Some("recommends"),
+                None,
+                0.8,
+            )?;
+        }
+
+        Ok(recommendation)
+    }
+
+    /// Generate an action recommendation based on graph analysis
+    fn generate_action_recommendation(
+        &self,
+        pending_goals: &[String],
+        completed_goals: &[String],
+        recent_tool_failures: &[String],
+        _recent_tool_successes: &[String],
+        _key_entities: &HashSet<String>,
+        key_concepts: &HashSet<String>,
+        response_content: &str,
+        tool_invocations: &[ToolInvocation],
+    ) -> Option<String> {
+        let mut recommendations = Vec::new();
+
+        // Check for pending goals that need attention
+        if !pending_goals.is_empty() {
+            let goals_str = pending_goals.join(", ");
+            recommendations.push(format!(
+                "Continue working on pending goals: {}",
+                goals_str
+            ));
+        }
+
+        // Check for tool failures that might need retry or alternative approach
+        if !recent_tool_failures.is_empty() {
+            let unique_failures: HashSet<_> = recent_tool_failures.iter().collect();
+            for tool in unique_failures {
+                recommendations.push(format!(
+                    "Consider alternative approach for failed tool: {}",
+                    tool
+                ));
+            }
+        }
+
+        // Analyze response content for questions or uncertainties
+        let response_lower = response_content.to_lowercase();
+        if response_lower.contains("error") || response_lower.contains("failed") {
+            recommendations.push("Investigate and resolve the reported error".to_string());
+        }
+
+        if response_lower.contains("?") || response_lower.contains("unclear") {
+            recommendations.push("Clarify the uncertain aspects mentioned".to_string());
+        }
+
+        // Check if recent tools suggest a workflow pattern
+        if tool_invocations.len() > 1 {
+            let tool_sequence: Vec<_> = tool_invocations
+                .iter()
+                .map(|t| t.name.as_str())
+                .collect();
+
+            // Common patterns
+            if tool_sequence.contains(&"file_read") && !tool_sequence.contains(&"file_write") {
+                recommendations.push("Consider modifying the read files if changes are needed".to_string());
+            }
+
+            if tool_sequence.contains(&"search") && tool_invocations.last().map_or(false, |t| t.success) {
+                recommendations.push("Examine the search results for relevant information".to_string());
+            }
+        }
+
+        // Analyze key concepts for domain-specific recommendations
+        if key_concepts.contains("Knowledge Graph") || key_concepts.contains("Graph Node") {
+            recommendations.push("Consider visualizing or querying the graph structure".to_string());
+        }
+
+        if key_concepts.contains("Database") || key_concepts.contains("Query Processing") {
+            recommendations.push("Verify data integrity and query performance".to_string());
+        }
+
+        // If we have both completed and pending goals, suggest prioritization
+        if !completed_goals.is_empty() && !pending_goals.is_empty() {
+            recommendations.push(format!(
+                "Build on completed work ({} done) to address remaining goals ({} pending)",
+                completed_goals.len(),
+                pending_goals.len()
+            ));
+        }
+
+        // Select the most relevant recommendation
+        if recommendations.is_empty() {
+            // No specific recommendation - check if conversation seems complete
+            if completed_goals.len() > pending_goals.len() && recent_tool_failures.is_empty() {
+                Some("Current objectives appear satisfied. Ready for new tasks or refinements.".to_string())
+            } else {
+                None
+            }
+        } else {
+            // Return the first (highest priority) recommendation
+            Some(recommendations[0].clone())
+        }
     }
 }
 
@@ -1775,5 +2200,25 @@ mod tests {
         ));
         assert!(AgentCore::goal_requires_tool("Run the tests"));
         assert!(!AgentCore::goal_requires_tool("Explain recursion"));
+        assert!(AgentCore::goal_requires_tool(
+            "Tell me about the project in this directory"
+        ));
+    }
+
+    #[test]
+    fn test_infer_goal_tool_action_project_description() {
+        let query = "Tell me about the project in this directory";
+        let inferred = AgentCore::infer_goal_tool_action(query).expect("Should infer a tool for project description");
+        let (tool, args) = inferred;
+        assert!(tool == "file_read" || tool == "search", "unexpected tool: {}", tool);
+        if tool == "file_read" {
+            // Should include a path and max_bytes
+            assert!(args.get("path").is_some());
+            assert!(args.get("max_bytes").is_some());
+        } else {
+            // search path: should include regex query for common manifests
+            let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
+            assert!(query.contains("Cargo.toml") || query.contains("package.json"));
+        }
     }
 }

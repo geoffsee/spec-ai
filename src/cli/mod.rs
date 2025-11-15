@@ -3,6 +3,7 @@
 pub mod formatting;
 
 use anyhow::{Context, Result};
+use std::path::{Path, PathBuf};
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 use crate::agent::core::MemoryRecallStrategy;
@@ -10,6 +11,7 @@ use crate::agent::{AgentBuilder, AgentCore, AgentOutput};
 use crate::config::{AgentProfile, AgentRegistry, AppConfig};
 use crate::persistence::Persistence;
 use crate::policy::PolicyEngine;
+use crate::spec::AgentSpec;
 use terminal_size::terminal_size;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,6 +33,7 @@ pub enum Command {
     GraphStatus,
     GraphShow(Option<usize>),
     GraphClear,
+    RunSpec(PathBuf),
     Message(String),
     Empty,
 }
@@ -99,6 +102,24 @@ pub fn parse_command(input: &str) -> Command {
                 Some("clear") => Command::GraphClear,
                 _ => Command::Help,
             },
+            "spec" => {
+                let args: Vec<&str> = parts.collect();
+                if args.is_empty() {
+                    Command::Help
+                } else {
+                    let (path_parts, _explicit_run) = if args[0].eq_ignore_ascii_case("run") {
+                        (args[1..].to_vec(), true)
+                    } else {
+                        (args, false)
+                    };
+                    if path_parts.is_empty() {
+                        Command::Help
+                    } else {
+                        let path = path_parts.join(" ");
+                        Command::RunSpec(PathBuf::from(path))
+                    }
+                }
+            }
             _ => Command::Help,
         }
     } else {
@@ -378,6 +399,10 @@ impl CliState {
                     count, session_id
                 )))
             }
+            Command::RunSpec(path) => {
+                let output = self.run_spec_command(&path).await?;
+                Ok(Some(output))
+            }
             Command::Message(text) => {
                 let output = self.agent.run_step(&text).await?;
                 self.update_reasoning_messages(&output);
@@ -423,6 +448,32 @@ impl CliState {
             }
         }
         Ok(())
+    }
+
+    async fn run_spec_command(&mut self, path: &Path) -> Result<String> {
+        let spec = AgentSpec::from_file(path)?;
+        let mut intro = format!("Executing spec `{}`", spec.display_name());
+        if let Some(source) = spec.source_path() {
+            intro.push_str(&format!(" ({})", source.display()));
+        }
+        intro.push('\n');
+
+        let preview = spec.preview();
+        if !preview.is_empty() {
+            intro.push('\n');
+            intro.push_str(&preview);
+            intro.push_str("\n\n");
+        }
+
+        let output = self.agent.run_spec(&spec).await?;
+        self.update_reasoning_messages(&output);
+        intro.push_str(&formatting::render_agent_response("assistant", &output.response));
+        if let Some(stats) = formatting::render_run_stats(&output) {
+            intro.push('\n');
+            intro.push_str(&stats);
+        }
+
+        Ok(intro)
     }
 
     fn update_reasoning_messages(&mut self, output: &AgentOutput) {
@@ -529,6 +580,7 @@ mod tests {
     use crate::config::{DatabaseConfig, LoggingConfig, ModelConfig, UiConfig};
     use serde_json::json;
     use std::collections::HashMap;
+    use std::path::PathBuf;
     use tempfile::tempdir;
 
     #[test]
@@ -556,6 +608,14 @@ mod tests {
         assert_eq!(
             parse_command("/session switch abc"),
             Command::SessionSwitch("abc".into())
+        );
+        assert_eq!(
+            parse_command("/spec run plan.spec"),
+            Command::RunSpec(PathBuf::from("plan.spec"))
+        );
+        assert_eq!(
+            parse_command("/spec nested/path/my.spec"),
+            Command::RunSpec(PathBuf::from("nested/path/my.spec"))
         );
         assert_eq!(parse_command("hello"), Command::Message("hello".into()));
         assert_eq!(parse_command("   "), Command::Empty);

@@ -7,6 +7,7 @@ use crate::config::agent::AgentProfile;
 use crate::embeddings::EmbeddingsClient;
 use crate::persistence::Persistence;
 use crate::policy::{PolicyDecision, PolicyEngine};
+use crate::spec::AgentSpec;
 use crate::tools::{ToolRegistry, ToolResult};
 use crate::types::{EdgeType, Message, MessageRole, NodeType, TraversalDirection};
 use anyhow::{Context, Result};
@@ -503,6 +504,17 @@ impl AgentCore {
             run_id,
             next_action: next_action_recommendation,
         })
+    }
+
+    /// Execute a structured spec by converting it into a single prompt.
+    pub async fn run_spec(&mut self, spec: &AgentSpec) -> Result<AgentOutput> {
+        debug!(
+            "Executing structured spec '{}' (source: {:?})",
+            spec.display_name(),
+            spec.source_path()
+        );
+        let prompt = spec.to_prompt();
+        self.run_step(&prompt).await
     }
 
     /// Build generation configuration from profile

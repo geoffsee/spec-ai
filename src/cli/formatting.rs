@@ -306,6 +306,13 @@ AI reasoning with graph-based memory:
 - **`/graph show [N]`** — Display last N graph nodes (default: 10)
 - **`/graph clear`** — Clear graph for current session
 
+## Spec Runs
+Execute structured `.spec` files with clear goals:
+
+- **`/spec run <file>`** — Load and execute a TOML spec (extension must be `.spec`)
+- **`/spec <file>`** — Shorthand for `/spec run <file>`
+  - Specs must define a `goal` and at least one `tasks` or `deliverables` entry
+
 ## General Commands
 - **`/help`** — Show this help message
 - **`/quit`** or **`/exit`** — Exit the REPL

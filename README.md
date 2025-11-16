@@ -1,6 +1,6 @@
-# SpecAI - Agent CLI
+# spec-ai
 
-A "production-quality", completely vibe coded, agentic AI CLI built in Rust with persistent state, flexible configuration, and extensible architecture.
+An agentic AI CLI tool written in Rust.
 
 ## Quick Start
 

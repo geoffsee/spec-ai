@@ -4,17 +4,17 @@
 //! MLX provides local inference on Apple Silicon with an OpenAI-compatible server.
 
 use crate::agent::model::{
-    GenerationConfig, ModelProvider, ModelResponse, ProviderKind, ProviderMetadata, TokenUsage,
-    parse_thinking_tokens,
+    parse_thinking_tokens, GenerationConfig, ModelProvider, ModelResponse, ProviderKind,
+    ProviderMetadata, TokenUsage,
 };
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use async_openai::{
-    Client,
     config::OpenAIConfig,
     types::{
         ChatCompletionRequestMessage, ChatCompletionRequestSystemMessageArgs,
         ChatCompletionRequestUserMessageArgs, CreateChatCompletionRequestArgs,
     },
+    Client,
 };
 use async_stream::stream;
 use async_trait::async_trait;

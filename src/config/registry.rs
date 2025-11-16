@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, anyhow};
+use anyhow::{anyhow, Context, Result};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
@@ -160,6 +160,11 @@ impl AgentRegistry {
     pub fn count(&self) -> usize {
         let agents = self.agents.read().unwrap();
         agents.len()
+    }
+
+    /// Get the shared persistence layer
+    pub fn persistence(&self) -> &Persistence {
+        &self.persistence
     }
 }
 

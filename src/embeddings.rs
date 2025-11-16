@@ -1,6 +1,6 @@
-use anyhow::{Context, Result, anyhow};
+use anyhow::{anyhow, Context, Result};
 use async_openai::{
-    Client as OpenAIClient, config::OpenAIConfig, types::CreateEmbeddingRequestArgs,
+    config::OpenAIConfig, types::CreateEmbeddingRequestArgs, Client as OpenAIClient,
 };
 use async_trait::async_trait;
 use std::sync::Arc;

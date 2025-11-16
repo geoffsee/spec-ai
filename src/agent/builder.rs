@@ -12,7 +12,7 @@ use crate::embeddings::EmbeddingsClient;
 use crate::persistence::Persistence;
 use crate::policy::PolicyEngine;
 use crate::tools::ToolRegistry;
-use anyhow::{Context, Result, anyhow};
+use anyhow::{anyhow, Context, Result};
 #[cfg(feature = "mlx")]
 use async_openai::config::OpenAIConfig;
 use std::sync::Arc;
@@ -293,6 +293,7 @@ pub fn create_agent_from_registry(
     let mut builder = AgentBuilder::new()
         .with_profile(profile)
         .with_config(config.clone())
+        .with_persistence(registry.persistence().clone())
         .with_agent_name(agent_name.clone());
 
     if let Some(sid) = session_id {
@@ -467,13 +468,11 @@ mod tests {
             .build();
 
         assert!(result.is_err());
-        assert!(
-            result
-                .err()
-                .unwrap()
-                .to_string()
-                .contains("provider or config")
-        );
+        assert!(result
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("provider or config"));
     }
 
     #[test]

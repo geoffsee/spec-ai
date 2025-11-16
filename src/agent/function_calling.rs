@@ -4,7 +4,7 @@
 //! ChatCompletionTool format and parse function call responses from the SDK.
 
 use async_openai::types::{ChatCompletionTool, ChatCompletionToolType, FunctionObject};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 /// Converts parameters to OpenAI function schema format
 fn parameters_to_openai_schema(params: &Value) -> Value {

@@ -1,11 +1,11 @@
-use spec_ai::agent::AgentCore;
 use spec_ai::agent::providers::MockProvider;
+use spec_ai::agent::AgentCore;
 use spec_ai::config::AgentProfile;
 use spec_ai::persistence::Persistence;
 use spec_ai::policy::{PolicyDecision, PolicyEffect, PolicyEngine, PolicyRule};
 use spec_ai::tools::{
-    ToolRegistry,
     builtin::{EchoTool, MathTool},
+    ToolRegistry,
 };
 use std::sync::Arc;
 use tempfile::tempdir;

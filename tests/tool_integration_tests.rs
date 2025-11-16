@@ -2,8 +2,8 @@ use spec_ai::agent::builder::AgentBuilder;
 use spec_ai::agent::providers::MockProvider;
 use spec_ai::config::AgentProfile;
 use spec_ai::persistence::Persistence;
-use spec_ai::tools::ToolRegistry;
 use spec_ai::tools::builtin::{EchoTool, MathTool};
+use spec_ai::tools::ToolRegistry;
 use std::sync::Arc;
 use tempfile::tempdir;
 

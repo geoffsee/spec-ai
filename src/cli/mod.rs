@@ -651,9 +651,9 @@ impl CliState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agent::AgentOutput;
     use crate::agent::core::{MemoryRecallStats, MemoryRecallStrategy, ToolInvocation};
     use crate::agent::model::TokenUsage;
+    use crate::agent::AgentOutput;
     use crate::config::{DatabaseConfig, LoggingConfig, ModelConfig, UiConfig};
     use serde_json::json;
     use std::collections::HashMap;

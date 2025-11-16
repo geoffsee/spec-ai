@@ -13,7 +13,7 @@ use crate::types::{EdgeType, Message, MessageRole, NodeType, TraversalDirection}
 use anyhow::{Context, Result};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
@@ -189,6 +189,8 @@ pub struct AgentCore {
     tool_registry: Arc<ToolRegistry>,
     /// Policy engine for permission checks
     policy_engine: Arc<PolicyEngine>,
+    /// Cache for tool permission checks to avoid repeated lookups
+    tool_permission_cache: std::cell::RefCell<std::collections::HashMap<String, bool>>,
 }
 
 impl AgentCore {
@@ -214,6 +216,7 @@ impl AgentCore {
             conversation_history: Vec::new(),
             tool_registry,
             policy_engine,
+            tool_permission_cache: std::cell::RefCell::new(std::collections::HashMap::new()),
         }
     }
 
@@ -227,6 +230,7 @@ impl AgentCore {
     pub fn with_session(mut self, session_id: String) -> Self {
         self.session_id = session_id;
         self.conversation_history.clear();
+        self.tool_permission_cache.borrow_mut().clear();
         self
     }
 
@@ -374,6 +378,28 @@ impl AgentCore {
 
                 // Check for SDK-native tool calls (function calling)
                 let sdk_tool_calls = response.tool_calls.clone().unwrap_or_default();
+
+                // Early termination: if no tool calls and response is complete, break immediately
+                if sdk_tool_calls.is_empty() {
+                    // Check if finish_reason indicates completion
+                    let is_complete = finish_reason.as_ref().map_or(false, |reason| {
+                        let reason_lower = reason.to_lowercase();
+                        reason_lower.contains("stop")
+                            || reason_lower.contains("end_turn")
+                            || reason_lower.contains("complete")
+                            || reason_lower == "length"
+                    });
+
+                    // If no goal constraint requires tools, terminate early
+                    let goal_needs_tool = goal_context
+                        .as_ref()
+                        .map_or(false, |g| g.requires_tool && !g.satisfied);
+
+                    if is_complete && !goal_needs_tool {
+                        debug!("Early termination: response complete with no tool calls needed");
+                        break;
+                    }
+                }
 
                 if !sdk_tool_calls.is_empty() {
                     // Process all tool calls from SDK response
@@ -529,19 +555,21 @@ impl AgentCore {
         });
 
         // Step 7: Re-evaluate knowledge graph to recommend next action
-        let next_action_recommendation = if self.profile.enable_graph {
-            let graph_timer = Instant::now();
-            let recommendation = self.evaluate_graph_for_next_action(
-                user_message_id,
-                response_message_id,
-                &final_response,
-                &tool_invocations,
-            )?;
-            self.log_timing("run_step.evaluate_graph_for_next_action", graph_timer);
-            recommendation
-        } else {
-            None
-        };
+        // Skip graph evaluation for very short conversations (< 3 messages) as there's insufficient context
+        let next_action_recommendation =
+            if self.profile.enable_graph && self.conversation_history.len() >= 3 {
+                let graph_timer = Instant::now();
+                let recommendation = self.evaluate_graph_for_next_action(
+                    user_message_id,
+                    response_message_id,
+                    &final_response,
+                    &tool_invocations,
+                )?;
+                self.log_timing("run_step.evaluate_graph_for_next_action", graph_timer);
+                recommendation
+            } else {
+                None
+            };
 
         // Persist steering insight as a synthetic system message for future turns
         if let Some(ref recommendation) = next_action_recommendation {
@@ -712,12 +740,27 @@ impl AgentCore {
     /// Recall relevant memories for the given input
     async fn recall_memories(&self, query: &str) -> Result<RecallResult> {
         const RECENT_CONTEXT: i64 = 2;
+        // const MIN_MESSAGES_FOR_SEMANTIC_RECALL: usize = 3;
         let mut context = Vec::new();
         let mut seen_ids = HashSet::new();
 
         let recent_messages = self
             .persistence
             .list_messages(&self.session_id, RECENT_CONTEXT)?;
+
+        // Optimization: Skip semantic recall for very new sessions (first interaction only)
+        // This saves embedding generation time when there's insufficient history
+        if self.conversation_history.is_empty() && recent_messages.is_empty() {
+            return Ok(RecallResult {
+                messages: Vec::new(),
+                stats: Some(MemoryRecallStats {
+                    strategy: MemoryRecallStrategy::RecentContext {
+                        limit: RECENT_CONTEXT as usize,
+                    },
+                    matches: Vec::new(),
+                }),
+            });
+        }
 
         for message in recent_messages {
             seen_ids.insert(message.id);
@@ -1821,25 +1864,40 @@ impl AgentCore {
 
     /// Check if a tool is allowed by the agent profile and policy engine
     fn is_tool_allowed(&self, tool_name: &str) -> bool {
+        // Check cache first to avoid repeated permission lookups
+        {
+            let cache = self.tool_permission_cache.borrow();
+            if let Some(&allowed) = cache.get(tool_name) {
+                return allowed;
+            }
+        }
+
         // First check profile-level permissions (backward compatibility)
         let profile_allowed = self.profile.is_tool_allowed(tool_name);
-        info!(
+        debug!(
             "Profile check for tool '{}': allowed={}, allowed_tools={:?}, denied_tools={:?}",
             tool_name, profile_allowed, self.profile.allowed_tools, self.profile.denied_tools
         );
         if !profile_allowed {
+            self.tool_permission_cache
+                .borrow_mut()
+                .insert(tool_name.to_string(), false);
             return false;
         }
 
         // Then check policy engine
         let agent_name = self.agent_name.as_deref().unwrap_or("agent");
         let decision = self.policy_engine.check(agent_name, "tool_call", tool_name);
-        info!(
+        debug!(
             "Policy check for tool '{}': decision={:?}",
             tool_name, decision
         );
 
-        matches!(decision, PolicyDecision::Allow)
+        let allowed = matches!(decision, PolicyDecision::Allow);
+        self.tool_permission_cache
+            .borrow_mut()
+            .insert(tool_name.to_string(), allowed);
+        allowed
     }
 
     /// Execute a tool and log the result
@@ -2361,12 +2419,10 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(
-            output
-                .finish_reason
-                .unwrap_or_default()
-                .contains("fast_model")
-        );
+        assert!(output
+            .finish_reason
+            .unwrap_or_default()
+            .contains("fast_model"));
         assert!(output.response.contains("Entities detected"));
     }
 

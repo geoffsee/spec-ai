@@ -3,18 +3,19 @@ pub mod migrations;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use directories::BaseDirs;
-use duckdb::{Connection, params};
+use duckdb::{params, Connection};
 use serde_json::Value as JsonValue;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 use crate::types::{
     EdgeType, GraphEdge, GraphNode, GraphPath, MemoryVector, Message, MessageRole, NodeType,
     PolicyEntry, TraversalDirection,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Persistence {
-    db_path: PathBuf,
+    conn: Arc<Mutex<Connection>>,
 }
 
 impl Persistence {
@@ -26,7 +27,9 @@ impl Persistence {
         }
         let conn = Connection::open(&db_path).context("opening DuckDB")?;
         migrations::run(&conn).context("running migrations")?;
-        Ok(Self { db_path })
+        Ok(Self {
+            conn: Arc::new(Mutex::new(conn)),
+        })
     }
 
     /// Creates or opens the default database at ~/.agent_cli/agent_data.duckdb
@@ -36,10 +39,12 @@ impl Persistence {
         Self::new(path)
     }
 
-    /// Get a fresh blocking connection to the DuckDB database file.
-    /// This acts as a simple connection factory and can be used from `spawn_blocking` in async contexts.
-    pub fn conn(&self) -> Result<Connection> {
-        Connection::open(&self.db_path).context("opening DuckDB connection")
+    /// Get access to the pooled database connection.
+    /// Returns a MutexGuard that provides exclusive access to the connection.
+    pub fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
+        self.conn
+            .lock()
+            .expect("database connection mutex poisoned")
     }
 
     // ---------- Messages ----------
@@ -50,7 +55,7 @@ impl Persistence {
         role: MessageRole,
         content: &str,
     ) -> Result<i64> {
-        let conn = self.conn()?;
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?) RETURNING id",
         )?;
@@ -61,7 +66,7 @@ impl Persistence {
     }
 
     pub fn list_messages(&self, session_id: &str, limit: i64) -> Result<Vec<Message>> {
-        let conn = self.conn()?;
+        let conn = self.conn();
         let mut stmt = conn.prepare("SELECT id, session_id, role, content, CAST(created_at AS TEXT) as created_at FROM messages WHERE session_id = ? ORDER BY id DESC LIMIT ?")?;
         let mut rows = stmt.query(params![session_id, limit])?;
         let mut out = Vec::new();
@@ -85,7 +90,7 @@ impl Persistence {
     }
 
     pub fn get_message(&self, message_id: i64) -> Result<Option<Message>> {
-        let conn = self.conn()?;
+        let conn = self.conn();
         let mut stmt = conn.prepare("SELECT id, session_id, role, content, CAST(created_at AS TEXT) as created_at FROM messages WHERE id = ?")?;
         let mut rows = stmt.query(params![message_id])?;
         if let Some(row) = rows.next()? {
@@ -109,7 +114,7 @@ impl Persistence {
 
     /// Simple pruning by keeping only the most recent `keep_latest` messages.
     pub fn prune_messages(&self, session_id: &str, keep_latest: i64) -> Result<u64> {
-        let conn = self.conn()?;
+        let conn = self.conn();
         let mut stmt = conn.prepare("DELETE FROM messages WHERE session_id = ? AND id NOT IN (SELECT id FROM messages WHERE session_id = ? ORDER BY id DESC LIMIT ?)")?;
         let changed = stmt.execute(params![session_id, session_id, keep_latest])? as u64;
         Ok(changed)
@@ -123,7 +128,7 @@ impl Persistence {
         message_id: Option<i64>,
         embedding: &[f32],
     ) -> Result<i64> {
-        let conn = self.conn()?;
+        let conn = self.conn();
         let embedding_json = serde_json::to_string(embedding)?;
         let mut stmt = conn.prepare("INSERT INTO memory_vectors (session_id, message_id, embedding) VALUES (?, ?, ?) RETURNING id")?;
         let id: i64 = stmt.query_row(params![session_id, message_id, embedding_json], |row| {
@@ -138,7 +143,7 @@ impl Persistence {
         query_embedding: &[f32],
         k: usize,
     ) -> Result<Vec<(MemoryVector, f32)>> {
-        let conn = self.conn()?;
+        let conn = self.conn();
         let mut stmt = conn.prepare("SELECT id, session_id, message_id, embedding, CAST(created_at AS TEXT) as created_at FROM memory_vectors WHERE session_id = ?")?;
         let mut rows = stmt.query(params![session_id])?;
         let mut scored: Vec<(MemoryVector, f32)> = Vec::new();
@@ -169,7 +174,7 @@ impl Persistence {
 
     /// List known session IDs ordered by most recent activity
     pub fn list_sessions(&self) -> Result<Vec<String>> {
-        let conn = self.conn()?;
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT session_id, MAX(created_at) as last FROM messages GROUP BY session_id ORDER BY last DESC"
         )?;
@@ -195,7 +200,7 @@ impl Persistence {
         success: bool,
         error: Option<&str>,
     ) -> Result<i64> {
-        let conn = self.conn()?;
+        let conn = self.conn();
         let mut stmt = conn.prepare("INSERT INTO tool_log (session_id, agent, run_id, tool_name, arguments, result, success, error) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id")?;
         let id: i64 = stmt.query_row(
             params![
@@ -216,7 +221,7 @@ impl Persistence {
     // ---------- Policy Cache ----------
 
     pub fn policy_upsert(&self, key: &str, value: &JsonValue) -> Result<()> {
-        let conn = self.conn()?;
+        let conn = self.conn();
         // DuckDB upsert workaround: delete then insert atomically within a transaction.
         conn.execute_batch("BEGIN TRANSACTION;")?;
         {
@@ -230,7 +235,7 @@ impl Persistence {
     }
 
     pub fn policy_get(&self, key: &str) -> Result<Option<PolicyEntry>> {
-        let conn = self.conn()?;
+        let conn = self.conn();
         let mut stmt = conn.prepare("SELECT key, value, CAST(updated_at AS TEXT) as updated_at FROM policy_cache WHERE key = ?")?;
         let mut rows = stmt.query(params![key])?;
         if let Some(row) = rows.next()? {
@@ -281,7 +286,7 @@ impl Persistence {
         properties: &JsonValue,
         embedding_id: Option<i64>,
     ) -> Result<i64> {
-        let conn = self.conn()?;
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "INSERT INTO graph_nodes (session_id, node_type, label, properties, embedding_id)
              VALUES (?, ?, ?, ?, ?) RETURNING id",
@@ -300,7 +305,7 @@ impl Persistence {
     }
 
     pub fn get_graph_node(&self, node_id: i64) -> Result<Option<GraphNode>> {
-        let conn = self.conn()?;
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT id, session_id, node_type, label, properties, embedding_id,
                     CAST(created_at AS TEXT), CAST(updated_at AS TEXT)
@@ -320,7 +325,7 @@ impl Persistence {
         node_type: Option<NodeType>,
         limit: Option<i64>,
     ) -> Result<Vec<GraphNode>> {
-        let conn = self.conn()?;
+        let conn = self.conn();
 
         let nodes = if let Some(nt) = node_type {
             let mut stmt = conn.prepare(
@@ -346,14 +351,14 @@ impl Persistence {
     }
 
     pub fn count_graph_nodes(&self, session_id: &str) -> Result<i64> {
-        let conn = self.conn()?;
+        let conn = self.conn();
         let mut stmt = conn.prepare("SELECT COUNT(*) FROM graph_nodes WHERE session_id = ?")?;
         let count: i64 = stmt.query_row(params![session_id], |row| row.get(0))?;
         Ok(count)
     }
 
     pub fn update_graph_node(&self, node_id: i64, properties: &JsonValue) -> Result<()> {
-        let conn = self.conn()?;
+        let conn = self.conn();
         conn.execute(
             "UPDATE graph_nodes SET properties = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             params![properties.to_string(), node_id],
@@ -362,7 +367,7 @@ impl Persistence {
     }
 
     pub fn delete_graph_node(&self, node_id: i64) -> Result<()> {
-        let conn = self.conn()?;
+        let conn = self.conn();
         conn.execute("DELETE FROM graph_nodes WHERE id = ?", params![node_id])?;
         Ok(())
     }
@@ -379,7 +384,7 @@ impl Persistence {
         properties: Option<&JsonValue>,
         weight: f32,
     ) -> Result<i64> {
-        let conn = self.conn()?;
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "INSERT INTO graph_edges (session_id, source_id, target_id, edge_type, predicate, properties, weight)
              VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
@@ -401,7 +406,7 @@ impl Persistence {
     }
 
     pub fn get_graph_edge(&self, edge_id: i64) -> Result<Option<GraphEdge>> {
-        let conn = self.conn()?;
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT id, session_id, source_id, target_id, edge_type, predicate, properties, weight,
                     CAST(temporal_start AS TEXT), CAST(temporal_end AS TEXT), CAST(created_at AS TEXT)
@@ -421,7 +426,7 @@ impl Persistence {
         source_id: Option<i64>,
         target_id: Option<i64>,
     ) -> Result<Vec<GraphEdge>> {
-        let conn = self.conn()?;
+        let conn = self.conn();
 
         let edges = match (source_id, target_id) {
             (Some(src), Some(tgt)) => {
@@ -466,14 +471,14 @@ impl Persistence {
     }
 
     pub fn count_graph_edges(&self, session_id: &str) -> Result<i64> {
-        let conn = self.conn()?;
+        let conn = self.conn();
         let mut stmt = conn.prepare("SELECT COUNT(*) FROM graph_edges WHERE session_id = ?")?;
         let count: i64 = stmt.query_row(params![session_id], |row| row.get(0))?;
         Ok(count)
     }
 
     pub fn delete_graph_edge(&self, edge_id: i64) -> Result<()> {
-        let conn = self.conn()?;
+        let conn = self.conn();
         conn.execute("DELETE FROM graph_edges WHERE id = ?", params![edge_id])?;
         Ok(())
     }

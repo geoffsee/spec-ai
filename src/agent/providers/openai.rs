@@ -4,17 +4,17 @@
 //! Supports native function calling via the tools parameter.
 
 use crate::agent::model::{
-    GenerationConfig, ModelProvider, ModelResponse, ProviderKind, ProviderMetadata, TokenUsage,
-    ToolCall, parse_thinking_tokens,
+    parse_thinking_tokens, GenerationConfig, ModelProvider, ModelResponse, ProviderKind,
+    ProviderMetadata, TokenUsage, ToolCall,
 };
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use async_openai::{
-    Client,
     config::OpenAIConfig,
     types::{
         ChatCompletionRequestMessage, ChatCompletionRequestSystemMessageArgs,
         ChatCompletionRequestUserMessageArgs, ChatCompletionTool, CreateChatCompletionRequestArgs,
     },
+    Client,
 };
 use async_stream::stream;
 use async_trait::async_trait;
@@ -383,11 +383,9 @@ mod tests {
         assert_eq!(metadata.name, "OpenAI");
         assert!(metadata.supports_streaming);
         assert!(metadata.supported_models.contains(&"gpt-4.1".to_string()));
-        assert!(
-            metadata
-                .supported_models
-                .contains(&"gpt-4.1-mini".to_string())
-        );
+        assert!(metadata
+            .supported_models
+            .contains(&"gpt-4.1-mini".to_string()));
     }
 
     #[test]

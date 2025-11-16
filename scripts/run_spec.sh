@@ -26,6 +26,10 @@ else
     CLI_LAUNCH=(bash -lc "$SPEC_AI_CMD")
 fi
 
+if [[ -z "${RUST_LOG:-}" ]]; then
+    export RUST_LOG="agent_timing=info"
+fi
+
 collect_specs() {
     local target="$1"
     if [[ -d "$target" ]]; then

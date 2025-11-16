@@ -79,6 +79,7 @@ async fn main() -> Result<()> {
             "confidence_scoring".to_string(),
         ],
         escalation_threshold: 0.6, // Escalate if confidence < 60%
+        show_reasoning: true,
     };
 
     // Build agent with fast model provider

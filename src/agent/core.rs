@@ -17,6 +17,7 @@ use serde_json::{Value, json};
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Instant;
 use tracing::{debug, info, warn};
 
 const DEFAULT_MAIN_TEMPERATURE: f32 = 0.7;
@@ -232,17 +233,24 @@ impl AgentCore {
     /// Execute a single interaction step
     pub async fn run_step(&mut self, input: &str) -> Result<AgentOutput> {
         let run_id = format!("run-{}", Utc::now().timestamp_micros());
+        let total_timer = Instant::now();
 
         // Step 1: Recall relevant memories
+        let recall_timer = Instant::now();
         let recall_result = self.recall_memories(input).await?;
+        self.log_timing("run_step.recall_memories", recall_timer);
         let recalled_messages = recall_result.messages;
         let recall_stats = recall_result.stats;
 
         // Step 2: Build prompt with context
+        let prompt_timer = Instant::now();
         let mut prompt = self.build_prompt(input, &recalled_messages)?;
+        self.log_timing("run_step.build_prompt", prompt_timer);
 
         // Step 3: Store user message
+        let store_user_timer = Instant::now();
         let user_message_id = self.store_message(MessageRole::User, input).await?;
+        self.log_timing("run_step.store_user_message", store_user_timer);
 
         // Track user goal context (graph-driven planning)
         let mut goal_context =
@@ -264,7 +272,10 @@ impl AgentCore {
                     Self::infer_goal_tool_action(goal.text.as_str())
                 {
                     if self.is_tool_allowed(&tool_name) {
-                        match self.execute_tool(&run_id, &tool_name, &tool_args).await {
+                        let tool_timer = Instant::now();
+                        let tool_result = self.execute_tool(&run_id, &tool_name, &tool_args).await;
+                        self.log_timing("run_step.tool_execution.auto", tool_timer);
+                        match tool_result {
                             Ok(result) => {
                                 let invocation = ToolInvocation::from_result(
                                     &tool_name,
@@ -311,7 +322,10 @@ impl AgentCore {
             if let Some(task_type) = self.detect_task_type(input) {
                 let complexity = self.estimate_task_complexity(input);
                 if self.should_use_fast_model(&task_type, complexity) {
-                    match self.fast_reasoning(&task_type, input).await {
+                    let fast_timer = Instant::now();
+                    let fast_result = self.fast_reasoning(&task_type, input).await;
+                    self.log_timing("run_step.fast_reasoning_attempt", fast_timer);
+                    match fast_result {
                         Ok((fast_text, confidence)) => {
                             if confidence >= self.escalation_threshold() {
                                 fast_model_final = Some((fast_text, confidence));
@@ -343,11 +357,10 @@ impl AgentCore {
             for _iteration in 0..5 {
                 // Generate response using model
                 let generation_config = self.build_generation_config();
-                let response = self
-                    .provider
-                    .generate(&prompt, &generation_config)
-                    .await
-                    .context("Failed to generate response from model")?;
+                let model_timer = Instant::now();
+                let response_result = self.provider.generate(&prompt, &generation_config).await;
+                self.log_timing("run_step.main_model_call", model_timer);
+                let response = response_result.context("Failed to generate response from model")?;
 
                 token_usage = response.usage;
                 finish_reason = response.finish_reason.clone();
@@ -384,7 +397,10 @@ impl AgentCore {
                         }
 
                         // Execute tool
-                        match self.execute_tool(&run_id, tool_name, tool_args).await {
+                        let tool_timer = Instant::now();
+                        let exec_result = self.execute_tool(&run_id, tool_name, tool_args).await;
+                        self.log_timing("run_step.tool_execution.sdk", tool_timer);
+                        match exec_result {
                             Ok(result) => {
                                 let invocation = ToolInvocation::from_result(
                                     tool_name,
@@ -465,6 +481,7 @@ impl AgentCore {
         }
 
         // Step 5: Store assistant response with reasoning if available
+        let store_assistant_timer = Instant::now();
         let response_message_id = self
             .store_message_with_reasoning(
                 MessageRole::Assistant,
@@ -472,6 +489,7 @@ impl AgentCore {
                 reasoning.as_deref(),
             )
             .await?;
+        self.log_timing("run_step.store_assistant_message", store_assistant_timer);
 
         if let Some(goal) = goal_context.as_mut() {
             if goal.requires_tool {
@@ -512,12 +530,15 @@ impl AgentCore {
 
         // Step 7: Re-evaluate knowledge graph to recommend next action
         let next_action_recommendation = if self.profile.enable_graph {
-            self.evaluate_graph_for_next_action(
+            let graph_timer = Instant::now();
+            let recommendation = self.evaluate_graph_for_next_action(
                 user_message_id,
                 response_message_id,
                 &final_response,
                 &tool_invocations,
-            )?
+            )?;
+            self.log_timing("run_step.evaluate_graph_for_next_action", graph_timer);
+            recommendation
         } else {
             None
         };
@@ -526,9 +547,11 @@ impl AgentCore {
         if let Some(ref recommendation) = next_action_recommendation {
             info!("Knowledge graph recommends next action: {}", recommendation);
             let system_content = format!("Graph recommendation: {}", recommendation);
+            let system_store_timer = Instant::now();
             let system_message_id = self
                 .store_message(MessageRole::System, &system_content)
                 .await?;
+            self.log_timing("run_step.store_system_message", system_store_timer);
 
             self.conversation_history.push(Message {
                 id: system_message_id,
@@ -546,6 +569,8 @@ impl AgentCore {
                 None
             }
         };
+
+        self.log_timing("run_step.total", total_timer);
 
         Ok(AgentOutput {
             response: final_response,
@@ -664,7 +689,10 @@ impl AgentCore {
             presence_penalty: None,
         };
 
-        match fast_provider.generate(&summary_prompt, &config).await {
+        let timer = Instant::now();
+        let response = fast_provider.generate(&summary_prompt, &config).await;
+        self.log_timing("summarize_reasoning.generate", timer);
+        match response {
             Ok(response) => {
                 let summary = response.content.trim().to_string();
                 if !summary.is_empty() {
@@ -754,155 +782,159 @@ impl AgentCore {
                 });
             }
 
-            match client.embed(query).await {
-                Ok(query_embedding) if !query_embedding.is_empty() => {
-                    let recalled = self.persistence.recall_top_k(
-                        &self.session_id,
-                        &query_embedding,
-                        self.profile.memory_k,
-                    )?;
+            let embed_timer = Instant::now();
+            let embed_result = client.embed_batch(&[query]).await;
+            self.log_timing("recall_memories.embed_batch", embed_timer);
+            match embed_result {
+                Ok(mut embeddings) => match embeddings.pop() {
+                    Some(query_embedding) if !query_embedding.is_empty() => {
+                        let recalled = self.persistence.recall_top_k(
+                            &self.session_id,
+                            &query_embedding,
+                            self.profile.memory_k,
+                        )?;
 
-                    let mut matches = Vec::new();
-                    let mut semantic_context = Vec::new();
+                        let mut matches = Vec::new();
+                        let mut semantic_context = Vec::new();
 
-                    for (memory, score) in recalled {
-                        if let Some(message_id) = memory.message_id {
-                            if seen_ids.contains(&message_id) {
-                                continue;
-                            }
+                        for (memory, score) in recalled {
+                            if let Some(message_id) = memory.message_id {
+                                if seen_ids.contains(&message_id) {
+                                    continue;
+                                }
 
-                            if let Some(message) = self.persistence.get_message(message_id)? {
-                                seen_ids.insert(message.id);
-                                matches.push(MemoryRecallMatch {
-                                    message_id: Some(message.id),
-                                    score,
-                                    role: message.role,
-                                    preview: preview_text(&message.content),
-                                });
-                                semantic_context.push(message);
+                                if let Some(message) = self.persistence.get_message(message_id)? {
+                                    seen_ids.insert(message.id);
+                                    matches.push(MemoryRecallMatch {
+                                        message_id: Some(message.id),
+                                        score,
+                                        role: message.role,
+                                        preview: preview_text(&message.content),
+                                    });
+                                    semantic_context.push(message);
+                                }
                             }
                         }
-                    }
 
-                    // If graph memory enabled, expand semantic matches with graph connections
-                    if self.profile.enable_graph && self.profile.graph_memory {
-                        let mut graph_expanded = Vec::new();
+                        // If graph memory enabled, expand semantic matches with graph connections
+                        if self.profile.enable_graph && self.profile.graph_memory {
+                            let mut graph_expanded = Vec::new();
 
-                        for msg in &semantic_context {
-                            // Find message node in graph
-                            let nodes = self.persistence.list_graph_nodes(
-                                &self.session_id,
-                                Some(NodeType::Message),
-                                Some(100),
-                            )?;
+                            for msg in &semantic_context {
+                                // Find message node in graph
+                                let nodes = self.persistence.list_graph_nodes(
+                                    &self.session_id,
+                                    Some(NodeType::Message),
+                                    Some(100),
+                                )?;
 
-                            for node in nodes {
-                                if let Some(msg_id) = node.properties["message_id"].as_i64() {
-                                    if msg_id == msg.id {
-                                        // Traverse to find related information
-                                        let neighbors = self.persistence.traverse_neighbors(
-                                            &self.session_id,
-                                            node.id,
-                                            TraversalDirection::Both,
-                                            self.profile.graph_depth,
-                                        )?;
+                                for node in nodes {
+                                    if let Some(msg_id) = node.properties["message_id"].as_i64() {
+                                        if msg_id == msg.id {
+                                            // Traverse to find related information
+                                            let neighbors = self.persistence.traverse_neighbors(
+                                                &self.session_id,
+                                                node.id,
+                                                TraversalDirection::Both,
+                                                self.profile.graph_depth,
+                                            )?;
 
-                                        for neighbor in neighbors {
-                                            // Include related facts, concepts, and entities
-                                            if matches!(
-                                                neighbor.node_type,
-                                                NodeType::Fact
-                                                    | NodeType::Concept
-                                                    | NodeType::Entity
-                                            ) {
-                                                // Create a synthetic message for graph context
-                                                let graph_content = format!(
-                                                    "[Graph Context - {} {}]: {}",
-                                                    neighbor.node_type.as_str(),
-                                                    neighbor.label,
-                                                    neighbor.properties.to_string()
-                                                );
+                                            for neighbor in neighbors {
+                                                // Include related facts, concepts, and entities
+                                                if matches!(
+                                                    neighbor.node_type,
+                                                    NodeType::Fact
+                                                        | NodeType::Concept
+                                                        | NodeType::Entity
+                                                ) {
+                                                    // Create a synthetic message for graph context
+                                                    let graph_content = format!(
+                                                        "[Graph Context - {} {}]: {}",
+                                                        neighbor.node_type.as_str(),
+                                                        neighbor.label,
+                                                        neighbor.properties.to_string()
+                                                    );
 
-                                                // Add as system message for context
-                                                let graph_msg = Message {
-                                                    id: -1, // Synthetic ID
-                                                    session_id: self.session_id.clone(),
-                                                    role: MessageRole::System,
-                                                    content: graph_content,
-                                                    created_at: Utc::now(),
-                                                };
+                                                    // Add as system message for context
+                                                    let graph_msg = Message {
+                                                        id: -1, // Synthetic ID
+                                                        session_id: self.session_id.clone(),
+                                                        role: MessageRole::System,
+                                                        content: graph_content,
+                                                        created_at: Utc::now(),
+                                                    };
 
-                                                graph_expanded.push(graph_msg);
+                                                    graph_expanded.push(graph_msg);
+                                                }
                                             }
                                         }
                                     }
                                 }
                             }
+
+                            // Combine semantic and graph-expanded context with weighted limits
+                            let total_slots = self.profile.memory_k.max(1);
+                            let mut graph_limit =
+                                ((total_slots as f32) * self.profile.graph_weight).round() as usize;
+                            graph_limit = graph_limit.min(total_slots);
+                            if graph_limit == 0 && !graph_expanded.is_empty() {
+                                graph_limit = 1;
+                            }
+
+                            let mut semantic_limit = total_slots.saturating_sub(graph_limit);
+                            if semantic_limit == 0 && !semantic_context.is_empty() {
+                                semantic_limit = 1;
+                                graph_limit = graph_limit.saturating_sub(1);
+                            }
+
+                            let mut limited_semantic = semantic_context;
+                            if limited_semantic.len() > semantic_limit && semantic_limit > 0 {
+                                limited_semantic.truncate(semantic_limit);
+                            }
+
+                            let mut limited_graph = graph_expanded;
+                            if limited_graph.len() > graph_limit && graph_limit > 0 {
+                                limited_graph.truncate(graph_limit);
+                            }
+
+                            context.extend(limited_semantic);
+                            context.extend(limited_graph);
+                        } else {
+                            context.extend(semantic_context);
                         }
 
-                        // Combine semantic and graph-expanded context with weighted limits
-                        let total_slots = self.profile.memory_k.max(1);
-                        let mut graph_limit =
-                            ((total_slots as f32) * self.profile.graph_weight).round() as usize;
-                        graph_limit = graph_limit.min(total_slots);
-                        if graph_limit == 0 && !graph_expanded.is_empty() {
-                            graph_limit = 1;
-                        }
-
-                        let mut semantic_limit = total_slots.saturating_sub(graph_limit);
-                        if semantic_limit == 0 && !semantic_context.is_empty() {
-                            semantic_limit = 1;
-                            graph_limit = graph_limit.saturating_sub(1);
-                        }
-
-                        let mut limited_semantic = semantic_context;
-                        if limited_semantic.len() > semantic_limit && semantic_limit > 0 {
-                            limited_semantic.truncate(semantic_limit);
-                        }
-
-                        let mut limited_graph = graph_expanded;
-                        if limited_graph.len() > graph_limit && graph_limit > 0 {
-                            limited_graph.truncate(graph_limit);
-                        }
-
-                        context.extend(limited_semantic);
-                        context.extend(limited_graph);
-                    } else {
-                        context.extend(semantic_context);
+                        return Ok(RecallResult {
+                            messages: context,
+                            stats: Some(MemoryRecallStats {
+                                strategy: MemoryRecallStrategy::Semantic {
+                                    requested: self.profile.memory_k,
+                                    returned: matches.len(),
+                                },
+                                matches,
+                            }),
+                        });
                     }
-
-                    return Ok(RecallResult {
-                        messages: context,
-                        stats: Some(MemoryRecallStats {
-                            strategy: MemoryRecallStrategy::Semantic {
-                                requested: self.profile.memory_k,
-                                returned: matches.len(),
-                            },
-                            matches,
-                        }),
-                    });
-                }
-                Ok(_) => {
-                    return Ok(RecallResult {
-                        messages: context,
-                        stats: Some(MemoryRecallStats {
-                            strategy: MemoryRecallStrategy::Semantic {
-                                requested: self.profile.memory_k,
-                                returned: 0,
-                            },
-                            matches: Vec::new(),
-                        }),
-                    });
-                }
+                    _ => {
+                        return Ok(RecallResult {
+                            messages: context,
+                            stats: Some(MemoryRecallStats {
+                                strategy: MemoryRecallStrategy::Semantic {
+                                    requested: self.profile.memory_k,
+                                    returned: 0,
+                                },
+                                matches: Vec::new(),
+                            }),
+                        });
+                    }
+                },
                 Err(err) => {
                     warn!("Failed to embed recall query: {}", err);
+                    return Ok(RecallResult {
+                        messages: context,
+                        stats: None,
+                    });
                 }
             }
-
-            return Ok(RecallResult {
-                messages: context,
-                stats: None,
-            });
         }
 
         // Fallback when embeddings are unavailable
@@ -992,25 +1024,31 @@ impl AgentCore {
 
         if let Some(client) = &self.embeddings_client {
             if !content.trim().is_empty() {
-                match client.embed(content).await {
-                    Ok(embedding) if !embedding.is_empty() => {
-                        match self.persistence.insert_memory_vector(
-                            &self.session_id,
-                            Some(message_id),
-                            &embedding,
-                        ) {
-                            Ok(emb_id) => {
-                                embedding_id = Some(emb_id);
-                            }
-                            Err(err) => {
-                                warn!(
-                                    "Failed to persist embedding for message {}: {}",
-                                    message_id, err
-                                );
+                let embed_timer = Instant::now();
+                let embed_result = client.embed_batch(&[content]).await;
+                self.log_timing("embeddings.message_content", embed_timer);
+                match embed_result {
+                    Ok(mut embeddings) => {
+                        if let Some(embedding) = embeddings.pop() {
+                            if !embedding.is_empty() {
+                                match self.persistence.insert_memory_vector(
+                                    &self.session_id,
+                                    Some(message_id),
+                                    &embedding,
+                                ) {
+                                    Ok(emb_id) => {
+                                        embedding_id = Some(emb_id);
+                                    }
+                                    Err(err) => {
+                                        warn!(
+                                            "Failed to persist embedding for message {}: {}",
+                                            message_id, err
+                                        );
+                                    }
+                                }
                             }
                         }
                     }
-                    Ok(_) => {}
                     Err(err) => {
                         warn!(
                             "Failed to create embedding for message {}: {}",
@@ -1652,7 +1690,8 @@ impl AgentCore {
 
     /// Use fast model for preliminary reasoning tasks
     async fn fast_reasoning(&self, task: &str, input: &str) -> Result<(String, f32)> {
-        if let Some(ref fast_provider) = self.fast_provider {
+        let total_timer = Instant::now();
+        let result = if let Some(ref fast_provider) = self.fast_provider {
             let prompt = format!(
                 "You are a fast specialist model that assists a more capable agent.\nTask: {}\nInput: {}\n\nRespond with two lines:\nAnswer: <concise result>\nConfidence: <0-1 decimal>",
                 task, input
@@ -1677,7 +1716,10 @@ impl AgentCore {
                 presence_penalty: None,
             };
 
-            let response = fast_provider.generate(&prompt, &config).await?;
+            let call_timer = Instant::now();
+            let response_result = fast_provider.generate(&prompt, &config).await;
+            self.log_timing("fast_reasoning.generate", call_timer);
+            let response = response_result?;
 
             let confidence = Self::parse_confidence(&response.content).unwrap_or(0.7);
             let cleaned = Self::strip_fast_answer(&response.content);
@@ -1686,7 +1728,10 @@ impl AgentCore {
         } else {
             // No fast model configured
             Ok((String::new(), 0.0))
-        }
+        };
+
+        self.log_timing("fast_reasoning.total", total_timer);
+        result
     }
 
     /// Decide whether to use fast or main model based on task complexity
@@ -2104,6 +2149,19 @@ impl AgentCore {
             Some(recommendations[0].clone())
         }
     }
+
+    fn log_timing(&self, stage: &str, start: Instant) {
+        let duration_ms = start.elapsed().as_secs_f64() * 1000.0;
+        let agent_label = self.agent_name.as_deref().unwrap_or("unnamed");
+        info!(
+            target: "agent_timing",
+            "stage={} duration_ms={:.2} agent={} session_id={}",
+            stage,
+            duration_ms,
+            agent_label,
+            self.session_id
+        );
+    }
 }
 
 fn preview_text(content: &str) -> String {
@@ -2254,8 +2312,15 @@ mod tests {
 
     #[async_trait]
     impl EmbeddingsService for KeywordEmbeddingsService {
-        async fn create_embeddings(&self, _model: &str, input: &str) -> Result<Vec<f32>> {
-            Ok(keyword_embedding(input))
+        async fn create_embeddings(
+            &self,
+            _model: &str,
+            inputs: Vec<String>,
+        ) -> Result<Vec<Vec<f32>>> {
+            Ok(inputs
+                .into_iter()
+                .map(|input| keyword_embedding(&input))
+                .collect())
         }
     }
 

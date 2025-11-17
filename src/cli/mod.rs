@@ -33,6 +33,8 @@ pub enum Command {
     GraphStatus,
     GraphShow(Option<usize>),
     GraphClear,
+    // Audio commands
+    Listen(Option<String>, Option<u64>), // scenario, duration in seconds
     RunSpec(PathBuf),
     Message(String),
     Empty,
@@ -102,6 +104,12 @@ pub fn parse_command(input: &str) -> Command {
                 Some("clear") => Command::GraphClear,
                 _ => Command::Help,
             },
+            "listen" => {
+                // Parse optional scenario and duration
+                let scenario = parts.next().map(|s| s.to_string());
+                let duration = parts.next().and_then(|s| s.parse::<u64>().ok());
+                Command::Listen(scenario, duration)
+            }
             "spec" => {
                 let args: Vec<&str> = parts.collect();
                 if args.is_empty() {
@@ -401,6 +409,66 @@ impl CliState {
                     count, session_id
                 )))
             }
+            Command::Listen(scenario, duration) => {
+                // Execute the audio_transcribe tool
+                let tools = self.agent.tool_registry();
+                if !tools.has("audio_transcribe") {
+                    return Ok(Some(
+                        "Audio transcription tool is not available. \
+                        Please ensure it's registered in the tool registry."
+                            .to_string(),
+                    ));
+                }
+
+                // Build tool arguments
+                let mut args = serde_json::json!({
+                    "mode": "stream",
+                    "persist": true,
+                });
+
+                if let Some(scenario_name) = scenario {
+                    args["scenario"] = serde_json::json!(scenario_name);
+                } else {
+                    args["scenario"] = serde_json::json!("simple_conversation");
+                }
+
+                if let Some(dur) = duration {
+                    args["duration"] = serde_json::json!(dur);
+                } else {
+                    args["duration"] = serde_json::json!(30); // Default 30 seconds
+                }
+
+                // Execute the tool
+                let result = tools.execute("audio_transcribe", args).await?;
+
+                if result.success {
+                    // Parse the result JSON
+                    let output: serde_json::Value = serde_json::from_str(&result.output)?;
+                    let message = output["message"]
+                        .as_str()
+                        .unwrap_or("Audio transcription started.");
+
+                    // Display sample transcriptions if available
+                    let mut response = message.to_string();
+                    if let Some(samples) = output["sample_transcriptions"].as_array() {
+                        if !samples.is_empty() {
+                            response.push_str("\n\nInitial transcriptions:");
+                            for sample in samples {
+                                if let Some(text) = sample.as_str() {
+                                    response.push_str(&format!("\n  • {}", text));
+                                }
+                            }
+                        }
+                    }
+
+                    Ok(Some(response))
+                } else {
+                    Ok(Some(format!(
+                        "Audio transcription failed: {}",
+                        result.error.unwrap_or_else(|| "Unknown error".to_string())
+                    )))
+                }
+            }
             Command::RunSpec(path) => {
                 let output = self.run_spec_command(&path).await?;
                 Ok(Some(output))
@@ -575,6 +643,16 @@ impl CliState {
             }
             Command::GraphShow(None) => "Status: inspecting graph".to_string(),
             Command::GraphClear => "Status: clearing session graph".to_string(),
+            Command::Listen(scenario, duration) => {
+                let mut status = "Status: starting audio transcription".to_string();
+                if let Some(s) = scenario {
+                    status.push_str(&format!(" (scenario: {})", s));
+                }
+                if let Some(d) = duration {
+                    status.push_str(&format!(" for {} seconds", d));
+                }
+                status
+            }
             Command::RunSpec(path) => {
                 format!("Status: executing spec '{}'", path.display())
             }
@@ -654,7 +732,7 @@ mod tests {
     use crate::agent::core::{MemoryRecallStats, MemoryRecallStrategy, ToolInvocation};
     use crate::agent::model::TokenUsage;
     use crate::agent::AgentOutput;
-    use crate::config::{DatabaseConfig, LoggingConfig, ModelConfig, UiConfig};
+    use crate::config::{AudioConfig, DatabaseConfig, LoggingConfig, ModelConfig, UiConfig};
     use serde_json::json;
     use std::collections::HashMap;
     use std::path::PathBuf;
@@ -811,6 +889,7 @@ mod tests {
             logging: LoggingConfig {
                 level: "info".into(),
             },
+            audio: AudioConfig::default(),
             agents,
             default_agent: Some("test".into()),
         };
@@ -867,6 +946,7 @@ mod tests {
             logging: LoggingConfig {
                 level: "info".into(),
             },
+            audio: AudioConfig::default(),
             agents,
             default_agent: Some("coder".into()),
         };
@@ -911,6 +991,7 @@ mod tests {
             logging: LoggingConfig {
                 level: "debug".into(),
             },
+            audio: AudioConfig::default(),
             agents,
             default_agent: Some("test".into()),
         };
@@ -951,6 +1032,7 @@ mod tests {
             logging: LoggingConfig {
                 level: "info".into(),
             },
+            audio: AudioConfig::default(),
             agents,
             default_agent: Some("test".into()),
         };

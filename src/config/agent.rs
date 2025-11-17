@@ -109,6 +109,19 @@ pub struct AgentProfile {
     /// Display reasoning summary to user (requires fast model for summarization)
     #[serde(default)]
     pub show_reasoning: bool,
+
+    // ========== Audio Transcription Configuration ==========
+    /// Enable audio transcription for this agent
+    #[serde(default)]
+    pub enable_audio_transcription: bool,
+
+    /// Audio response mode: "immediate" or "batch"
+    #[serde(default = "AgentProfile::default_audio_response_mode")]
+    pub audio_response_mode: String,
+
+    /// Preferred audio transcription scenario for testing
+    #[serde(default)]
+    pub audio_scenario: Option<String>,
 }
 
 impl AgentProfile {
@@ -148,6 +161,10 @@ impl AgentProfile {
 
     fn default_escalation_threshold() -> f32 {
         0.6 // Escalate to main model if confidence < 60%
+    }
+
+    fn default_audio_response_mode() -> String {
+        "immediate".to_string()
     }
 
     /// Validate the agent profile configuration
@@ -282,6 +299,9 @@ impl Default for AgentProfile {
             fast_model_tasks: Self::default_fast_tasks(),
             escalation_threshold: Self::default_escalation_threshold(),
             show_reasoning: false, // Disabled by default
+            enable_audio_transcription: false, // Disabled by default
+            audio_response_mode: Self::default_audio_response_mode(),
+            audio_scenario: None,
         }
     }
 }

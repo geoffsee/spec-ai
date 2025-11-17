@@ -2286,6 +2286,9 @@ mod tests {
             fast_model_tasks: vec![],
             escalation_threshold: 0.6,
             show_reasoning: false,
+            enable_audio_transcription: false,
+            audio_response_mode: "immediate".to_string(),
+            audio_scenario: None,
         };
 
         let provider = Arc::new(MockProvider::new("This is a test response."));
@@ -2340,6 +2343,9 @@ mod tests {
             fast_model_tasks: vec!["entity_extraction".to_string()],
             escalation_threshold: 0.5,
             show_reasoning: false,
+            enable_audio_transcription: false,
+            audio_response_mode: "immediate".to_string(),
+            audio_scenario: None,
         };
 
         profile.validate().unwrap();
@@ -2609,6 +2615,9 @@ mod tests {
             fast_model_tasks: vec![],
             escalation_threshold: 0.6,
             show_reasoning: false,
+            enable_audio_transcription: false,
+            audio_response_mode: "immediate".to_string(),
+            audio_scenario: None,
         };
 
         let provider = Arc::new(MockProvider::new("Test"));
@@ -2688,6 +2697,9 @@ mod tests {
             fast_model_tasks: vec![],
             escalation_threshold: 0.6,
             show_reasoning: false,
+            enable_audio_transcription: false,
+            audio_response_mode: "immediate".to_string(),
+            audio_scenario: None,
         };
 
         let provider = Arc::new(MockProvider::new("Test"));

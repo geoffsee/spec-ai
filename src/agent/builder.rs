@@ -347,7 +347,7 @@ fn build_mlx_embeddings_client(model_name: &str) -> EmbeddingsClient {
 mod tests {
     use super::*;
     use crate::agent::providers::MockProvider;
-    use crate::config::{AgentProfile, DatabaseConfig, LoggingConfig, ModelConfig, UiConfig};
+    use crate::config::{AgentProfile, AudioConfig, DatabaseConfig, LoggingConfig, ModelConfig, UiConfig};
     use std::collections::HashMap;
     use tempfile::tempdir;
 
@@ -371,6 +371,7 @@ mod tests {
             logging: LoggingConfig {
                 level: "info".to_string(),
             },
+            audio: AudioConfig::default(),
             agents: HashMap::new(),
             default_agent: None,
         }
@@ -402,6 +403,9 @@ mod tests {
             fast_model_tasks: vec![],
             escalation_threshold: 0.6,
             show_reasoning: false,
+            enable_audio_transcription: false,
+            audio_response_mode: "immediate".to_string(),
+            audio_scenario: None,
         }
     }
 

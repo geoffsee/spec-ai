@@ -59,7 +59,7 @@ Configuration is loaded in the following order (highest precedence first):
 ### Available Environment Variables
 
 - `AGENT_DB_PATH` - Database file path
-- `AGENT_MODEL_PROVIDER` - Model provider (mock, openai, anthropic, ollama)
+- `AGENT_MODEL_PROVIDER` - Model provider (mock, openai, anthropic, ollama, mlx, lmstudio)
 - `AGENT_MODEL_NAME` - Specific model name
 - `AGENT_MODEL_TEMPERATURE` - Generation temperature (0.0-2.0)
 - `AGENT_API_KEY_SOURCE` - API key source

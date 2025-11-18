@@ -7,6 +7,8 @@ use crate::agent::factory::{create_provider, resolve_api_key};
 use crate::agent::model::{ModelProvider, ProviderKind};
 #[cfg(feature = "openai")]
 use crate::agent::providers::openai::OpenAIProvider;
+#[cfg(feature = "lmstudio")]
+use crate::agent::providers::LMStudioProvider;
 #[cfg(feature = "mlx")]
 use crate::agent::providers::MLXProvider;
 use crate::config::{AgentProfile, AgentRegistry, AppConfig, ModelConfig};
@@ -15,7 +17,7 @@ use crate::persistence::Persistence;
 use crate::policy::PolicyEngine;
 use crate::tools::ToolRegistry;
 use anyhow::{anyhow, Context, Result};
-#[cfg(feature = "mlx")]
+#[cfg(any(feature = "mlx", feature = "lmstudio"))]
 use async_openai::config::OpenAIConfig;
 use std::sync::Arc;
 use tracing::{info, warn};
@@ -218,6 +220,37 @@ impl AgentBuilder {
                 }
             }
 
+            #[cfg(feature = "lmstudio")]
+            {
+                if base_provider.kind() == ProviderKind::LMStudio {
+                    let tools = tool_registry.to_openai_tools();
+                    if !tools.is_empty() {
+                        info!(
+                            "Configuring LM Studio provider with {} tools for native function calling",
+                            tools.len()
+                        );
+
+                        let model_name = config
+                            .model
+                            .model_name
+                            .as_ref()
+                            .ok_or_else(|| {
+                                anyhow!("LM Studio provider requires a model_name to be specified")
+                            })?
+                            .clone();
+
+                        let lmstudio_provider =
+                            if let Ok(endpoint) = std::env::var("LMSTUDIO_ENDPOINT") {
+                                LMStudioProvider::with_endpoint(endpoint, model_name)
+                            } else {
+                                LMStudioProvider::new(model_name)
+                            };
+
+                        base_provider = Arc::new(lmstudio_provider.with_tools(tools));
+                    }
+                }
+            }
+
             base_provider
         } else {
             return Err(anyhow!(
@@ -350,6 +383,13 @@ fn create_embeddings_client_from_config(config: &AppConfig) -> Result<Option<Emb
         }
     }
 
+    #[cfg(feature = "lmstudio")]
+    {
+        if ProviderKind::from_str(&model.provider) == Some(ProviderKind::LMStudio) {
+            return Ok(Some(build_lmstudio_embeddings_client(model_name)));
+        }
+    }
+
     let client = if let Some(source) = &model.api_key_source {
         let api_key = resolve_api_key(source)?;
         EmbeddingsClient::with_api_key(model_name.clone(), api_key)
@@ -373,6 +413,23 @@ fn build_mlx_embeddings_client(model_name: &str) -> EmbeddingsClient {
     let config = OpenAIConfig::new()
         .with_api_base(api_base)
         .with_api_key("mlx-key");
+
+    EmbeddingsClient::with_config(model_name.to_string(), config)
+}
+
+#[cfg(feature = "lmstudio")]
+fn build_lmstudio_embeddings_client(model_name: &str) -> EmbeddingsClient {
+    let endpoint =
+        std::env::var("LMSTUDIO_ENDPOINT").unwrap_or_else(|_| "http://localhost:1234".to_string());
+    let api_base = if endpoint.ends_with("/v1") {
+        endpoint
+    } else {
+        format!("{}/v1", endpoint)
+    };
+
+    let config = OpenAIConfig::new()
+        .with_api_base(api_base)
+        .with_api_key("lmstudio-key");
 
     EmbeddingsClient::with_config(model_name.to_string(), config)
 }

@@ -168,8 +168,8 @@ impl ToolRegistry {
     /// Convert all tools in the registry to OpenAI ChatCompletionTool format.
     ///
     /// Used by providers that support native function calling (OpenAI-compatible,
-    /// including MLX when enabled).
-    #[cfg(any(feature = "openai", feature = "mlx"))]
+    /// including MLX and LM Studio when enabled).
+    #[cfg(any(feature = "openai", feature = "mlx", feature = "lmstudio"))]
     pub fn to_openai_tools(&self) -> Vec<ChatCompletionTool> {
         use crate::agent::function_calling::tool_to_openai_function;
 

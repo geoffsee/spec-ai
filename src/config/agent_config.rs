@@ -71,7 +71,7 @@ impl AppConfig {
         // Validate against known provider names independent of compile-time feature flags
         {
             let p = self.model.provider.to_lowercase();
-            let known = ["mock", "openai", "anthropic", "ollama", "mlx"];
+            let known = ["mock", "openai", "anthropic", "ollama", "mlx", "lmstudio"];
             if !known.contains(&p.as_str()) {
                 return Err(anyhow::anyhow!(
                     "Invalid model provider: {}",
@@ -194,7 +194,7 @@ impl Default for DatabaseConfig {
 /// Model provider configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelConfig {
-    /// Provider name (e.g., "openai", "anthropic", "mlx", "mock")
+    /// Provider name (e.g., "openai", "anthropic", "mlx", "lmstudio", "mock")
     pub provider: String,
     /// Model name to use (e.g., "gpt-4", "claude-3-opus")
     #[serde(default)]

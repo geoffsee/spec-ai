@@ -35,6 +35,7 @@ pub enum Command {
     GraphClear,
     // Audio commands
     Listen(Option<String>, Option<u64>), // scenario, duration in seconds
+    PasteStart,
     RunSpec(PathBuf),
     Message(String),
     Empty,
@@ -110,6 +111,7 @@ pub fn parse_command(input: &str) -> Command {
                 let duration = parts.next().and_then(|s| s.parse::<u64>().ok());
                 Command::Listen(scenario, duration)
             }
+            "paste" => Command::PasteStart,
             "spec" => {
                 let args: Vec<&str> = parts.collect();
                 if args.is_empty() {
@@ -142,6 +144,8 @@ pub struct CliState {
     pub agent: AgentCore,
     pub reasoning_messages: Vec<String>,
     pub status_message: String,
+    paste_mode: bool,
+    paste_buffer: String,
 }
 
 impl CliState {
@@ -193,6 +197,8 @@ impl CliState {
             agent,
             reasoning_messages: vec!["Reasoning: idle".to_string()],
             status_message: "Status: initializing".to_string(),
+            paste_mode: false,
+            paste_buffer: String::new(),
         })
     }
 
@@ -469,6 +475,13 @@ impl CliState {
                     )))
                 }
             }
+            Command::PasteStart => {
+                // Paste mode is handled at the REPL loop level; this arm is mainly for tests
+                Ok(Some(
+                    "Entering paste mode. Paste your block and finish with /end on its own line."
+                        .to_string(),
+                ))
+            }
             Command::RunSpec(path) => {
                 let output = self.run_spec_command(&path).await?;
                 Ok(Some(output))
@@ -508,7 +521,54 @@ impl CliState {
             if n == 0 {
                 break;
             } // EOF
+
+            let trimmed = line.trim_end_matches(&['\n', '\r'][..]);
+
+            // If we're currently in paste mode, accumulate lines until the user
+            // types /end on its own line, then send the entire block as one
+            // message.
+            if self.paste_mode {
+                if trimmed == "/end" {
+                    // Leave paste mode and send the buffered block
+                    self.paste_mode = false;
+                    let full_input = std::mem::take(&mut self.paste_buffer);
+                    let command_preview = Command::Message(full_input.clone());
+                    self.update_status_for_command(&command_preview);
+                    if !matches!(command_preview, Command::Empty) {
+                        self.render_status_line(&mut stdout).await?;
+                    }
+                    if let Some(out) = self.handle_line(&full_input).await? {
+                        if out == "__QUIT__" {
+                            break;
+                        }
+                        stdout.write_all(out.as_bytes()).await?;
+                        if !out.ends_with('\n') {
+                            stdout.write_all(b"\n").await?;
+                        }
+                        stdout.flush().await?;
+                    }
+                    self.set_status_idle();
+                } else if !trimmed.is_empty() {
+                    if !self.paste_buffer.is_empty() {
+                        self.paste_buffer.push('\n');
+                    }
+                    self.paste_buffer.push_str(trimmed);
+                }
+                continue;
+            }
+
+            // Normal mode: single-line commands and messages
             let command_preview = parse_command(&line);
+            if matches!(command_preview, Command::PasteStart) {
+                // Enter paste mode; UI hint
+                self.paste_mode = true;
+                self.paste_buffer.clear();
+                self.status_message =
+                    "Status: paste mode (end with /end on its own line)".to_string();
+                self.render_status_line(&mut stdout).await?;
+                continue;
+            }
+
             self.update_status_for_command(&command_preview);
             if !matches!(command_preview, Command::Empty) {
                 self.render_status_line(&mut stdout).await?;
@@ -655,6 +715,9 @@ impl CliState {
             }
             Command::RunSpec(path) => {
                 format!("Status: executing spec '{}'", path.display())
+            }
+            Command::PasteStart => {
+                "Status: entering paste mode (end with /end on its own line)".to_string()
             }
             Command::Message(_) => "Status: running agent step".to_string(),
         }

@@ -80,6 +80,9 @@ async fn main() -> Result<()> {
         ],
         escalation_threshold: 0.6, // Escalate if confidence < 60%
         show_reasoning: true,
+        enable_audio_transcription: false,
+        audio_response_mode: "immediate".to_string(),
+        audio_scenario: None,
     };
 
     // Build agent with fast model provider

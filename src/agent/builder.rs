@@ -7,6 +7,8 @@ use crate::agent::factory::{create_provider, resolve_api_key};
 use crate::agent::model::{ModelProvider, ProviderKind};
 #[cfg(feature = "openai")]
 use crate::agent::providers::openai::OpenAIProvider;
+#[cfg(feature = "mlx")]
+use crate::agent::providers::MLXProvider;
 use crate::config::{AgentProfile, AgentRegistry, AppConfig, ModelConfig};
 use crate::embeddings::EmbeddingsClient;
 use crate::persistence::Persistence;
@@ -144,7 +146,7 @@ impl AgentBuilder {
             Arc::new(registry)
         });
 
-        // Get or create provider with tools configured (for OpenAI)
+        // Get or create provider with tools configured (for OpenAI-compatible providers)
         let provider = if let Some(provider) = self.provider {
             provider
         } else if let Some(ref config) = self.config {
@@ -155,11 +157,11 @@ impl AgentBuilder {
             #[cfg(feature = "openai")]
             {
                 if base_provider.kind() == ProviderKind::OpenAI {
-                    let openai_tools = tool_registry.to_openai_tools();
-                    if !openai_tools.is_empty() {
+                    let tools = tool_registry.to_openai_tools();
+                    if !tools.is_empty() {
                         info!(
                             "Configuring OpenAI provider with {} tools for native function calling",
-                            openai_tools.len()
+                            tools.len()
                         );
 
                         // Recreate OpenAI provider with tools
@@ -179,7 +181,39 @@ impl AgentBuilder {
                         }
 
                         // Configure with tools and cast to trait object
-                        base_provider = Arc::new(openai_provider.with_tools(openai_tools));
+                        base_provider = Arc::new(openai_provider.with_tools(tools));
+                    }
+                }
+            }
+
+            // Configure MLX provider with tools for native function calling (OpenAI-compatible API)
+            #[cfg(feature = "mlx")]
+            {
+                if base_provider.kind() == ProviderKind::MLX {
+                    let tools = tool_registry.to_openai_tools();
+                    if !tools.is_empty() {
+                        info!(
+                            "Configuring MLX provider with {} tools for native function calling",
+                            tools.len()
+                        );
+
+                        // MLX requires a model name; mirror create_provider's behavior
+                        let model_name = config
+                            .model
+                            .model_name
+                            .as_ref()
+                            .ok_or_else(|| {
+                                anyhow!("MLX provider requires a model_name to be specified")
+                            })?
+                            .clone();
+
+                        let mlx_provider = if let Ok(endpoint) = std::env::var("MLX_ENDPOINT") {
+                            MLXProvider::with_endpoint(endpoint, model_name)
+                        } else {
+                            MLXProvider::new(model_name)
+                        };
+
+                        base_provider = Arc::new(mlx_provider.with_tools(tools));
                     }
                 }
             }

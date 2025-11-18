@@ -5,14 +5,14 @@
 
 use crate::agent::model::{
     parse_thinking_tokens, GenerationConfig, ModelProvider, ModelResponse, ProviderKind,
-    ProviderMetadata, TokenUsage,
+    ProviderMetadata, TokenUsage, ToolCall,
 };
 use anyhow::{anyhow, Result};
 use async_openai::{
     config::OpenAIConfig,
     types::{
         ChatCompletionRequestMessage, ChatCompletionRequestSystemMessageArgs,
-        ChatCompletionRequestUserMessageArgs, CreateChatCompletionRequestArgs,
+        ChatCompletionRequestUserMessageArgs, ChatCompletionTool, CreateChatCompletionRequestArgs,
     },
     Client,
 };
@@ -30,6 +30,8 @@ pub struct MLXProvider {
     model: String,
     /// Optional system message for all requests
     system_message: Option<String>,
+    /// Optional tool definitions for OpenAI-compatible function calling
+    tools: Option<Vec<ChatCompletionTool>>,
 }
 
 impl MLXProvider {
@@ -46,6 +48,7 @@ impl MLXProvider {
             client: Client::with_config(config),
             model: model.into(),
             system_message: None,
+            tools: None,
         }
     }
 
@@ -66,6 +69,7 @@ impl MLXProvider {
             client: Client::with_config(config),
             model: model.into(),
             system_message: None,
+            tools: None,
         }
     }
 
@@ -75,6 +79,7 @@ impl MLXProvider {
             client: Client::with_config(config),
             model: model.into(),
             system_message: None,
+            tools: None,
         }
     }
 
@@ -87,6 +92,16 @@ impl MLXProvider {
     /// Set a system message to be included in all requests
     pub fn with_system_message(mut self, message: impl Into<String>) -> Self {
         self.system_message = Some(message.into());
+        self
+    }
+
+    /// Attach function-calling tools (OpenAI-compatible) for this provider.
+    ///
+    /// When tools are present, MLX will receive them in the ChatCompletion
+    /// request and can respond with tool_calls, which the agent core will
+    /// execute just like with the OpenAI provider.
+    pub fn with_tools(mut self, tools: Vec<ChatCompletionTool>) -> Self {
+        self.tools = if tools.is_empty() { None } else { Some(tools) };
         self
     }
 
@@ -142,6 +157,11 @@ impl ModelProvider for MLXProvider {
             request_builder.stop(stop.clone());
         }
 
+        // Add tools to the request if available (native function calling)
+        if let Some(ref tools) = self.tools {
+            request_builder.tools(tools.clone());
+        }
+
         let request = request_builder
             .build()
             .map_err(|e| anyhow!("Failed to build request: {}", e))?;
@@ -160,14 +180,30 @@ impl ModelProvider for MLXProvider {
             .first()
             .ok_or_else(|| anyhow!("No response choices returned"))?;
 
-        let raw_content = choice
-            .message
-            .content
-            .clone()
-            .ok_or_else(|| anyhow!("No content in response"))?;
+        let raw_content = choice.message.content.clone().unwrap_or_default();
 
         // Parse thinking tokens if present
         let (reasoning, content) = parse_thinking_tokens(&raw_content);
+
+        // Parse tool calls if present (OpenAI-compatible)
+        let tool_calls = choice
+            .message
+            .tool_calls
+            .as_ref()
+            .map(|calls| {
+                calls
+                    .iter()
+                    .filter_map(|call| {
+                        let arguments = serde_json::from_str(&call.function.arguments).ok()?;
+                        Some(ToolCall {
+                            id: call.id.clone(),
+                            function_name: call.function.name.clone(),
+                            arguments,
+                        })
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .filter(|calls| !calls.is_empty());
 
         let usage = response.usage.map(|u| TokenUsage {
             prompt_tokens: u.prompt_tokens,
@@ -180,7 +216,7 @@ impl ModelProvider for MLXProvider {
             model: response.model,
             usage,
             finish_reason: choice.finish_reason.as_ref().map(|r| format!("{:?}", r)),
-            tool_calls: None,
+            tool_calls,
             reasoning,
         })
     }

@@ -11,6 +11,9 @@ pub mod search;
 pub mod shell;
 pub mod web_search;
 
+#[cfg(feature = "web-scraping")]
+pub mod web_scraper;
+
 pub use audio_transcription::AudioTranscriptionTool;
 pub use bash::BashTool;
 pub use calculator::MathTool;
@@ -23,3 +26,6 @@ pub use prompt::PromptUserTool;
 pub use search::SearchTool;
 pub use shell::ShellTool;
 pub use web_search::WebSearchTool;
+
+#[cfg(feature = "web-scraping")]
+pub use web_scraper::WebScraperTool;

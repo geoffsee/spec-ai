@@ -8,6 +8,7 @@ use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 use crate::agent::core::MemoryRecallStrategy;
 use crate::agent::{AgentBuilder, AgentCore, AgentOutput};
+use crate::bootstrap_self::BootstrapSelf;
 use crate::config::{AgentProfile, AgentRegistry, AppConfig};
 use crate::persistence::Persistence;
 use crate::policy::PolicyEngine;
@@ -37,6 +38,7 @@ pub enum Command {
     Listen(Option<String>, Option<u64>), // scenario, duration in seconds
     PasteStart,
     RunSpec(PathBuf),
+    Init,
     Message(String),
     Empty,
 }
@@ -112,6 +114,7 @@ pub fn parse_command(input: &str) -> Command {
                 Command::Listen(scenario, duration)
             }
             "paste" => Command::PasteStart,
+            "init" => Command::Init,
             "spec" => {
                 let args: Vec<&str> = parts.collect();
                 if args.is_empty() {
@@ -146,6 +149,7 @@ pub struct CliState {
     pub status_message: String,
     paste_mode: bool,
     paste_buffer: String,
+    init_allowed: bool,
 }
 
 impl CliState {
@@ -190,7 +194,7 @@ impl CliState {
         // Create the AgentCore from registry + config
         let agent = AgentBuilder::new_with_registry(&registry, &config, None)?;
 
-        Ok(Self {
+        let mut state = Self {
             config,
             persistence,
             registry,
@@ -199,7 +203,12 @@ impl CliState {
             status_message: "Status: initializing".to_string(),
             paste_mode: false,
             paste_buffer: String::new(),
-        })
+            init_allowed: true,
+        };
+
+        state.refresh_init_gate()?;
+
+        Ok(state)
     }
 
     /// Handle a single line of input. Returns an optional output string.
@@ -248,6 +257,7 @@ impl CliState {
                     &self.config,
                     Some(current_session),
                 )?;
+                self.refresh_init_gate()?;
                 Ok(Some("Configuration reloaded.".to_string()))
             }
             Command::PolicyReload => {
@@ -295,6 +305,7 @@ impl CliState {
                     &self.config,
                     Some(new_id.clone()),
                 )?;
+                self.init_allowed = true;
                 Ok(Some(format!("Started new session '{}'.", new_id)))
             }
             Command::SessionList => {
@@ -313,6 +324,7 @@ impl CliState {
                     &self.config,
                     Some(id.clone()),
                 )?;
+                self.refresh_init_gate()?;
                 Ok(Some(format!("Switched to session '{}'.", id)))
             }
             // Graph commands
@@ -486,7 +498,28 @@ impl CliState {
                 let output = self.run_spec_command(&path).await?;
                 Ok(Some(output))
             }
+            Command::Init => {
+                if !self.init_allowed {
+                    return Ok(Some(
+                        "The /init command must be the first action in a session. Start a new session to run it again."
+                            .to_string(),
+                    ));
+                }
+                let bootstrapper =
+                    BootstrapSelf::from_environment(&self.persistence, self.agent.session_id())?;
+                let outcome = bootstrapper.run()?;
+                self.init_allowed = false;
+                Ok(Some(format!(
+                    "Knowledge graph bootstrap complete for '{}': {} nodes and {} edges captured ({} components, {} documents).",
+                    outcome.repository_name,
+                    outcome.nodes_created,
+                    outcome.edges_created,
+                    outcome.component_count,
+                    outcome.document_count
+                )))
+            }
             Command::Message(text) => {
+                self.init_allowed = false;
                 let output = self.agent.run_step(&text).await?;
                 self.update_reasoning_messages(&output);
                 let mut formatted =
@@ -703,6 +736,7 @@ impl CliState {
             }
             Command::GraphShow(None) => "Status: inspecting graph".to_string(),
             Command::GraphClear => "Status: clearing session graph".to_string(),
+            Command::Init => "Status: bootstrapping repository graph".to_string(),
             Command::Listen(scenario, duration) => {
                 let mut status = "Status: starting audio transcription".to_string();
                 if let Some(s) = scenario {
@@ -787,6 +821,12 @@ impl CliState {
         stdout.flush().await?;
         Ok(())
     }
+
+    fn refresh_init_gate(&mut self) -> Result<()> {
+        let messages = self.persistence.list_messages(self.agent.session_id(), 1)?;
+        self.init_allowed = messages.is_empty();
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -809,6 +849,7 @@ mod tests {
         assert_eq!(parse_command("/config show"), Command::ConfigShow);
         assert_eq!(parse_command("/agents"), Command::ListAgents);
         assert_eq!(parse_command("/list"), Command::ListAgents);
+        assert_eq!(parse_command("/init"), Command::Init);
         assert_eq!(
             parse_command("/switch coder"),
             Command::SwitchAgent("coder".into())

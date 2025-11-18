@@ -381,6 +381,11 @@ AI reasoning with graph-based memory:
 - **`/graph show [N]`** — Display last N graph nodes (default: 10)
 - **`/graph clear`** — Clear graph for current session
 
+## Repository Bootstrap
+Prime the knowledge graph with source facts before the first prompt:
+
+- **`/init`** — Run the bootstrap-self pipeline against the repo (only valid as the first message)
+
 ## Audio Transcription
 Mock audio input transcription for testing:
 

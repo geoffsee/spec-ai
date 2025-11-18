@@ -309,17 +309,45 @@ impl AgentCore {
 
                         // Check if tool is allowed
                         if !self.is_tool_allowed(tool_name) {
-                            let error_msg =
-                                format!("Tool '{}' is not allowed by agent policy", tool_name);
-                            warn!("{}", error_msg);
-                            tool_invocations.push(ToolInvocation {
-                                name: tool_name.clone(),
-                                arguments: tool_args.clone(),
-                                success: false,
-                                output: None,
-                                error: Some(error_msg),
-                            });
-                            continue;
+                            warn!("Tool '{}' is not allowed by agent policy - prompting user", tool_name);
+
+                            // Prompt user for permission
+                            match self.prompt_for_tool_permission(tool_name).await {
+                                Ok(true) => {
+                                    info!("User granted permission for tool '{}'", tool_name);
+                                    // Permission granted, continue to execute the tool below
+                                }
+                                Ok(false) => {
+                                    let error_msg = format!(
+                                        "Tool '{}' was denied by user",
+                                        tool_name
+                                    );
+                                    warn!("{}", error_msg);
+                                    tool_invocations.push(ToolInvocation {
+                                        name: tool_name.clone(),
+                                        arguments: tool_args.clone(),
+                                        success: false,
+                                        output: None,
+                                        error: Some(error_msg),
+                                    });
+                                    continue;
+                                }
+                                Err(e) => {
+                                    let error_msg = format!(
+                                        "Failed to get user permission for tool '{}': {}",
+                                        tool_name, e
+                                    );
+                                    warn!("{}", error_msg);
+                                    tool_invocations.push(ToolInvocation {
+                                        name: tool_name.clone(),
+                                        arguments: tool_args.clone(),
+                                        success: false,
+                                        output: None,
+                                        error: Some(error_msg),
+                                    });
+                                    continue;
+                                }
+                            }
                         }
 
                         // Execute tool
@@ -1875,6 +1903,92 @@ impl AgentCore {
             .borrow_mut()
             .insert(tool_name.to_string(), allowed);
         allowed
+    }
+
+    /// Prompt user for permission to use a tool
+    async fn prompt_for_tool_permission(&mut self, tool_name: &str) -> Result<bool> {
+        info!("Requesting user permission for tool: {}", tool_name);
+
+        // Get the tool to show its description
+        let tool_description = self.tool_registry
+            .get(tool_name)
+            .map(|t| t.description().to_string())
+            .unwrap_or_else(|| "No description available".to_string());
+
+        // Use prompt_user tool to ask for permission
+        let prompt_args = json!({
+            "prompt": format!(
+                "The agent wants to use the '{}' tool.\n\nDescription: {}\n\nDo you want to allow this?",
+                tool_name,
+                tool_description
+            ),
+            "input_type": "boolean",
+            "required": true,
+        });
+
+        match self.tool_registry.execute("prompt_user", prompt_args).await {
+            Ok(result) if result.success => {
+                info!("prompt_user output: {}", result.output);
+
+                // Parse the JSON response from prompt_user
+                let allowed = if let Ok(response_json) = serde_json::from_str::<Value>(&result.output) {
+                    info!("Parsed JSON response: {:?}", response_json);
+                    // Extract the boolean value from the response (field is "response" not "value")
+                    let value = response_json["response"].as_bool();
+                    info!("Extracted boolean value: {:?}", value);
+                    value.unwrap_or(false)
+                } else {
+                    info!("Failed to parse JSON, trying plain text fallback");
+                    // Fallback: try to parse as plain text
+                    let response = result.output.trim().to_lowercase();
+                    let parsed = response == "yes" || response == "y" || response == "true";
+                    info!("Plain text parse result for '{}': {}", response, parsed);
+                    parsed
+                };
+
+                info!("User {} tool '{}'", if allowed { "allowed" } else { "denied" }, tool_name);
+
+                if allowed {
+                    // Add to allowed tools permanently
+                    self.add_allowed_tool(tool_name);
+                } else {
+                    // Add to denied tools to remember the decision
+                    self.add_denied_tool(tool_name);
+                }
+
+                Ok(allowed)
+            }
+            Ok(result) => {
+                warn!("Failed to prompt user: {:?}", result.error);
+                Ok(false)
+            }
+            Err(e) => {
+                warn!("Error prompting user for permission: {}", e);
+                Ok(false)
+            }
+        }
+    }
+
+    /// Add a tool to the allowed list
+    fn add_allowed_tool(&mut self, tool_name: &str) {
+        let tools = self.profile.allowed_tools.get_or_insert_with(Vec::new);
+        if !tools.contains(&tool_name.to_string()) {
+            tools.push(tool_name.to_string());
+            info!("Added '{}' to allowed tools list", tool_name);
+        }
+        // Clear cache to force recheck
+        self.tool_permission_cache.borrow_mut().remove(tool_name);
+    }
+
+    /// Add a tool to the denied list
+    fn add_denied_tool(&mut self, tool_name: &str) {
+        let tools = self.profile.denied_tools.get_or_insert_with(Vec::new);
+        if !tools.contains(&tool_name.to_string()) {
+            tools.push(tool_name.to_string());
+            info!("Added '{}' to denied tools list", tool_name);
+        }
+        // Clear cache to force recheck
+        self.tool_permission_cache.borrow_mut().remove(tool_name);
     }
 
     /// Execute a tool and log the result

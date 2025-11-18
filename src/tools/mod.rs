@@ -12,6 +12,10 @@ use self::builtin::{
     AudioTranscriptionTool, BashTool, EchoTool, FileExtractTool, FileReadTool, FileWriteTool,
     GraphTool, MathTool, PromptUserTool, SearchTool, ShellTool, WebSearchTool,
 };
+
+#[cfg(feature = "web-scraping")]
+use self::builtin::WebScraperTool;
+use crate::embeddings::EmbeddingsClient;
 use crate::persistence::Persistence;
 
 #[cfg(feature = "openai")]
@@ -81,7 +85,10 @@ impl ToolRegistry {
     ///
     /// Tools that require persistence (e.g., `graph`) are only registered when
     /// an [`Arc<Persistence>`] is provided.
-    pub fn with_builtin_tools(persistence: Option<Arc<Persistence>>) -> Self {
+    pub fn with_builtin_tools(
+        persistence: Option<Arc<Persistence>>,
+        embeddings: Option<EmbeddingsClient>,
+    ) -> Self {
         let mut registry = Self::new();
 
         // Register all built-in tools
@@ -94,7 +101,11 @@ impl ToolRegistry {
         registry.register(Arc::new(SearchTool::new()));
         registry.register(Arc::new(BashTool::new()));
         registry.register(Arc::new(ShellTool::new()));
-        registry.register(Arc::new(WebSearchTool::new()));
+        registry.register(Arc::new(WebSearchTool::new().with_embeddings(embeddings)));
+
+        // Register web scraper if feature is enabled
+        #[cfg(feature = "web-scraping")]
+        registry.register(Arc::new(WebScraperTool::new()));
 
         if let Some(persistence) = persistence {
             registry.register(Arc::new(GraphTool::new(persistence.clone())));

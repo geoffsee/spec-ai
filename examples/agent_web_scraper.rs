@@ -52,9 +52,9 @@ async fn main() -> Result<()> {
         println!("\n--- Test {} ---", i + 1);
         println!("Prompt: {}\n", prompt);
 
-        match agent.chat(prompt).await {
+        match agent.run_step(prompt).await {
             Ok(response) => {
-                println!("Response:\n{}\n", response.content);
+                println!("Response:\n{}\n", response.response);
             }
             Err(e) => {
                 eprintln!("Error: {}", e);

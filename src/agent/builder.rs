@@ -133,11 +133,21 @@ impl AgentBuilder {
             ));
         };
 
+        // Get or create embeddings client
+        let embeddings_client = if let Some(client) = self.embeddings_client {
+            Some(client)
+        } else if let Some(ref config) = self.config {
+            create_embeddings_client_from_config(config)?
+        } else {
+            None
+        };
+
         // Get or create tool registry (defaults to built-in tools)
         // Create this before the provider so OpenAI can be configured with tools
         let tool_registry = self.tool_registry.unwrap_or_else(|| {
             let persistence_arc = Arc::new(persistence.clone());
-            let registry = ToolRegistry::with_builtin_tools(Some(persistence_arc));
+            let registry =
+                ToolRegistry::with_builtin_tools(Some(persistence_arc), embeddings_client.clone());
             info!(
                 "Created tool registry with {} builtin tools",
                 registry.len()
@@ -256,15 +266,6 @@ impl AgentBuilder {
             return Err(anyhow!(
                 "Either provider or config must be provided to build agent"
             ));
-        };
-
-        // Get or create embeddings client
-        let embeddings_client = if let Some(client) = self.embeddings_client {
-            Some(client)
-        } else if let Some(ref config) = self.config {
-            create_embeddings_client_from_config(config)?
-        } else {
-            None
         };
 
         // Get or generate session ID

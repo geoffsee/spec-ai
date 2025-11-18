@@ -1,4 +1,5 @@
 pub mod agent;
+pub mod bootstrap_self;
 pub mod cli;
 pub mod config;
 pub mod embeddings;

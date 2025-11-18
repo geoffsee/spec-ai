@@ -4,10 +4,51 @@ use spec_ai::config::{
 };
 use std::collections::HashMap;
 use std::fs;
+use std::path::Path;
 use tempfile::TempDir;
 
 // Import the formatting module to access set_plain_text_mode
 use spec_ai::cli::formatting;
+
+fn build_repo_fixture(path: &Path) {
+    fs::create_dir_all(path.join("src")).unwrap();
+    fs::create_dir_all(path.join("docs")).unwrap();
+    fs::create_dir_all(path.join("specs")).unwrap();
+    fs::write(
+        path.join("Cargo.toml"),
+        r#"
+[package]
+name = "cli-bootstrap"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = "1.0"
+"#,
+    )
+    .unwrap();
+    fs::write(path.join("README.md"), "# CLI Fixture\n").unwrap();
+    fs::write(path.join("src/lib.rs"), "pub fn sample() {}\n").unwrap();
+    fs::write(path.join("docs/guide.md"), "Docs\n").unwrap();
+    fs::write(path.join("specs/basic.spec"), "name = \"sample\"\n").unwrap();
+}
+
+struct EnvVarGuard {
+    key: &'static str,
+}
+
+impl EnvVarGuard {
+    fn set_path(key: &'static str, value: &Path) -> Self {
+        std::env::set_var(key, value);
+        Self { key }
+    }
+}
+
+impl Drop for EnvVarGuard {
+    fn drop(&mut self) {
+        std::env::remove_var(self.key);
+    }
+}
 
 /// Integration test for full CLI workflow across multiple commands
 #[tokio::test]
@@ -250,6 +291,63 @@ async fn test_session_isolation() {
     let memory2b = cli.handle_line("/memory show").await.unwrap().unwrap();
     assert!(memory2b.contains("Message in session 2"));
     assert!(!memory2b.contains("Message in session 1"));
+}
+
+#[tokio::test]
+async fn test_init_command_gating() {
+    formatting::set_plain_text_mode(true);
+
+    let repo_temp = TempDir::new().unwrap();
+    build_repo_fixture(repo_temp.path());
+    let _env_guard = EnvVarGuard::set_path("SPEC_AI_BOOTSTRAP_ROOT", repo_temp.path());
+
+    let dir = TempDir::new().unwrap();
+    let db_path = dir.path().join("init_gate.duckdb");
+
+    let mut agents = HashMap::new();
+    let mut profile = AgentProfile::default();
+    profile.fast_reasoning = false;
+    profile.fast_model_provider = None;
+    profile.fast_model_name = None;
+    agents.insert("default".to_string(), profile);
+
+    let config = AppConfig {
+        database: DatabaseConfig { path: db_path },
+        model: ModelConfig {
+            provider: "mock".into(),
+            model_name: None,
+            embeddings_model: None,
+            api_key_source: None,
+            temperature: 0.7,
+        },
+        ui: UiConfig {
+            prompt: "> ".into(),
+            theme: "default".into(),
+        },
+        logging: LoggingConfig {
+            level: "info".into(),
+        },
+        audio: AudioConfig::default(),
+        agents,
+        default_agent: Some("default".into()),
+    };
+
+    let mut cli = CliState::new_with_config(config).unwrap();
+
+    let first = cli.handle_line("/init").await.unwrap().unwrap();
+    assert!(first.contains("Knowledge graph bootstrap complete"));
+
+    let denied = cli.handle_line("/init").await.unwrap().unwrap();
+    assert!(denied.contains("must be the first action"));
+
+    let _ = cli.handle_line("/session new skip-init").await.unwrap();
+    let _ = cli.handle_line("Hello agent").await.unwrap();
+    let denied_after_message = cli.handle_line("/init").await.unwrap().unwrap();
+    assert!(denied_after_message.contains("must be the first action"));
+
+    let _ = cli.handle_line("/session new fresh").await.unwrap();
+    let second = cli.handle_line("/init").await.unwrap().unwrap();
+    assert!(second.contains("Knowledge graph bootstrap complete"));
 }
 
 /// Test agent switching preserves session but changes agent context

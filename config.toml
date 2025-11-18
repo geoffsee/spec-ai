@@ -19,7 +19,7 @@ temperature = 0.7
 # User interface configuration
 [ui]
 theme = "default"
-prompt="$ "
+prompt="spec-ai> "
 
 # Logging configuration
 [logging]
@@ -28,17 +28,7 @@ level = "info"
 # ========== MULTI-MODEL AGENT CONFIGURATION ==========
 [agents.multi_model_agent]
 # Basic agent configuration
-prompt = """You are a practical coding assistant that helps users build software.
-When users request to build something, immediately take action by:
-1. Creating necessary files using the file_write tool
-2. Writing actual code, not descriptions or plans
-3. Using bash to run and test code when appropriate
-4. Iterating based on results
-
-You have access to a fast model for quick analysis, but code generation
-should always result in actual file creation, not planning documents.
-When a user confirms a technology choice (e.g., "Let's do Python with Pygame"),
-immediately generate starter code using file_write."""
+prompt = """You are a practical assistant that helps users accomplish tasks."""
 temperature = 0.7
 memory_k = 20
 top_p = 0.9

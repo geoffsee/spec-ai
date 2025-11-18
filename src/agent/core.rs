@@ -473,7 +473,7 @@ impl AgentCore {
 
         // Persist steering insight as a synthetic system message for future turns
         if let Some(ref recommendation) = next_action_recommendation {
-            info!("Knowledge graph recommends next action: {}", recommendation);
+            tracing::debug!("Knowledge graph recommends next action: {}", recommendation);
             let system_content = format!("Graph recommendation: {}", recommendation);
             let system_store_timer = Instant::now();
             let system_message_id = self
@@ -911,7 +911,7 @@ impl AgentCore {
 
         // Add tool instructions
         let available_tools = self.tool_registry.list();
-        info!("Tool registry has {} tools", available_tools.len());
+        tracing::debug!("Tool registry has {} tools", available_tools.len());
         if !available_tools.is_empty() {
             prompt.push_str("Available tools:\n");
             for tool_name in &available_tools {

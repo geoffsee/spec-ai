@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::info;
+use tracing::{debug, info};
 
 use self::builtin::{
     AudioTranscriptionTool, BashTool, EchoTool, FileExtractTool, FileReadTool, FileWriteTool,
@@ -105,9 +105,9 @@ impl ToolRegistry {
             registry.register(Arc::new(AudioTranscriptionTool::new()));
         }
 
-        tracing::info!("ToolRegistry created with {} tools", registry.tools.len());
+        tracing::debug!("ToolRegistry created with {} tools", registry.tools.len());
         for name in registry.tools.keys() {
-            tracing::info!("  - Tool: {}", name);
+            tracing::debug!("  - Tool: {}", name);
         }
 
         registry
@@ -140,17 +140,17 @@ impl ToolRegistry {
             .get(name)
             .ok_or_else(|| anyhow::anyhow!("Tool not found: {}", name))?;
 
-        info!("Executing tool '{}'", name);
+        debug!("Executing tool '{}'", name);
         let result = tool.execute(args).await;
         match &result {
             Ok(res) => {
-                info!(
+                debug!(
                     "Tool '{}' completed: success={}, error={:?}",
                     name, res.success, res.error
                 );
             }
             Err(err) => {
-                info!("Tool '{}' failed to execute: {}", name, err);
+                debug!("Tool '{}' failed to execute: {}", name, err);
             }
         }
         result

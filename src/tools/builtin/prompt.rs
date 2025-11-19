@@ -674,7 +674,9 @@ impl Tool for PromptUserTool {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 enum PromptInputType {
+    #[default]
     Text,
     MultilineText,
     Boolean,
@@ -698,11 +700,6 @@ impl PromptInputType {
     }
 }
 
-impl Default for PromptInputType {
-    fn default() -> Self {
-        PromptInputType::Text
-    }
-}
 
 #[derive(Debug, Clone, Deserialize)]
 struct PromptOption {

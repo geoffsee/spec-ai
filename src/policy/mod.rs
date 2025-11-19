@@ -35,15 +35,11 @@ impl PolicyRule {
 
 /// Container for all policy rules
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct PolicySet {
     pub rules: Vec<PolicyRule>,
 }
 
-impl Default for PolicySet {
-    fn default() -> Self {
-        Self { rules: Vec::new() }
-    }
-}
 
 /// Result of policy evaluation
 #[derive(Debug, Clone, PartialEq, Eq)]

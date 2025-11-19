@@ -1,7 +1,6 @@
 use anyhow::Result;
 use spec_ai::cli::CliState;
 use std::env;
-use tracing_subscriber;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -11,7 +10,9 @@ async fn main() -> Result<()> {
         Err(e) => {
             // Check if this is a database lock error (another instance running)
             let error_chain = format!("{:#}", e);
-            if error_chain.contains("Could not set lock") || error_chain.contains("Conflicting lock") {
+            if error_chain.contains("Could not set lock")
+                || error_chain.contains("Conflicting lock")
+            {
                 eprintln!("Error: Another instance of spec-ai is already running.");
                 eprintln!();
                 eprintln!("Only one instance can access the database at a time.");

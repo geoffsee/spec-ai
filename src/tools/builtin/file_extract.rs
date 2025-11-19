@@ -31,6 +31,12 @@ struct FileExtractOutput {
 /// Tool that uses Extractous to read arbitrary files and return textual content
 pub struct FileExtractTool;
 
+impl Default for FileExtractTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FileExtractTool {
     pub fn new() -> Self {
         Self

@@ -68,13 +68,13 @@ impl MathTool {
             "cos" => Ok(a.cos()),
             "tan" => Ok(a.tan()),
             "asin" => {
-                if a < -1.0 || a > 1.0 {
+                if !(-1.0..=1.0).contains(&a) {
                     anyhow::bail!("asin is only defined for inputs between -1 and 1");
                 }
                 Ok(a.asin())
             }
             "acos" => {
-                if a < -1.0 || a > 1.0 {
+                if !(-1.0..=1.0).contains(&a) {
                     anyhow::bail!("acos is only defined for inputs between -1 and 1");
                 }
                 Ok(a.acos())

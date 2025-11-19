@@ -11,6 +11,7 @@ use std::path::PathBuf;
 
 /// Top-level application configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct AppConfig {
     /// Database configuration
     #[serde(default)]
@@ -162,19 +163,6 @@ impl AppConfig {
     }
 }
 
-impl Default for AppConfig {
-    fn default() -> Self {
-        Self {
-            database: DatabaseConfig::default(),
-            model: ModelConfig::default(),
-            ui: UiConfig::default(),
-            logging: LoggingConfig::default(),
-            audio: AudioConfig::default(),
-            agents: HashMap::new(),
-            default_agent: None,
-        }
-    }
-}
 
 /// Database configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -7,7 +7,7 @@ use termimad::*;
 
 thread_local! {
     /// Override for terminal detection in tests
-    static FORCE_PLAIN_TEXT: Cell<bool> = Cell::new(false);
+    static FORCE_PLAIN_TEXT: Cell<bool> = const { Cell::new(false) };
 }
 
 /// Force plain text output (for testing)
@@ -236,7 +236,7 @@ pub fn render_run_stats(output: &AgentOutput, show_reasoning: bool) -> Option<St
                 section.push_str(&format!("\n  **Error:** {}\n", err));
             }
 
-            section.push_str("\n");
+            section.push('\n');
         }
         sections.push(section);
     }

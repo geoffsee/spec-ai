@@ -282,7 +282,7 @@ impl AgentCore {
                 // Early termination: if no tool calls and response is complete, break immediately
                 if sdk_tool_calls.is_empty() {
                     // Check if finish_reason indicates completion
-                    let is_complete = finish_reason.as_ref().map_or(false, |reason| {
+                    let is_complete = finish_reason.as_ref().is_some_and(|reason| {
                         let reason_lower = reason.to_lowercase();
                         reason_lower.contains("stop")
                             || reason_lower.contains("end_turn")
@@ -293,7 +293,7 @@ impl AgentCore {
                     // If no goal constraint requires tools, terminate early
                     let goal_needs_tool = goal_context
                         .as_ref()
-                        .map_or(false, |g| g.requires_tool && !g.satisfied);
+                        .is_some_and(|g| g.requires_tool && !g.satisfied);
 
                     if is_complete && !goal_needs_tool {
                         debug!("Early termination: response complete with no tool calls needed");
@@ -309,7 +309,10 @@ impl AgentCore {
 
                         // Check if tool is allowed
                         if !self.is_tool_allowed(tool_name) {
-                            warn!("Tool '{}' is not allowed by agent policy - prompting user", tool_name);
+                            warn!(
+                                "Tool '{}' is not allowed by agent policy - prompting user",
+                                tool_name
+                            );
 
                             // Prompt user for permission
                             match self.prompt_for_tool_permission(tool_name).await {
@@ -318,10 +321,8 @@ impl AgentCore {
                                     // Permission granted, continue to execute the tool below
                                 }
                                 Ok(false) => {
-                                    let error_msg = format!(
-                                        "Tool '{}' was denied by user",
-                                        tool_name
-                                    );
+                                    let error_msg =
+                                        format!("Tool '{}' was denied by user", tool_name);
                                     warn!("{}", error_msg);
                                     tool_invocations.push(ToolInvocation {
                                         name: tool_name.clone(),
@@ -823,7 +824,7 @@ impl AgentCore {
                                                         "[Graph Context - {} {}]: {}",
                                                         neighbor.node_type.as_str(),
                                                         neighbor.label,
-                                                        neighbor.properties.to_string()
+                                                        neighbor.properties
                                                     );
 
                                                     // Add as system message for context
@@ -954,7 +955,7 @@ impl AgentCore {
                     }
                 }
             }
-            prompt.push_str("\n");
+            prompt.push('\n');
         }
 
         // Add conversation context
@@ -963,7 +964,7 @@ impl AgentCore {
             for msg in context_messages {
                 prompt.push_str(&format!("{}: {}\n", msg.role.as_str(), msg.content));
             }
-            prompt.push_str("\n");
+            prompt.push('\n');
         }
 
         // Add current user input
@@ -1326,7 +1327,7 @@ impl AgentCore {
             if let Some(payload) = prompt_payload {
                 let response_preview = payload
                     .get("response")
-                    .map(|v| preview_json_value(v))
+                    .map(preview_json_value)
                     .unwrap_or_default();
 
                 let response_properties = json!({
@@ -1448,11 +1449,10 @@ impl AgentCore {
         ];
 
         for (task, keywords) in candidates {
-            if keywords.iter().any(|kw| text.contains(kw)) {
-                if self.profile.fast_model_tasks.iter().any(|t| t == task) {
+            if keywords.iter().any(|kw| text.contains(kw))
+                && self.profile.fast_model_tasks.iter().any(|t| t == task) {
                     return Some(task.to_string());
                 }
-            }
         }
 
         None
@@ -1571,7 +1571,7 @@ impl AgentCore {
         let mut answer = String::new();
         for line in text.lines() {
             if line.to_lowercase().starts_with("answer:") {
-                answer.push_str(line.splitn(2, ':').nth(1).unwrap_or("").trim());
+                answer.push_str(line.split_once(':').map(|x| x.1).unwrap_or("").trim());
                 break;
             }
         }
@@ -1910,7 +1910,8 @@ impl AgentCore {
         info!("Requesting user permission for tool: {}", tool_name);
 
         // Get the tool to show its description
-        let tool_description = self.tool_registry
+        let tool_description = self
+            .tool_registry
             .get(tool_name)
             .map(|t| t.description().to_string())
             .unwrap_or_else(|| "No description available".to_string());
@@ -1931,22 +1932,27 @@ impl AgentCore {
                 info!("prompt_user output: {}", result.output);
 
                 // Parse the JSON response from prompt_user
-                let allowed = if let Ok(response_json) = serde_json::from_str::<Value>(&result.output) {
-                    info!("Parsed JSON response: {:?}", response_json);
-                    // Extract the boolean value from the response (field is "response" not "value")
-                    let value = response_json["response"].as_bool();
-                    info!("Extracted boolean value: {:?}", value);
-                    value.unwrap_or(false)
-                } else {
-                    info!("Failed to parse JSON, trying plain text fallback");
-                    // Fallback: try to parse as plain text
-                    let response = result.output.trim().to_lowercase();
-                    let parsed = response == "yes" || response == "y" || response == "true";
-                    info!("Plain text parse result for '{}': {}", response, parsed);
-                    parsed
-                };
+                let allowed =
+                    if let Ok(response_json) = serde_json::from_str::<Value>(&result.output) {
+                        info!("Parsed JSON response: {:?}", response_json);
+                        // Extract the boolean value from the response (field is "response" not "value")
+                        let value = response_json["response"].as_bool();
+                        info!("Extracted boolean value: {:?}", value);
+                        value.unwrap_or(false)
+                    } else {
+                        info!("Failed to parse JSON, trying plain text fallback");
+                        // Fallback: try to parse as plain text
+                        let response = result.output.trim().to_lowercase();
+                        let parsed = response == "yes" || response == "y" || response == "true";
+                        info!("Plain text parse result for '{}': {}", response, parsed);
+                        parsed
+                    };
 
-                info!("User {} tool '{}'", if allowed { "allowed" } else { "denied" }, tool_name);
+                info!(
+                    "User {} tool '{}'",
+                    if allowed { "allowed" } else { "denied" },
+                    tool_name
+                );
 
                 if allowed {
                     // Add to allowed tools permanently
@@ -2256,7 +2262,7 @@ impl AgentCore {
             }
 
             if tool_sequence.contains(&"search")
-                && tool_invocations.last().map_or(false, |t| t.success)
+                && tool_invocations.last().is_some_and(|t| t.success)
             {
                 recommendations
                     .push("Examine the search results for relevant information".to_string());

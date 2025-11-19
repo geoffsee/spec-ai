@@ -116,6 +116,12 @@ pub struct OpenAIEmbeddingsService {
     client: OpenAIClient<OpenAIConfig>,
 }
 
+impl Default for OpenAIEmbeddingsService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OpenAIEmbeddingsService {
     /// Create a service with the default OpenAI configuration.
     pub fn new() -> Self {

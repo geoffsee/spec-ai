@@ -229,7 +229,7 @@ impl UniversalCodePlugin {
 
         classification.total_files = file_count;
         classification.detected_languages =
-            language_counts.into_iter().map(|(lang, _)| lang).collect();
+            language_counts.into_keys().collect();
 
         // Collect components (top-level directories)
         self.identify_components(repo_root, &mut classification)?;
@@ -452,15 +452,15 @@ impl UniversalCodePlugin {
         }
 
         // Identify critical features
-        if classification.source_code.len() > 0 {
+        if !classification.source_code.is_empty() {
             semantic
                 .critical_features
                 .push("Core Implementation".to_string());
         }
-        if classification.tests.len() > 0 {
+        if !classification.tests.is_empty() {
             semantic.critical_features.push("Test Suite".to_string());
         }
-        if classification.documentation.len() > 0 {
+        if !classification.documentation.is_empty() {
             semantic.critical_features.push("Documentation".to_string());
         }
 
@@ -686,7 +686,7 @@ impl UniversalCodePlugin {
             for abstraction in &semantic.key_abstractions {
                 doc.push_str(&format!("- {}\n", abstraction));
             }
-            doc.push_str("\n");
+            doc.push('\n');
         }
 
         if !semantic.critical_features.is_empty() {
@@ -694,7 +694,7 @@ impl UniversalCodePlugin {
             for feature in &semantic.critical_features {
                 doc.push_str(&format!("- {}\n", feature));
             }
-            doc.push_str("\n");
+            doc.push('\n');
         }
 
         doc.push_str("\n---\n\n");

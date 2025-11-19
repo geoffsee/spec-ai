@@ -282,7 +282,7 @@ impl AgentCore {
                 // Early termination: if no tool calls and response is complete, break immediately
                 if sdk_tool_calls.is_empty() {
                     // Check if finish_reason indicates completion
-                    let is_complete = finish_reason.as_ref().map_or(false, |reason| {
+                    let is_complete = finish_reason.as_ref().is_some_and(|reason| {
                         let reason_lower = reason.to_lowercase();
                         reason_lower.contains("stop")
                             || reason_lower.contains("end_turn")
@@ -293,7 +293,7 @@ impl AgentCore {
                     // If no goal constraint requires tools, terminate early
                     let goal_needs_tool = goal_context
                         .as_ref()
-                        .map_or(false, |g| g.requires_tool && !g.satisfied);
+                        .is_some_and(|g| g.requires_tool && !g.satisfied);
 
                     if is_complete && !goal_needs_tool {
                         debug!("Early termination: response complete with no tool calls needed");
@@ -824,7 +824,7 @@ impl AgentCore {
                                                         "[Graph Context - {} {}]: {}",
                                                         neighbor.node_type.as_str(),
                                                         neighbor.label,
-                                                        neighbor.properties.to_string()
+                                                        neighbor.properties
                                                     );
 
                                                     // Add as system message for context
@@ -955,7 +955,7 @@ impl AgentCore {
                     }
                 }
             }
-            prompt.push_str("\n");
+            prompt.push('\n');
         }
 
         // Add conversation context
@@ -964,7 +964,7 @@ impl AgentCore {
             for msg in context_messages {
                 prompt.push_str(&format!("{}: {}\n", msg.role.as_str(), msg.content));
             }
-            prompt.push_str("\n");
+            prompt.push('\n');
         }
 
         // Add current user input
@@ -1327,7 +1327,7 @@ impl AgentCore {
             if let Some(payload) = prompt_payload {
                 let response_preview = payload
                     .get("response")
-                    .map(|v| preview_json_value(v))
+                    .map(preview_json_value)
                     .unwrap_or_default();
 
                 let response_properties = json!({
@@ -1449,11 +1449,10 @@ impl AgentCore {
         ];
 
         for (task, keywords) in candidates {
-            if keywords.iter().any(|kw| text.contains(kw)) {
-                if self.profile.fast_model_tasks.iter().any(|t| t == task) {
+            if keywords.iter().any(|kw| text.contains(kw))
+                && self.profile.fast_model_tasks.iter().any(|t| t == task) {
                     return Some(task.to_string());
                 }
-            }
         }
 
         None
@@ -1572,7 +1571,7 @@ impl AgentCore {
         let mut answer = String::new();
         for line in text.lines() {
             if line.to_lowercase().starts_with("answer:") {
-                answer.push_str(line.splitn(2, ':').nth(1).unwrap_or("").trim());
+                answer.push_str(line.split_once(':').map(|x| x.1).unwrap_or("").trim());
                 break;
             }
         }
@@ -2263,7 +2262,7 @@ impl AgentCore {
             }
 
             if tool_sequence.contains(&"search")
-                && tool_invocations.last().map_or(false, |t| t.success)
+                && tool_invocations.last().is_some_and(|t| t.success)
             {
                 recommendations
                     .push("Examine the search results for relevant information".to_string());

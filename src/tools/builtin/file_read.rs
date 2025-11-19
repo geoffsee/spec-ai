@@ -12,16 +12,13 @@ const DEFAULT_MAX_BYTES: usize = 1_048_576; // 1 MiB
 
 #[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 enum FileReadFormat {
+    #[default]
     Text,
     Base64,
 }
 
-impl Default for FileReadFormat {
-    fn default() -> Self {
-        FileReadFormat::Text
-    }
-}
 
 #[derive(Debug, Deserialize)]
 struct FileReadArgs {

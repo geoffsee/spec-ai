@@ -188,12 +188,12 @@ impl AgentSpec {
             if lines.is_empty() {
                 return ctx;
             }
-            let preview = lines
+            
+            lines
                 .into_iter()
                 .take(max_lines)
                 .collect::<Vec<_>>()
-                .join(" / ");
-            preview
+                .join(" / ")
         })
     }
 

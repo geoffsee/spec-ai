@@ -26,7 +26,7 @@ const FALLBACK_ENGINES: &[(&str, &str)] = &[
 ];
 
 fn encode_query(q: &str) -> String {
-    q.trim().split_whitespace().collect::<Vec<_>>().join("+")
+    q.split_whitespace().collect::<Vec<_>>().join("+")
 }
 
 #[derive(Debug, Deserialize)]

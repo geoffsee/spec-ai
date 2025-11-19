@@ -172,7 +172,7 @@ impl AgentProfile {
     pub fn validate(&self) -> Result<()> {
         // Validate temperature if specified
         if let Some(temp) = self.temperature {
-            if temp < 0.0 || temp > 2.0 {
+            if !(0.0..=2.0).contains(&temp) {
                 return Err(AgentError::Invalid(format!(
                     "temperature must be between 0.0 and 2.0, got {}",
                     temp
@@ -225,7 +225,7 @@ impl AgentProfile {
 
         // Validate model provider if specified
         if let Some(provider) = &self.model_provider {
-            let valid_providers = vec!["mock", "openai", "anthropic", "ollama", "mlx", "lmstudio"];
+            let valid_providers = ["mock", "openai", "anthropic", "ollama", "mlx", "lmstudio"];
             if !valid_providers.contains(&provider.as_str()) {
                 return Err(AgentError::Invalid(format!(
                     "model_provider must be one of: {}. Got: {}",

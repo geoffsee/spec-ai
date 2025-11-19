@@ -1,7 +1,6 @@
 use anyhow::Result;
 use spec_ai::cli::CliState;
 use std::env;
-use tracing_subscriber;
 
 #[tokio::main]
 async fn main() -> Result<()> {

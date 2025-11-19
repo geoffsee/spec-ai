@@ -13,29 +13,23 @@ const DEFAULT_MAX_BYTES: usize = 1_048_576; // 1 MiB
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 enum WriteMode {
+    #[default]
     Overwrite,
     Append,
 }
 
-impl Default for WriteMode {
-    fn default() -> Self {
-        WriteMode::Overwrite
-    }
-}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 enum ContentEncoding {
+    #[default]
     Text,
     Base64,
 }
 
-impl Default for ContentEncoding {
-    fn default() -> Self {
-        ContentEncoding::Text
-    }
-}
 
 #[derive(Debug, Deserialize)]
 struct FileWriteArgs {

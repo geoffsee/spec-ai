@@ -68,7 +68,7 @@ impl SearchTool {
     fn resolve_root(&self, override_root: &Option<String>) -> PathBuf {
         override_root
             .as_ref()
-            .map(|r| PathBuf::from(r))
+            .map(PathBuf::from)
             .unwrap_or_else(|| self.root.clone())
     }
 

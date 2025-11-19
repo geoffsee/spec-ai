@@ -413,11 +413,7 @@ impl CliState {
                             "  [{:?}] {} - {}\n",
                             node.node_type,
                             node.label,
-                            if let Some(name) = node.properties["name"].as_str() {
-                                name
-                            } else {
-                                "unnamed"
-                            }
+                            node.properties["name"].as_str().unwrap_or("unnamed")
                         ));
                     }
 

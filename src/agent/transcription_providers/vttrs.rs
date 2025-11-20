@@ -76,7 +76,7 @@ impl VttRsProvider {
                 .endpoint
                 .clone()
                 .or(self.endpoint.clone())
-                .unwrap_or_else(|| "https://api.openai.com/v1".to_string()),
+                .unwrap_or_else(|| "https://api.openai.com/v1/audio/transcriptions".to_string()),
             out_file: config.out_file.clone().map(PathBuf::from),
             on_device: if self.on_device {
                 Some(vtt_rs::OnDeviceConfig::default())

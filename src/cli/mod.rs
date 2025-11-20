@@ -7,7 +7,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc;
-use tokio::task::JoinHandle;
 
 use crate::agent::core::MemoryRecallStrategy;
 use crate::agent::{
@@ -178,7 +177,7 @@ pub fn parse_command(input: &str) -> Command {
 
 /// Transcription task handle for background listening
 struct TranscriptionTask {
-    handle: JoinHandle<()>,
+    handle: std::thread::JoinHandle<()>,
     stop_tx: mpsc::UnboundedSender<()>,
     started_at: std::time::SystemTime,
     duration_secs: Option<u64>,
@@ -570,55 +569,65 @@ impl CliState {
                 let provider_name_display = provider_name.clone(); // Clone for response message
                 let started_at = std::time::SystemTime::now();
 
-                // Spawn background task
-                let handle = tokio::spawn(async move {
-                    // Start transcription
-                    let stream_result = provider.start_transcription(&config).await;
+                // Spawn background thread with LocalSet for spawn_local support
+                let handle = std::thread::spawn(move || {
+                    // Create a current_thread runtime with LocalSet support
+                    let rt = tokio::runtime::Builder::new_current_thread()
+                        .enable_all()
+                        .build()
+                        .expect("Failed to create runtime");
 
-                    match stream_result {
-                        Ok(mut stream) => {
-                            println!("\n[Transcription] Started using {}", provider_name);
+                    let local = tokio::task::LocalSet::new();
 
-                            loop {
-                                tokio::select! {
-                                    // Check for stop signal
-                                    _ = stop_rx.recv() => {
-                                        println!("\n[Transcription] Stopped by user");
-                                        break;
-                                    }
-                                    // Process transcription events
-                                    event = stream.next() => {
-                                        match event {
-                                            Some(Ok(TranscriptionEvent::Started { .. })) => {
-                                                // Already logged above
-                                            }
-                                            Some(Ok(TranscriptionEvent::Transcription { chunk_id, text, .. })) => {
-                                                println!("[Transcription] Chunk {}: {}", chunk_id, text);
-                                                let _ = chunks_tx.send(text);
-                                            }
-                                            Some(Ok(TranscriptionEvent::Error { chunk_id, message })) => {
-                                                eprintln!("[Transcription] Error in chunk {}: {}", chunk_id, message);
-                                            }
-                                            Some(Ok(TranscriptionEvent::Completed { total_chunks, .. })) => {
-                                                println!("[Transcription] Completed. Processed {} chunks.", total_chunks);
-                                                break;
-                                            }
-                                            Some(Err(e)) => {
-                                                eprintln!("[Transcription] Error: {}", e);
-                                                break;
-                                            }
-                                            None => {
-                                                break;
+                    local.block_on(&rt, async move {
+                        // Start transcription
+                        let stream_result = provider.start_transcription(&config).await;
+
+                        match stream_result {
+                            Ok(mut stream) => {
+                                println!("\n[Transcription] Started using {}", provider_name);
+
+                                loop {
+                                    tokio::select! {
+                                        // Check for stop signal
+                                        _ = stop_rx.recv() => {
+                                            println!("\n[Transcription] Stopped by user");
+                                            break;
+                                        }
+                                        // Process transcription events
+                                        event = stream.next() => {
+                                            match event {
+                                                Some(Ok(TranscriptionEvent::Started { .. })) => {
+                                                    // Already logged above
+                                                }
+                                                Some(Ok(TranscriptionEvent::Transcription { chunk_id, text, .. })) => {
+                                                    println!("[Transcription] Chunk {}: {}", chunk_id, text);
+                                                    let _ = chunks_tx.send(text);
+                                                }
+                                                Some(Ok(TranscriptionEvent::Error { chunk_id, message })) => {
+                                                    eprintln!("[Transcription] Error in chunk {}: {}", chunk_id, message);
+                                                }
+                                                Some(Ok(TranscriptionEvent::Completed { total_chunks, .. })) => {
+                                                    println!("[Transcription] Completed. Processed {} chunks.", total_chunks);
+                                                    break;
+                                                }
+                                                Some(Err(e)) => {
+                                                    eprintln!("[Transcription] Error: {}", e);
+                                                    break;
+                                                }
+                                                None => {
+                                                    break;
+                                                }
                                             }
                                         }
                                     }
                                 }
                             }
+                            Err(e) => {
+                                eprintln!("[Transcription] Failed to start: {}", e);
+                            }
                         }
-                        Err(e) => {
-                            eprintln!("[Transcription] Failed to start: {}", e);
-                        }
-                    }
+                    })
                 });
 
                 // Store task info
@@ -640,8 +649,6 @@ impl CliState {
                 if let Some(mut task) = self.transcription_task.take() {
                     // Send stop signal
                     let _ = task.stop_tx.send(());
-                    // Abort the task
-                    task.handle.abort();
 
                     // Collect any remaining chunks
                     let mut chunks = Vec::new();

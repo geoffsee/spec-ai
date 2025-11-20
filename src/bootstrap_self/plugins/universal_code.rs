@@ -10,10 +10,10 @@ use walkdir::WalkDir;
 
 // Analysis configuration
 const MAX_FILES_SCANNED: usize = 1000;
-const MAX_INTENT_FILES: usize = 50;
-const MAX_INTENT_BYTES: usize = 51_200; // 50KB
-const MAX_SEMANTIC_BYTES: usize = 512_000; // 500KB
-const SAMPLE_FILES_PER_COMPONENT: usize = 5;
+const _MAX_INTENT_FILES: usize = 50;
+const _MAX_INTENT_BYTES: usize = 51_200; // 50KB
+const _MAX_SEMANTIC_BYTES: usize = 512_000; // 500KB
+const _SAMPLE_FILES_PER_COMPONENT: usize = 5;
 const MAX_COMPONENTS: usize = 15;
 const MAX_DOCUMENTS: usize = 8;
 
@@ -431,9 +431,9 @@ impl UniversalCodePlugin {
 
     fn analyze_semantic(
         &self,
-        repo_root: &Path,
+        _repo_root: &Path,
         classification: &FileClassification,
-        intent: &IntentAnalysis,
+        _intent: &IntentAnalysis,
     ) -> Result<SemanticAnalysis> {
         let mut semantic = SemanticAnalysis {
             architecture_pattern: infer_architecture_pattern(&classification.components),

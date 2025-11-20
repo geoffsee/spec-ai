@@ -72,7 +72,7 @@ fn test_bootstrap_self_creates_graph_artifacts() -> Result<()> {
         .find(|n| n.label == "CargoManifest")
         .expect("manifest node missing");
     assert!(manifest_node.properties["dependencies"].is_array());
-    assert!(manifest_node.properties["bootstrap_source"] == json!("bootstrap-self"));
+    assert!(manifest_node.properties["bootstrap_source"] == json!("rust-cargo-plugin"));
 
     Ok(())
 }

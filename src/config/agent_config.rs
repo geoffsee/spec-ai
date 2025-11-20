@@ -19,6 +19,7 @@ const CONFIG_FILE_NAME: &str = "spec-ai.config.toml";
 /// Top-level application configuration
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AppConfig {
+
     /// Database configuration
     #[serde(default)]
     pub database: DatabaseConfig,
@@ -321,6 +322,9 @@ impl Default for LoggingConfig {
 /// Audio transcription configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AudioConfig {
+    /// Enable audio transcription
+    #[serde(default)]
+    pub enabled: bool,
     /// Transcription provider (mock, vttrs)
     #[serde(default = "default_transcription_provider")]
     pub provider: String,
@@ -342,6 +346,9 @@ pub struct AudioConfig {
     /// Default transcription duration in seconds
     #[serde(default = "default_duration")]
     pub default_duration_secs: u64,
+    /// Default transcription duration in seconds (legacy field name)
+    #[serde(default = "default_duration")]
+    pub default_duration: u64,
     /// Output file path for transcripts (optional)
     #[serde(default)]
     pub out_file: Option<String>,
@@ -351,6 +358,12 @@ pub struct AudioConfig {
     /// Whether to automatically respond to transcriptions
     #[serde(default)]
     pub auto_respond: bool,
+    /// Mock scenario for testing (e.g., "simple_conversation", "emotional_context")
+    #[serde(default = "default_mock_scenario")]
+    pub mock_scenario: String,
+    /// Delay between mock transcription events in milliseconds
+    #[serde(default = "default_event_delay_ms")]
+    pub event_delay_ms: u64,
 }
 
 fn default_transcription_provider() -> String {
@@ -365,9 +378,18 @@ fn default_duration() -> u64 {
     30
 }
 
+fn default_mock_scenario() -> String {
+    "simple_conversation".to_string()
+}
+
+fn default_event_delay_ms() -> u64 {
+    500
+}
+
 impl Default for AudioConfig {
     fn default() -> Self {
         Self {
+            enabled: false,
             provider: default_transcription_provider(),
             model: Some("whisper-1".to_string()),
             api_key_source: None,
@@ -375,9 +397,12 @@ impl Default for AudioConfig {
             endpoint: None,
             chunk_duration_secs: default_chunk_duration(),
             default_duration_secs: default_duration(),
+            default_duration: default_duration(),
             out_file: None,
             language: None,
             auto_respond: false,
+            mock_scenario: default_mock_scenario(),
+            event_delay_ms: default_event_delay_ms(),
         }
     }
 }

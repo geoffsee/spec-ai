@@ -323,7 +323,7 @@ mod tests {
     #[test]
     #[cfg_attr(
         target_os = "macos",
-        ignore = "system proxy APIs unavailable in sandbox"
+        ignore = "system proxy APIs unavailable in this environment"
     )]
     fn test_lmstudio_provider_creation() {
         let provider = LMStudioProvider::new("lmstudio-community/Llama-3.2-3B-Instruct");
@@ -334,7 +334,7 @@ mod tests {
     #[test]
     #[cfg_attr(
         target_os = "macos",
-        ignore = "system proxy APIs unavailable in sandbox"
+        ignore = "system proxy APIs unavailable in this environment"
     )]
     fn test_lmstudio_provider_with_custom_endpoint() {
         let provider = LMStudioProvider::with_endpoint(
@@ -347,7 +347,7 @@ mod tests {
     #[test]
     #[cfg_attr(
         target_os = "macos",
-        ignore = "system proxy APIs unavailable in sandbox"
+        ignore = "system proxy APIs unavailable in this environment"
     )]
     fn test_lmstudio_provider_with_model() {
         let provider = LMStudioProvider::new("model-a").with_model("model-b");
@@ -357,7 +357,7 @@ mod tests {
     #[test]
     #[cfg_attr(
         target_os = "macos",
-        ignore = "system proxy APIs unavailable in sandbox"
+        ignore = "system proxy APIs unavailable in this environment"
     )]
     fn test_lmstudio_provider_with_system_message() {
         let provider =
@@ -371,7 +371,7 @@ mod tests {
     #[test]
     #[cfg_attr(
         target_os = "macos",
-        ignore = "system proxy APIs unavailable in sandbox"
+        ignore = "system proxy APIs unavailable in this environment"
     )]
     fn test_lmstudio_provider_metadata() {
         let provider = LMStudioProvider::new("test-model");
@@ -385,7 +385,7 @@ mod tests {
     #[test]
     #[cfg_attr(
         target_os = "macos",
-        ignore = "system proxy APIs unavailable in sandbox"
+        ignore = "system proxy APIs unavailable in this environment"
     )]
     fn test_lmstudio_provider_kind() {
         let provider = LMStudioProvider::new("test-model");
@@ -395,7 +395,7 @@ mod tests {
     #[test]
     #[cfg_attr(
         target_os = "macos",
-        ignore = "system proxy APIs unavailable in sandbox"
+        ignore = "system proxy APIs unavailable in this environment"
     )]
     fn test_build_messages_without_system() {
         let provider = LMStudioProvider::new("test-model");
@@ -406,7 +406,7 @@ mod tests {
     #[test]
     #[cfg_attr(
         target_os = "macos",
-        ignore = "system proxy APIs unavailable in sandbox"
+        ignore = "system proxy APIs unavailable in this environment"
     )]
     fn test_build_messages_with_system() {
         let provider =

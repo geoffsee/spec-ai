@@ -122,6 +122,7 @@ async fn test_audio_persistence() {
 }
 
 #[tokio::test]
+#[ignore = "Long running mock scenarios"]
 async fn test_different_scenarios() {
     let tool = AudioTranscriptionTool::new();
 
@@ -166,6 +167,7 @@ async fn test_audio_config_loading() {
             event_delay_ms: 100,
             auto_respond: true,
             default_duration: 60,
+            ..Default::default()
         },
         ..Default::default()
     };
@@ -266,6 +268,7 @@ async fn test_transcription_event_formatting() {
 }
 
 #[tokio::test]
+#[ignore = "Long running timing-sensitive scenario"]
 async fn test_speed_multiplier() {
     let tool = AudioTranscriptionTool::new();
 

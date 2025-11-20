@@ -351,7 +351,7 @@ mod tests {
     #[test]
     #[cfg_attr(
         target_os = "macos",
-        ignore = "system proxy APIs unavailable in sandbox"
+        ignore = "system proxy APIs unavailable in this environment"
     )]
     fn test_mlx_provider_creation() {
         let provider = MLXProvider::new("mlx-community/Llama-3.2-3B-Instruct-4bit");
@@ -362,7 +362,7 @@ mod tests {
     #[test]
     #[cfg_attr(
         target_os = "macos",
-        ignore = "system proxy APIs unavailable in sandbox"
+        ignore = "system proxy APIs unavailable in this environment"
     )]
     fn test_mlx_provider_with_custom_endpoint() {
         let provider = MLXProvider::with_endpoint(
@@ -375,7 +375,7 @@ mod tests {
     #[test]
     #[cfg_attr(
         target_os = "macos",
-        ignore = "system proxy APIs unavailable in sandbox"
+        ignore = "system proxy APIs unavailable in this environment"
     )]
     fn test_mlx_provider_with_model() {
         let provider = MLXProvider::new("model-1").with_model("model-2");
@@ -385,7 +385,7 @@ mod tests {
     #[test]
     #[cfg_attr(
         target_os = "macos",
-        ignore = "system proxy APIs unavailable in sandbox"
+        ignore = "system proxy APIs unavailable in this environment"
     )]
     fn test_mlx_provider_with_system_message() {
         let provider =
@@ -399,7 +399,7 @@ mod tests {
     #[test]
     #[cfg_attr(
         target_os = "macos",
-        ignore = "system proxy APIs unavailable in sandbox"
+        ignore = "system proxy APIs unavailable in this environment"
     )]
     fn test_mlx_provider_metadata() {
         let provider = MLXProvider::new("test-model");
@@ -413,7 +413,7 @@ mod tests {
     #[test]
     #[cfg_attr(
         target_os = "macos",
-        ignore = "system proxy APIs unavailable in sandbox"
+        ignore = "system proxy APIs unavailable in this environment"
     )]
     fn test_mlx_provider_kind() {
         let provider = MLXProvider::new("test-model");
@@ -423,7 +423,7 @@ mod tests {
     #[test]
     #[cfg_attr(
         target_os = "macos",
-        ignore = "system proxy APIs unavailable in sandbox"
+        ignore = "system proxy APIs unavailable in this environment"
     )]
     fn test_build_messages_without_system() {
         let provider = MLXProvider::new("test-model");
@@ -435,7 +435,7 @@ mod tests {
     #[test]
     #[cfg_attr(
         target_os = "macos",
-        ignore = "system proxy APIs unavailable in sandbox"
+        ignore = "system proxy APIs unavailable in this environment"
     )]
     fn test_build_messages_with_system() {
         let provider =

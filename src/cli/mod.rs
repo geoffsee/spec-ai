@@ -1033,6 +1033,9 @@ impl CliState {
                 "Status: entering paste mode (end with /end on its own line)".to_string()
             }
             Command::Message(_) => "Status: running agent step".to_string(),
+            Command::Refresh(_) => {
+                "Status: refreshing internal knowledge graph".to_string()
+            }
         }
     }
 

@@ -924,7 +924,7 @@ pub struct TokenizedFileRecord {
 }
 
 impl TokenizedFileRecord {
-    fn from_row(row: duckdb::Row) -> Result<Self> {
+    fn from_row(row: &duckdb::Row) -> Result<Self> {
         let id: i64 = row.get(0)?;
         let session_id: String = row.get(1)?;
         let path: String = row.get(2)?;

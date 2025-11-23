@@ -23,7 +23,7 @@
 ## Testing Guidelines
 - Default test run: `cargo test --all-targets`.
 - Feature-specific suites: `cargo test --features api`, `cargo test --lib plugin`, `cargo test --lib policy`, `cargo test --test policy_integration_tests`.
-- Validate agent plans with `spec-ai run specs/` (or `spec-ai run specs/smoke.spec`) and include any GraalVM/Tesseract setup steps needed for file extraction.
+- Validate agent plans with `spec-ai run specs/smoke.spec` and include any GraalVM/Tesseract setup steps needed for file extraction.
 - Integration tests in `tests/` follow the `*_tests.rs` pattern and focus on persistence and agent flow behavior.
 
 ## Commit & Pull Request Guidelines

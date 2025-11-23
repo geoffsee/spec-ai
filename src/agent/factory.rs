@@ -12,6 +12,8 @@ use crate::agent::providers::MockProvider;
 use crate::agent::providers::OpenAIProvider;
 #[cfg(feature = "anthropic")]
 use crate::agent::providers::AnthropicProvider;
+#[cfg(feature = "ollama")]
+use crate::agent::providers::OllamaProvider;
 use crate::config::ModelConfig;
 use anyhow::{anyhow, Context, Result};
 use std::sync::Arc;
@@ -76,8 +78,19 @@ pub fn create_provider(config: &ModelConfig) -> Result<Arc<dyn ModelProvider>> {
 
         #[cfg(feature = "ollama")]
         ProviderKind::Ollama => {
-            // TODO: Implement Ollama provider
-            Err(anyhow!("Ollama provider not yet implemented"))
+            // Create Ollama provider with optional custom base URL
+            let mut provider = if let Ok(base_url) = std::env::var("OLLAMA_BASE_URL") {
+                OllamaProvider::with_base_url(base_url)
+            } else {
+                OllamaProvider::new()
+            };
+
+            // Set model if specified in config
+            if let Some(model_name) = &config.model_name {
+                provider = provider.with_model(model_name.clone());
+            }
+
+            Ok(Arc::new(provider))
         }
 
         #[cfg(feature = "mlx")]

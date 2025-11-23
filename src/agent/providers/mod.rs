@@ -28,3 +28,6 @@ pub use lmstudio::LMStudioProvider;
 
 #[cfg(feature = "anthropic")]
 pub use anthropic::AnthropicProvider;
+
+#[cfg(feature = "ollama")]
+pub use ollama::OllamaProvider;

@@ -2,7 +2,7 @@
 ### (Experimental)
 *hits rock with other rock*
 
-**A wild animal has appeared.**
+**~~Wild Animal~~ Extradimensional Consciousness has appeared.**
 
 ## Documentation
 

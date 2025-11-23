@@ -1,5 +1,7 @@
 # Setup
 
+This project requires some preliminary setup to run OCR natively. This method of data extraction was chosen for high performance. 
+
 ## Extractous Native Build Setup Guide
 
 This guide walks through the steps to configure GraalVM 23+ and Tesseract for the extractous native build used by the `file_extract` tool.

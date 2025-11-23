@@ -13,7 +13,7 @@
 .gitignore
 
 # Documentation
-/docs
+/project-docs
 README.md
 LICENSE
 

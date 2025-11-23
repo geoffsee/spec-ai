@@ -1,6 +1,8 @@
 # spec-ai
 ### (Experimental)
-Agentic AI written in Rust. 
+*hits rock with other rock*
+
+**A wild animal has appeared.**
 
 ## Documentation
 
@@ -41,14 +43,11 @@ src/
 ## Quick Start
 
 ```shell
-cargo binstall spec-ai --features bundled
+# Warning: If it goes rouge on your machine, that is unfortunate, but ultimately it is your responsibility.
+# Compiles from source and executes directly on the host
+$ cargo binstall spec-ai --features bundled
+$ spec-ai
 ```
-
-## Container Usage
-
-The project includes a Containerfile for running spec-ai in a containerized environment:
-
-The container image includes all required dependencies (GraalVM, Tesseract, DuckDB) and uses the bundled DuckDB feature.
 
 ### Installation
 

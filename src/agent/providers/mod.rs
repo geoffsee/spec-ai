@@ -25,3 +25,6 @@ pub use mlx::MLXProvider;
 
 #[cfg(feature = "lmstudio")]
 pub use lmstudio::LMStudioProvider;
+
+#[cfg(feature = "anthropic")]
+pub use anthropic::AnthropicProvider;

@@ -10,6 +10,8 @@ use crate::agent::providers::MLXProvider;
 use crate::agent::providers::MockProvider;
 #[cfg(feature = "openai")]
 use crate::agent::providers::OpenAIProvider;
+#[cfg(feature = "anthropic")]
+use crate::agent::providers::AnthropicProvider;
 use crate::config::ModelConfig;
 use anyhow::{anyhow, Context, Result};
 use std::sync::Arc;
@@ -53,8 +55,23 @@ pub fn create_provider(config: &ModelConfig) -> Result<Arc<dyn ModelProvider>> {
 
         #[cfg(feature = "anthropic")]
         ProviderKind::Anthropic => {
-            // TODO: Implement Anthropic provider
-            Err(anyhow!("Anthropic provider not yet implemented"))
+            // Get API key from config
+            let api_key = if let Some(source) = &config.api_key_source {
+                resolve_api_key(source)?
+            } else {
+                // Default to ANTHROPIC_API_KEY environment variable
+                load_api_key_from_env("ANTHROPIC_API_KEY")?
+            };
+
+            // Create Anthropic provider
+            let mut provider = AnthropicProvider::with_api_key(api_key);
+
+            // Set model if specified in config
+            if let Some(model_name) = &config.model_name {
+                provider = provider.with_model(model_name.clone());
+            }
+
+            Ok(Arc::new(provider))
         }
 
         #[cfg(feature = "ollama")]

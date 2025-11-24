@@ -5,20 +5,20 @@
 ```mermaid
 graph TB
     subgraph UI["User Interface"]
-        CLI["CLI/REPL<br/>(src/cli)"]
+        CLI["CLI/REPL<br/>(spec-ai-core/src/cli)"]
         Spec["Agent Spec<br/>(TOML)"]
     end
 
     subgraph Config["Configuration & Registry"]
-        ConfigCore["App/Model/Agent Config<br/>(src/config)"]
+        ConfigCore["App/Model/Agent Config<br/>(spec-ai-config/src/config)"]
         AgentReg["Agent Registry"]
         ToolReg["Tool Registry"]
         PluginReg["Plugin Registry"]
     end
 
     subgraph Core["Core Execution Engine"]
-        AgentCore["AgentCore<br/>(src/agent/core)"]
-        ModelFactory["Model Factory<br/>(src/agent/factory)"]
+        AgentCore["AgentCore<br/>(spec-ai-core/src/agent/core)"]
+        ModelFactory["Model Factory<br/>(spec-ai-core/src/agent/factory)"]
         Tools["Built-in Tools<br/>(file, bash, graph, audio, util)"]
     end
 
@@ -27,7 +27,7 @@ graph TB
     end
 
     subgraph Knowledge["Knowledge & Memory"]
-        Embeddings["Embeddings Service<br/>(src/embeddings)"]
+        Embeddings["Embeddings Service<br/>(spec-ai-core/src/embeddings)"]
         GraphDB["Knowledge Graph<br/>Nodes/Edges"]
     end
 
@@ -115,9 +115,9 @@ Multi-provider support:
 - **Knowledge Graph**: GraphNodes and GraphEdges for relationship tracking
 
 ### Distributed Coordination & Sync
-- **Mesh Registry & Messaging**: Agents register, exchange heartbeats, and route inter-agent messages (task delegation, notifications, sync triggers) via the mesh API and tooling (`src/api/mesh.rs`, `src/tools/builtin/mesh_communication.rs`).
-- **Graph Sync Pipeline**: Vector-clock negotiation chooses full vs incremental graph exchange; conflict resolution merges concurrent edits before persisting (`src/api/sync.rs`, `src/sync/engine.rs`, `src/sync/resolver.rs`).
-- **State Persistence**: Sync state, changelog, tombstones, and vector clocks are stored alongside graph data in DuckDB (`src/persistence`).
+- **Mesh Registry & Messaging**: Agents register, exchange heartbeats, and route inter-agent messages (task delegation, notifications, sync triggers) via the mesh API and tooling (`crates/spec-ai-api/src/api/mesh.rs`, `crates/spec-ai-core/src/tools/builtin/mesh_communication.rs`).
+- **Graph Sync Pipeline**: Vector-clock negotiation chooses full vs incremental graph exchange; conflict resolution merges concurrent edits before persisting (`crates/spec-ai-core/src/sync/protocol.rs`, `crates/spec-ai-core/src/sync/engine.rs`, `crates/spec-ai-core/src/sync/resolver.rs`).
+- **State Persistence**: Sync state, changelog, tombstones, and vector clocks are stored alongside graph data in DuckDB (`crates/spec-ai-config/src/persistence`).
 
 ### Persistence Layer (DuckDB)
 - **Messages**: Conversation history

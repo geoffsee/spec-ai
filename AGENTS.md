@@ -1,7 +1,13 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `src/` hosts the CLI entry (`main.rs`), library surface (`lib.rs`), config helpers, persistence layer, and shared types.
+- `crates/` hosts the workspace members:
+  - `spec-ai-cli/` (binary entrypoint),
+  - `spec-ai-core/` (agent runtime + tools),
+  - `spec-ai-config/` (config + persistence),
+  - `spec-ai-policy/` (policy + plugin system),
+  - `spec-ai-api/` (HTTP/mesh server),
+  - `spec-ai/` (public re-export crate).
 - `tests/` contains integration suites; `specs/` houses reusable `.spec` plans; `examples/` contains reference code and configuration samples; `docs/` contains all documentation.
 - `examples/code/` contains example Rust code demonstrating various features.
 - `examples/configs/` contains sample configuration files for different providers and setups.
@@ -12,7 +18,7 @@
 - `cargo binstall spec-ai --features bundled`: install the CLI with the bundled DuckDB runtime for fast iteration.
 - `cargo build/test --features bundled`: compile or run tests using the embedded DuckDB (per README guidance).
 - `./setup_duckdb.sh && source duckdb_env.sh`: switch to a system DuckDB build when the bundled option is insufficient before rerunning `cargo build`/`cargo test`.
-- `cargo run -- --config ./custom.toml` (or `cargo run`): launch the agent with the current directory config; `-c`/`--config` overrides.
+- `cargo run -p spec-ai-cli -- --config ./custom.toml`: launch the agent with the current directory config; `-c`/`--config` overrides.
 - `podman build -t spec-ai .` and `podman run --rm spec-ai --help` (Docker equivalent) exercise the containerized workflow.
 
 ## Coding Style & Naming Conventions
@@ -34,4 +40,4 @@
 ## Agent & Spec Notes
 - Define agents in `spec-ai.config.toml` (or `~/.spec-ai/spec-ai.config.toml`) under `[agents.<name>]` with `prompt`, `temperature`, and tool allow/deny lists as shown in README.
 - Use `/spec run specs/<file>.spec` (or `/spec specs/<file>.spec`) inside the CLI; every `.spec` needs a `goal` plus `tasks` or `deliverables`.
-- Update `src/config/registry.rs` when agent-switching behavior changes and rerun `cargo fmt`/`cargo clippy` afterward.
+- Update `crates/spec-ai-config/src/config/registry.rs` when agent-switching behavior changes and rerun `cargo fmt`/`cargo clippy` afterward.

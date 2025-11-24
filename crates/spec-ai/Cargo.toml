@@ -1,0 +1,31 @@
+[package]
+name = "spec-ai"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description.workspace = true
+repository.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[features]
+default = ["bundled", "openai", "lmstudio", "web-scraping", "vttrs", "api"]
+bundled = ["spec-ai-config/bundled"]
+duck-sys = ["spec-ai-config/duck-sys"]
+openai = ["spec-ai-core/openai"]
+anthropic = ["spec-ai-core/anthropic"]
+ollama = ["spec-ai-core/ollama"]
+mlx = ["spec-ai-core/mlx"]
+lmstudio = ["spec-ai-core/lmstudio"]
+vttrs = ["spec-ai-core/vttrs"]
+web-scraping = ["spec-ai-core/web-scraping"]
+integration-tests = ["spec-ai-core/integration-tests"]
+api = ["dep:spec-ai-api", "spec-ai-core/api"]
+axum-extra = ["api"]
+
+[dependencies]
+spec-ai-core = { path = "../spec-ai-core" }
+spec-ai-config = { path = "../spec-ai-config" }
+spec-ai-policy = { path = "../spec-ai-policy" }
+spec-ai-api = { path = "../spec-ai-api", optional = true }

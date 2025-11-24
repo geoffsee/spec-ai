@@ -1,0 +1,32 @@
+[package]
+name = "spec-ai-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["bundled", "openai", "lmstudio", "web-scraping", "vttrs", "api"]
+bundled = ["spec-ai/bundled"]
+duck-sys = ["spec-ai/duck-sys"]
+openai = ["spec-ai/openai"]
+anthropic = ["spec-ai/anthropic"]
+ollama = ["spec-ai/ollama"]
+mlx = ["spec-ai/mlx"]
+lmstudio = ["spec-ai/lmstudio"]
+vttrs = ["spec-ai/vttrs"]
+web-scraping = ["spec-ai/web-scraping"]
+integration-tests = ["spec-ai/integration-tests"]
+api = ["spec-ai/api"]
+axum-extra = ["spec-ai/axum-extra"]
+
+[dependencies]
+chrono = { workspace = true }
+anyhow = { workspace = true }
+clap = { workspace = true }
+reqwest = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+walkdir = { workspace = true }
+spec-ai = { path = "../spec-ai" }

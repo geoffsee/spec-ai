@@ -63,13 +63,13 @@ graph TD
 ```mermaid
 graph TD
   repo["Repository (rust-cargo)"]
-  comp["Component: src/"]
+  comp["Component: crates/spec-ai-core/src/"]
   doc["Documentation: README.md"]
   manifest["CargoManifest"]
 
   tokens_repo["Repository (token profile)"]
   footprint["TokenFootprint"]
-  token_file["TokenizedFile: src/lib.rs"]
+  token_file["TokenizedFile: crates/spec-ai/src/lib.rs"]
 
   uc_repo["Repository (universal-code)"]
   uc_doc["Documentation: .SPEC-AI.md"]

@@ -23,7 +23,7 @@ cargo test --features integration-tests
 ### Test Organization
 
 **Unit Tests** (fast, included in default `cargo test`):
-- 245+ unit tests in `src/` modules
+- 245+ unit tests across the workspace crates (e.g., `crates/spec-ai-core/src`, `crates/spec-ai-config/src`, `crates/spec-ai-policy/src`, etc.)
 - Integration tests in `tests/` (audio, CLI, config, graph, persistence, etc.)
 - Complete in ~50 seconds
 
@@ -55,7 +55,7 @@ cargo build
 # Test help output
 spec-ai --help
 # OR
-cargo run -- --help
+cargo run -p spec-ai-cli -- --help
 ```
 
 **Expected Output:**
@@ -73,7 +73,7 @@ Options:
 # Start with default config
 spec-ai
 # OR
-cargo run
+cargo run -p spec-ai-cli
 ```
 
 **Expected:**
@@ -93,7 +93,7 @@ cargo run
 # Test custom config location
 spec-ai --config /tmp/test-config.toml
 # OR
-cargo run -- -c /tmp/test-config.toml
+cargo run -p spec-ai-cli -- -c /tmp/test-config.toml
 ```
 
 **Expected:**
@@ -571,7 +571,7 @@ time spec-ai --help
 **Expected:** < 1 second for help
 
 ```bash
-time cargo run
+time cargo run -p spec-ai-cli
 ```
 
 **Expected:**

@@ -23,22 +23,21 @@ Example code demonstrating various features can be found in `examples/code/`.
 
 ## Architecture
 
-### Module Structure
+### Workspace Structure
 
 ```
-src/
-├── config/          # Configuration system
-│   ├── mod.rs       # Core config loading and validation
-│   ├── agent.rs     # Agent profile definitions
-│   ├── registry.rs  # Agent registry and switching
-│   └── cache.rs     # Configuration caching
-├── persistence/     # Database layer
-│   ├── mod.rs       # Persistence API
-│   └── migrations.rs # Database migrations
-├── types.rs         # Shared types
-├── lib.rs           # Library exports
-└── main.rs          # CLI entry point
+crates/
+├── spec-ai-cli/        # Binary crate (user-facing CLI / REPL)
+├── spec-ai-core/       # Agent runtime, tools, embeddings, CLI helpers
+├── spec-ai-config/     # Config models, persistence layer, shared types
+├── spec-ai-policy/     # Policy engine and plugin system
+├── spec-ai-api/        # HTTP/mesh server and sync coordinator
+└── spec-ai/            # Public library crate re-exporting the pieces above
+
+docs/, examples/, specs/, etc.
 ```
+
+`cargo run -p spec-ai-cli` launches the CLI from source, while `cargo test` exercises every crate in the workspace.
 
 ## Quick Start
 

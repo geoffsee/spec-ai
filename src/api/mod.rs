@@ -1,6 +1,8 @@
 #[cfg(feature = "api")]
 pub mod handlers;
 #[cfg(feature = "api")]
+pub mod mesh;
+#[cfg(feature = "api")]
 pub mod middleware;
 #[cfg(feature = "api")]
 pub mod models;

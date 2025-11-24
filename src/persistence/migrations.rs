@@ -46,6 +46,12 @@ pub fn run(conn: &Connection) -> Result<()> {
         migrations_applied = true;
     }
 
+    if current < 6 {
+        apply_v6(conn)?;
+        set_version(conn, 6)?;
+        migrations_applied = true;
+    }
+
     // Force checkpoint after migrations to ensure WAL is merged into the database file.
     // This prevents ALTER TABLE operations from being stuck in the WAL, which can cause
     // "no default database set" errors during WAL replay on subsequent startups.
@@ -258,4 +264,54 @@ fn apply_v5(conn: &Connection) -> Result<()> {
         "#,
     )
     .context("applying v5 schema (tokenized file cache)")
+}
+
+fn apply_v6(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        r#"
+        CREATE SEQUENCE IF NOT EXISTS mesh_messages_id_seq START 1;
+
+        -- Service registry for mesh instances
+        CREATE TABLE IF NOT EXISTS mesh_registry (
+            instance_id TEXT PRIMARY KEY,
+            hostname TEXT NOT NULL,
+            port INTEGER NOT NULL,
+            capabilities TEXT, -- JSON array of capabilities
+            is_leader BOOLEAN DEFAULT FALSE,
+            last_heartbeat TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- Inter-agent messaging
+        CREATE TABLE IF NOT EXISTS mesh_messages (
+            id BIGINT PRIMARY KEY DEFAULT nextval('mesh_messages_id_seq'),
+            source_instance TEXT NOT NULL,
+            target_instance TEXT,
+            message_type TEXT NOT NULL,
+            payload TEXT, -- JSON payload
+            status TEXT DEFAULT 'pending', -- pending, delivered, failed
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            delivered_at TIMESTAMP,
+            FOREIGN KEY (source_instance) REFERENCES mesh_registry(instance_id),
+            FOREIGN KEY (target_instance) REFERENCES mesh_registry(instance_id)
+        );
+
+        -- Distributed consensus/locking
+        CREATE TABLE IF NOT EXISTS mesh_consensus (
+            resource TEXT PRIMARY KEY,
+            owner_instance TEXT NOT NULL,
+            acquired_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            expires_at TIMESTAMP NOT NULL,
+            version INTEGER DEFAULT 1,
+            FOREIGN KEY (owner_instance) REFERENCES mesh_registry(instance_id)
+        );
+
+        -- Indexes for efficient queries
+        CREATE INDEX IF NOT EXISTS idx_mesh_registry_leader ON mesh_registry(is_leader);
+        CREATE INDEX IF NOT EXISTS idx_mesh_messages_target ON mesh_messages(target_instance, status);
+        CREATE INDEX IF NOT EXISTS idx_mesh_messages_created ON mesh_messages(created_at);
+        CREATE INDEX IF NOT EXISTS idx_mesh_consensus_expires ON mesh_consensus(expires_at);
+        "#,
+    )
+    .context("applying v6 schema (mesh networking)")
 }

@@ -907,6 +907,97 @@ impl Persistence {
         }
         Ok(out)
     }
+
+    // ========== Mesh Message Persistence ==========
+
+    /// Store a mesh message in the database
+    pub fn mesh_message_store(
+        &self,
+        message_id: &str,
+        source_instance: &str,
+        target_instance: Option<&str>,
+        message_type: &str,
+        payload: &JsonValue,
+        status: &str,
+    ) -> Result<i64> {
+        let conn = self.conn();
+        let payload_json = serde_json::to_string(payload)?;
+        conn.execute(
+            "INSERT INTO mesh_messages (source_instance, target_instance, message_type, payload, status) VALUES (?, ?, ?, ?, ?)",
+            params![source_instance, target_instance, message_type, payload_json, status],
+        )?;
+        // Get the last inserted ID
+        let id: i64 = conn.query_row("SELECT last_insert_rowid()", params![], |row| row.get(0))?;
+        Ok(id)
+    }
+
+    /// Update message status (e.g., delivered, failed)
+    pub fn mesh_message_update_status(&self, message_id: i64, status: &str) -> Result<()> {
+        let conn = self.conn();
+        conn.execute(
+            "UPDATE mesh_messages SET status = ?, delivered_at = CURRENT_TIMESTAMP WHERE id = ?",
+            params![status, message_id],
+        )?;
+        Ok(())
+    }
+
+    /// Get pending messages for a target instance
+    pub fn mesh_message_get_pending(
+        &self,
+        target_instance: &str,
+    ) -> Result<Vec<MeshMessageRecord>> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare(
+            "SELECT id, source_instance, target_instance, message_type, payload, status, CAST(created_at AS TEXT), CAST(delivered_at AS TEXT)
+             FROM mesh_messages
+             WHERE (target_instance = ? OR target_instance IS NULL) AND status = 'pending'
+             ORDER BY created_at",
+        )?;
+        let mut rows = stmt.query(params![target_instance])?;
+        let mut out = Vec::new();
+        while let Some(row) = rows.next()? {
+            out.push(MeshMessageRecord::from_row(row)?);
+        }
+        Ok(out)
+    }
+
+    /// Get message history for analytics
+    pub fn mesh_message_get_history(
+        &self,
+        instance_id: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<MeshMessageRecord>> {
+        let conn = self.conn();
+        let query = if let Some(inst) = instance_id {
+            format!(
+                "SELECT id, source_instance, target_instance, message_type, payload, status, CAST(created_at AS TEXT), CAST(delivered_at AS TEXT)
+                 FROM mesh_messages
+                 WHERE source_instance = ? OR target_instance = ?
+                 ORDER BY created_at DESC LIMIT {}",
+                limit
+            )
+        } else {
+            format!(
+                "SELECT id, source_instance, target_instance, message_type, payload, status, CAST(created_at AS TEXT), CAST(delivered_at AS TEXT)
+                 FROM mesh_messages
+                 ORDER BY created_at DESC LIMIT {}",
+                limit
+            )
+        };
+
+        let mut stmt = conn.prepare(&query)?;
+        let mut rows = if let Some(inst) = instance_id {
+            stmt.query(params![inst, inst])?
+        } else {
+            stmt.query(params![])?
+        };
+
+        let mut out = Vec::new();
+        while let Some(row) = rows.next()? {
+            out.push(MeshMessageRecord::from_row(row)?);
+        }
+        Ok(out)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -947,6 +1038,43 @@ impl TokenizedFileRecord {
             truncated,
             embedding_id,
             updated_at: updated_at.parse().unwrap_or_else(|_| Utc::now()),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MeshMessageRecord {
+    pub id: i64,
+    pub source_instance: String,
+    pub target_instance: Option<String>,
+    pub message_type: String,
+    pub payload: JsonValue,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+    pub delivered_at: Option<DateTime<Utc>>,
+}
+
+impl MeshMessageRecord {
+    fn from_row(row: &duckdb::Row) -> Result<Self> {
+        let id: i64 = row.get(0)?;
+        let source_instance: String = row.get(1)?;
+        let target_instance: Option<String> = row.get(2)?;
+        let message_type: String = row.get(3)?;
+        let payload_str: String = row.get(4)?;
+        let payload: JsonValue = serde_json::from_str(&payload_str)?;
+        let status: String = row.get(5)?;
+        let created_at_str: String = row.get(6)?;
+        let delivered_at_str: Option<String> = row.get(7)?;
+
+        Ok(MeshMessageRecord {
+            id,
+            source_instance,
+            target_instance,
+            message_type,
+            payload,
+            status,
+            created_at: created_at_str.parse().unwrap_or_else(|_| Utc::now()),
+            delivered_at: delivered_at_str.and_then(|s| s.parse().ok()),
         })
     }
 }

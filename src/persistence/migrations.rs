@@ -52,6 +52,12 @@ pub fn run(conn: &Connection) -> Result<()> {
         migrations_applied = true;
     }
 
+    if current < 7 {
+        apply_v7(conn)?;
+        set_version(conn, 7)?;
+        migrations_applied = true;
+    }
+
     // Force checkpoint after migrations to ensure WAL is merged into the database file.
     // This prevents ALTER TABLE operations from being stuck in the WAL, which can cause
     // "no default database set" errors during WAL replay on subsequent startups.
@@ -314,4 +320,70 @@ fn apply_v6(conn: &Connection) -> Result<()> {
         "#,
     )
     .context("applying v6 schema (mesh networking)")
+}
+
+fn apply_v7(conn: &Connection) -> Result<()> {
+    // Graph synchronization: Add vector clocks, change tracking, and sync state
+    conn.execute_batch(
+        r#"
+        -- Add sync metadata columns to graph_nodes
+        ALTER TABLE graph_nodes ADD COLUMN vector_clock TEXT DEFAULT '{}';
+        ALTER TABLE graph_nodes ADD COLUMN last_modified_by TEXT;
+        ALTER TABLE graph_nodes ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;
+        ALTER TABLE graph_nodes ADD COLUMN sync_enabled BOOLEAN DEFAULT FALSE;
+
+        -- Add sync metadata columns to graph_edges
+        ALTER TABLE graph_edges ADD COLUMN vector_clock TEXT DEFAULT '{}';
+        ALTER TABLE graph_edges ADD COLUMN last_modified_by TEXT;
+        ALTER TABLE graph_edges ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;
+        ALTER TABLE graph_edges ADD COLUMN sync_enabled BOOLEAN DEFAULT FALSE;
+
+        -- Add sync toggle to graph_metadata for graph-level opt-in
+        ALTER TABLE graph_metadata ADD COLUMN sync_enabled BOOLEAN DEFAULT FALSE;
+
+        -- Create sequence for changelog
+        CREATE SEQUENCE IF NOT EXISTS graph_changelog_id_seq START 1;
+
+        -- Change log for incremental sync
+        CREATE TABLE IF NOT EXISTS graph_changelog (
+            id BIGINT PRIMARY KEY DEFAULT nextval('graph_changelog_id_seq'),
+            session_id TEXT NOT NULL,
+            instance_id TEXT NOT NULL,
+            entity_type TEXT NOT NULL,  -- 'node' or 'edge'
+            entity_id BIGINT NOT NULL,
+            operation TEXT NOT NULL,  -- 'create', 'update', 'delete'
+            vector_clock TEXT NOT NULL,  -- JSON map of instance_id -> version
+            data TEXT,  -- Full entity JSON snapshot
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (instance_id) REFERENCES mesh_registry(instance_id)
+        );
+
+        -- Sync state tracking: per-instance vector clocks for each session/graph
+        CREATE TABLE IF NOT EXISTS graph_sync_state (
+            instance_id TEXT NOT NULL,
+            session_id TEXT NOT NULL,
+            graph_name TEXT NOT NULL,
+            vector_clock TEXT NOT NULL,  -- JSON map of instance_id -> version
+            last_sync_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (instance_id, session_id, graph_name),
+            FOREIGN KEY (instance_id) REFERENCES mesh_registry(instance_id)
+        );
+
+        -- Indexes for sync operations
+        CREATE INDEX IF NOT EXISTS idx_graph_nodes_sync ON graph_nodes(sync_enabled, session_id);
+        CREATE INDEX IF NOT EXISTS idx_graph_nodes_deleted ON graph_nodes(is_deleted);
+        CREATE INDEX IF NOT EXISTS idx_graph_nodes_modified ON graph_nodes(last_modified_by);
+
+        CREATE INDEX IF NOT EXISTS idx_graph_edges_sync ON graph_edges(sync_enabled, session_id);
+        CREATE INDEX IF NOT EXISTS idx_graph_edges_deleted ON graph_edges(is_deleted);
+        CREATE INDEX IF NOT EXISTS idx_graph_edges_modified ON graph_edges(last_modified_by);
+
+        CREATE INDEX IF NOT EXISTS idx_graph_changelog_session ON graph_changelog(session_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_graph_changelog_instance ON graph_changelog(instance_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_graph_changelog_entity ON graph_changelog(entity_type, entity_id);
+
+        CREATE INDEX IF NOT EXISTS idx_graph_sync_state_session ON graph_sync_state(session_id, graph_name);
+        "#,
+    )
+    .context("applying v7 schema (graph synchronization)")
 }

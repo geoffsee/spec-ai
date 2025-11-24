@@ -21,7 +21,7 @@ impl SendMessageTool {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct SendMessageArgs {
     target_instance: Option<String>,
     message_type: String,

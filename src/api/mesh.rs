@@ -328,7 +328,10 @@ impl MeshRegistry {
 
         // Add to message queue
         let mut queue = self.message_queue.write().await;
-        queue.push(message);
+        queue.push(message.clone());
+
+        // GraphSync messages are handled when retrieved from the queue
+        // to avoid recursion issues
 
         // Determine who received it
         let delivered_to = if let Some(ref target) = target_instance {
@@ -370,6 +373,7 @@ impl MeshRegistry {
         let mut queue = self.message_queue.write().await;
         queue.retain(|msg| !message_ids.contains(&msg.message_id));
     }
+
 }
 
 /// Client-side mesh operations

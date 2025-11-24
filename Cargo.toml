@@ -66,6 +66,7 @@ vttrs = []
 api = ["axum", "tower", "tower-http", "axum-extra"]
 axum-extra = ["dep:axum-extra"]
 web-scraping = ["spider"]
+integration-tests = []
 
 [dev-dependencies]
 serial_test = "3"

@@ -8,13 +8,14 @@ on:
   pull_request:
 
 jobs:
-  build:
-    name: build-and-test
+  # Fast unit tests - runs on all PRs and pushes
+  test:
+    name: Unit Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-#
+
       - uses: actions/cache@v4
         with:
           path: |
@@ -23,24 +24,59 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-            /opt/duckdb/
-          key: ${{ runner.os }}-cargo-${{ github.ref_name }}
-#
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
       - name: Setup Rust
         run: rustup update stable && rustup default stable
 
       - name: Install system dependencies
         run: |
-          apt-get update && \
-          apt-get update && apt-get install -y \
+          sudo apt-get update && sudo apt-get install -y \
           pkg-config \
           cmake \
           libssl-dev \
-          curl \
-          wget \
-          unzip \
-          libasound2-dev \
-          && rm -rf /var/lib/apt/lists/*
+          libasound2-dev
 
-      - name: Tests
+      - name: Run fast unit tests
         run: cargo test
+        env:
+          RUST_BACKTRACE: 1
+
+  # Slow integration tests - only runs on main branch
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Setup Rust
+        run: rustup update stable && rustup default stable
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y \
+          pkg-config \
+          cmake \
+          libssl-dev \
+          libasound2-dev
+
+      - name: Run integration tests
+        run: cargo test --features integration-tests
+        env:
+          RUST_BACKTRACE: 1

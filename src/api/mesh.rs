@@ -292,14 +292,8 @@ impl MeshRegistry {
         payload: serde_json::Value,
         correlation_id: Option<String>,
     ) -> Result<SendMessageResponse> {
-        use std::time::{SystemTime, UNIX_EPOCH};
-
-        // Generate message ID
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis();
-        let message_id = format!("msg-{}-{:x}", timestamp, rand::random::<u32>());
+        // Generate time-ordered UUID v7 for better database performance and distributed safety
+        let message_id = uuid::Uuid::new_v7(uuid::Timestamp::now(uuid::NoContext)).to_string();
 
         let message = AgentMessage {
             message_id: message_id.clone(),
@@ -328,7 +322,10 @@ impl MeshRegistry {
 
         // Add to message queue
         let mut queue = self.message_queue.write().await;
-        queue.push(message);
+        queue.push(message.clone());
+
+        // GraphSync messages are handled when retrieved from the queue
+        // to avoid recursion issues
 
         // Determine who received it
         let delivered_to = if let Some(ref target) = target_instance {
@@ -370,6 +367,7 @@ impl MeshRegistry {
         let mut queue = self.message_queue.write().await;
         queue.retain(|msg| !message_ids.contains(&msg.message_id));
     }
+
 }
 
 /// Client-side mesh operations
@@ -389,17 +387,13 @@ impl MeshClient {
 
     /// Generate a unique instance ID
     pub fn generate_instance_id() -> String {
-        use std::time::{SystemTime, UNIX_EPOCH};
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis();
         let hostname = hostname::get()
             .ok()
             .and_then(|h| h.into_string().ok())
             .unwrap_or_else(|| "unknown".to_string());
-        let random: u32 = rand::random();
-        format!("{}-{}-{:x}", hostname, timestamp, random)
+        // Use UUID v7 for time-ordered, globally unique IDs with better collision resistance
+        let uuid = uuid::Uuid::new_v7(uuid::Timestamp::now(uuid::NoContext));
+        format!("{}-{}", hostname, uuid)
     }
 
     /// Register this instance with a mesh registry

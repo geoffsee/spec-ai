@@ -1204,12 +1204,23 @@ impl Persistence {
         let conn = self.conn();
         let payload_json = serde_json::to_string(payload)?;
         conn.execute(
-            "INSERT INTO mesh_messages (source_instance, target_instance, message_type, payload, status) VALUES (?, ?, ?, ?, ?)",
-            params![source_instance, target_instance, message_type, payload_json, status],
+            "INSERT INTO mesh_messages (message_id, source_instance, target_instance, message_type, payload, status) VALUES (?, ?, ?, ?, ?, ?)",
+            params![message_id, source_instance, target_instance, message_type, payload_json, status],
         )?;
         // Get the last inserted ID
         let id: i64 = conn.query_row("SELECT last_insert_rowid()", params![], |row| row.get(0))?;
         Ok(id)
+    }
+
+    /// Check if a message with this ID already exists (for duplicate detection)
+    pub fn mesh_message_exists(&self, message_id: &str) -> Result<bool> {
+        let conn = self.conn();
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM mesh_messages WHERE message_id = ?",
+            params![message_id],
+            |row| row.get(0),
+        )?;
+        Ok(count > 0)
     }
 
     /// Update message status (e.g., delivered, failed)

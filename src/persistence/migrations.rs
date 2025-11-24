@@ -58,6 +58,12 @@ pub fn run(conn: &Connection) -> Result<()> {
         migrations_applied = true;
     }
 
+    if current < 8 {
+        apply_v8(conn)?;
+        set_version(conn, 8)?;
+        migrations_applied = true;
+    }
+
     // Force checkpoint after migrations to ensure WAL is merged into the database file.
     // This prevents ALTER TABLE operations from being stuck in the WAL, which can cause
     // "no default database set" errors during WAL replay on subsequent startups.
@@ -386,4 +392,57 @@ fn apply_v7(conn: &Connection) -> Result<()> {
         "#,
     )
     .context("applying v7 schema (graph synchronization)")
+}
+
+fn apply_v8(conn: &Connection) -> Result<()> {
+    // Add message_id column to mesh_messages for UUID v7 tracking
+    // This allows consistent message IDs across instances for deduplication and correlation
+
+    // Check if message_id column already exists
+    let column_exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM information_schema.columns
+             WHERE table_name = 'mesh_messages' AND column_name = 'message_id'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
+
+    if !column_exists {
+        // Since mesh_messages has foreign keys, we need to recreate the table
+        // Old messages are transient anyway, so we just delete and recreate
+        conn.execute_batch(
+            r#"
+            -- Drop the old table (messages are transient, this is safe)
+            DROP TABLE IF EXISTS mesh_messages;
+
+            -- Recreate with message_id column
+            CREATE TABLE mesh_messages (
+                id BIGINT PRIMARY KEY DEFAULT nextval('mesh_messages_id_seq'),
+                message_id TEXT UNIQUE NOT NULL,
+                source_instance TEXT NOT NULL,
+                target_instance TEXT,
+                message_type TEXT NOT NULL,
+                payload TEXT,
+                status TEXT DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                delivered_at TIMESTAMP,
+                FOREIGN KEY (source_instance) REFERENCES mesh_registry(instance_id),
+                FOREIGN KEY (target_instance) REFERENCES mesh_registry(instance_id)
+            );
+            "#,
+        )
+        .context("recreating mesh_messages with message_id column")?;
+    }
+
+    // Add indexes (IF NOT EXISTS makes this idempotent)
+    conn.execute_batch(
+        r#"
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_mesh_messages_message_id_unique ON mesh_messages(message_id);
+        CREATE INDEX IF NOT EXISTS idx_mesh_messages_status ON mesh_messages(status);
+        "#,
+    )
+    .context("adding indexes to mesh_messages")?;
+
+    Ok(())
 }

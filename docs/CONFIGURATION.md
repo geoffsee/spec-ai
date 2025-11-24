@@ -19,9 +19,17 @@ This document describes all available configuration options for spec-ai. Configu
    - [Knowledge Graph Features](#knowledge-graph-features)
    - [Multi-Model Reasoning](#multi-model-reasoning)
    - [Audio Transcription](#audio-transcription)
-5. [Environment Variables](#environment-variables)
-6. [Command-Line Arguments](#command-line-arguments)
-7. [Example Configurations](#example-configurations)
+5. [Service Mesh Configuration](#service-mesh-configuration)
+   - [Mesh Registry](#mesh-registry)
+   - [Instance Registration](#instance-registration)
+   - [Message Bus](#message-bus)
+6. [Graph Synchronization](#graph-synchronization)
+   - [Sync Coordinator](#sync-coordinator)
+   - [Sync Strategy](#sync-strategy)
+   - [Conflict Resolution](#conflict-resolution)
+7. [Environment Variables](#environment-variables)
+8. [Command-Line Arguments](#command-line-arguments)
+9. [Example Configurations](#example-configurations)
 
 ## Configuration Sources & Precedence
 
@@ -355,6 +363,231 @@ audio_response_mode = "immediate"  # Default: "immediate"
 # Preferred audio transcription scenario for testing
 # Used with mock provider
 audio_scenario = "technical_discussion"  # Optional
+```
+
+## Service Mesh Configuration
+
+The service mesh enables multiple spec-ai instances to communicate, share knowledge, and coordinate tasks. This is useful for distributed deployments, multi-agent collaboration, and horizontal scaling.
+
+### Mesh Registry
+
+```toml
+[mesh]
+# Enable service mesh functionality
+enabled = false  # Default: false
+
+# Host address for the mesh API server
+host = "0.0.0.0"  # Default: "0.0.0.0"
+
+# Port for the mesh API server
+port = 8080  # Default: 8080
+
+# Heartbeat interval in seconds
+# How often instances report their status to the registry
+heartbeat_interval_secs = 30  # Default: 30
+
+# Stale instance timeout in seconds
+# Instances without heartbeat for this duration are removed
+stale_timeout_secs = 90  # Default: 90
+
+# Enable leader election
+# First registered instance becomes leader; automatic failover on leader departure
+leader_election = true  # Default: true
+```
+
+### Instance Registration
+
+When an instance joins the mesh, it registers with its capabilities and available agent profiles.
+
+```toml
+[mesh.instance]
+# Custom instance ID (auto-generated if not specified)
+# Format: "{hostname}-{uuid}"
+instance_id = "my-instance-001"  # Optional
+
+# Capabilities this instance provides
+# Used for task routing and delegation
+capabilities = [
+    "code_analysis",
+    "web_scraping",
+    "audio_transcription"
+]  # Optional
+
+# Agent profiles available on this instance
+# Automatically populated from [agents.*] sections if not specified
+agent_profiles = ["coder", "researcher"]  # Optional
+```
+
+### Message Bus
+
+Inter-instance communication is handled through the message bus.
+
+```toml
+[mesh.messaging]
+# Enable inter-instance messaging
+enabled = true  # Default: true when mesh.enabled = true
+
+# Message types supported:
+# - query: Request information from another agent
+# - response: Response to a query
+# - notification: One-way notification
+# - task_delegation: Delegate a task to another agent
+# - task_result: Result of a delegated task
+# - graph_sync: Knowledge graph synchronization
+
+# Maximum message queue size per instance
+max_queue_size = 1000  # Default: 1000
+
+# Message retention period in seconds
+message_retention_secs = 3600  # Default: 3600 (1 hour)
+```
+
+#### Message Bus API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/registry/register` | POST | Register a new instance |
+| `/registry/agents` | GET | List all registered instances |
+| `/registry/heartbeat/{instance_id}` | POST | Send heartbeat |
+| `/registry/deregister/{instance_id}` | DELETE | Remove an instance |
+| `/messages/send/{source_instance}` | POST | Send a message |
+| `/messages/{instance_id}` | GET | Get pending messages |
+| `/messages/ack/{instance_id}` | POST | Acknowledge messages |
+
+## Graph Synchronization
+
+Knowledge graph synchronization allows multiple spec-ai instances to share and merge their knowledge graphs. This enables collaborative knowledge building across distributed deployments.
+
+### Sync Coordinator
+
+```toml
+[sync]
+# Enable automatic graph synchronization
+enabled = false  # Default: false
+
+# Sync interval in seconds
+# How often to check for sync opportunities
+sync_interval_secs = 60  # Default: 60
+
+# Maximum concurrent sync operations
+# Limits resource usage during synchronization
+max_concurrent_syncs = 3  # Default: 3
+
+# Retry interval for failed syncs in seconds
+retry_interval_secs = 300  # Default: 300 (5 minutes)
+
+# Maximum retry attempts before giving up
+max_retries = 3  # Default: 3
+```
+
+### Sync Strategy
+
+The sync engine automatically chooses between full and incremental synchronization based on the amount of changes.
+
+```toml
+[sync.strategy]
+# Threshold for switching to full sync (percentage)
+# If more than this percentage of nodes changed, do a full sync
+incremental_threshold = 0.3  # Default: 0.3 (30%)
+
+# Changelog retention period in days
+# Tombstones and change records older than this are purged
+changelog_retention_days = 7  # Default: 7
+
+# Enable sync for new graphs by default
+sync_enabled_by_default = false  # Default: false
+```
+
+#### Sync Types
+
+| Type | Description | Use Case |
+|------|-------------|----------|
+| `Full` | Complete graph snapshot | Initial sync, large changes (>30% churn) |
+| `Incremental` | Delta changes only | Regular updates, small changes |
+
+### Conflict Resolution
+
+When concurrent edits occur, the sync engine uses vector clocks and semantic checks to resolve conflicts.
+
+```toml
+[sync.conflict_resolution]
+# Default resolution strategy
+# Options: "last_write_wins", "manual", "merge"
+strategy = "last_write_wins"  # Default: "last_write_wins"
+
+# Enable automatic merging for compatible changes
+auto_merge = true  # Default: true
+
+# Log conflicts for manual review
+log_conflicts = true  # Default: true
+
+# Conflict log retention in days
+conflict_log_retention_days = 30  # Default: 30
+```
+
+#### Conflict Resolution Outcomes
+
+| Resolution | Description |
+|------------|-------------|
+| `AcceptRemote` | Use the incoming version |
+| `KeepLocal` | Keep the existing local version |
+| `Merged` | Combine both versions semantically |
+| `RequiresManualReview` | Flag for human intervention |
+
+### Per-Agent Sync Settings
+
+```toml
+[agents.example]
+# Enable graph sync for this agent's knowledge graph
+enable_graph_sync = true  # Default: inherits from sync.sync_enabled_by_default
+
+# Graphs to include in synchronization
+# Empty list means sync all graphs
+sync_graphs = ["primary", "research"]  # Optional
+
+# Graphs to exclude from synchronization
+exclude_from_sync = ["private", "scratch"]  # Optional
+```
+
+### Distributed Configuration Example
+
+```toml
+# Full distributed deployment with mesh and sync
+
+[mesh]
+enabled = true
+host = "0.0.0.0"
+port = 8080
+heartbeat_interval_secs = 30
+stale_timeout_secs = 90
+
+[mesh.instance]
+capabilities = ["code_analysis", "research", "graph_sync"]
+
+[mesh.messaging]
+enabled = true
+max_queue_size = 1000
+
+[sync]
+enabled = true
+sync_interval_secs = 60
+max_concurrent_syncs = 3
+retry_interval_secs = 300
+
+[sync.strategy]
+incremental_threshold = 0.3
+changelog_retention_days = 7
+
+[sync.conflict_resolution]
+strategy = "last_write_wins"
+auto_merge = true
+log_conflicts = true
+
+[agents.distributed]
+prompt = "You are part of a distributed agent network."
+enable_graph = true
+enable_graph_sync = true
+sync_graphs = ["shared_knowledge"]
 ```
 
 ## Environment Variables

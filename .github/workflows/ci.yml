@@ -12,49 +12,25 @@ jobs:
   test:
     name: Unit Tests
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/geoffsee/spec-ai-ci:latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and run tests in container
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./vm/Test.Containerfile
-          push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          load: true
-          tags: spec-ai-test:latest
-
       - name: Run tests
-        run: docker run --rm spec-ai-test:latest
+        run: cargo test
 
   # Slow integration tests - only runs on main branch
   integration-tests:
     name: Integration Tests
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/geoffsee/spec-ai-ci:latest
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and run integration tests in container
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./vm/Test.Containerfile
-          push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          load: true
-          tags: spec-ai-test:latest
-
       - name: Run integration tests
-        run: docker run --rm spec-ai-test:latest test --features integration-tests
+        run: cargo test --features integration-tests

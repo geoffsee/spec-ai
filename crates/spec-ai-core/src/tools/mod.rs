@@ -10,8 +10,11 @@ use tracing::debug;
 
 use self::builtin::{
     AudioTranscriptionTool, BashTool, EchoTool, FileExtractTool, FileReadTool, FileWriteTool,
-    GraphTool, MathTool, PromptUserTool, SearchTool, ShellTool, WebSearchTool,
+    GraphTool, MathTool, PromptUserTool, SearchTool, ShellTool,
 };
+
+#[cfg(feature = "api")]
+use self::builtin::WebSearchTool;
 
 #[cfg(feature = "web-scraping")]
 use self::builtin::WebScraperTool;
@@ -85,6 +88,7 @@ impl ToolRegistry {
     ///
     /// Tools that require persistence (e.g., `graph`) are only registered when
     /// an [`Arc<Persistence>`] is provided.
+    #[allow(unused_variables)]
     pub fn with_builtin_tools(
         persistence: Option<Arc<Persistence>>,
         embeddings: Option<EmbeddingsClient>,
@@ -101,6 +105,9 @@ impl ToolRegistry {
         registry.register(Arc::new(SearchTool::new()));
         registry.register(Arc::new(BashTool::new()));
         registry.register(Arc::new(ShellTool::new()));
+
+        // Register web search if api feature is enabled
+        #[cfg(feature = "api")]
         registry.register(Arc::new(WebSearchTool::new().with_embeddings(embeddings)));
 
         // Register web scraper if feature is enabled

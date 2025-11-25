@@ -676,6 +676,7 @@ impl Tool for GraphTool {
                 ))
             }
 
+            #[cfg(feature = "api")]
             "force_sync" => {
                 let graph_name = args["graph_name"].as_str().unwrap_or("default");
                 let peer_instance_id = args["peer_instance_id"]
@@ -704,6 +705,11 @@ impl Tool for GraphTool {
                     .to_string(),
                 ))
             }
+
+            #[cfg(not(feature = "api"))]
+            "force_sync" => Ok(ToolResult::failure(
+                "force_sync requires the 'api' feature to be enabled".to_string(),
+            )),
 
             "list_sync_configs" => {
                 let session_id = session_id.to_string();

@@ -9,6 +9,8 @@ pub mod graph;
 pub mod prompt;
 pub mod search;
 pub mod shell;
+
+#[cfg(feature = "api")]
 pub mod web_search;
 
 #[cfg(feature = "web-scraping")]
@@ -28,6 +30,8 @@ pub use graph::GraphTool;
 pub use prompt::PromptUserTool;
 pub use search::SearchTool;
 pub use shell::ShellTool;
+
+#[cfg(feature = "api")]
 pub use web_search::WebSearchTool;
 
 #[cfg(feature = "web-scraping")]

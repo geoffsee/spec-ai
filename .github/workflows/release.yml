@@ -12,26 +12,27 @@ jobs:
   publish:
     name: Publish to crates.io
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/geoffsee/spec-ai-ci:latest
     if: github.repository_owner == 'geoffsee'
 
     steps:
-
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update && sudo apt-get install -y \
-          pkg-config \
-          cmake \
-          libssl-dev \
-          curl \
-          wget \
-          unzip \
-          libasound2-dev \
-          && rm -rf /var/lib/apt/lists/*
+      - name: Cache cargo registry and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
 
       - name: Publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo publish --locked
+        run: ./scripts/publish.sh

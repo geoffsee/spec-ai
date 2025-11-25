@@ -3,7 +3,11 @@ name = "spec-ai-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description.workspace = true
 repository.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [features]
 default = ["bundled", "openai", "lmstudio", "web-scraping", "vttrs", "api"]
@@ -29,4 +33,4 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 walkdir = { workspace = true }
-spec-ai = { path = "../spec-ai" }
+spec-ai = { path = "../spec-ai", version = "0.4.8" }

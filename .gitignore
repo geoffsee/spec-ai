@@ -17,3 +17,5 @@ libduckdb-osx-universal.zip
 /vm/
 test.out
 crates/spec-ai/target/
+embeddings.json
+/todo

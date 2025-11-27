@@ -5782,7 +5782,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai"
-version = "0.4.15"
+version = "0.4.16"
 dependencies = [
  "anyhow",
  "spec-ai-api",
@@ -5794,7 +5794,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-api"
-version = "0.4.15"
+version = "0.4.16"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -5819,7 +5819,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-cli"
-version = "0.4.15"
+version = "0.4.16"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5837,7 +5837,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-config"
-version = "0.4.15"
+version = "0.4.16"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5859,7 +5859,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-core"
-version = "0.4.15"
+version = "0.4.16"
 dependencies = [
  "anyhow",
  "async-openai",
@@ -5899,7 +5899,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-plugin"
-version = "0.4.15"
+version = "0.4.16"
 dependencies = [
  "abi_stable",
  "anyhow",
@@ -5913,7 +5913,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-policy"
-version = "0.4.15"
+version = "0.4.16"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6642,9 +6642,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "toak-rs"
-version = "4.0.8"
+version = "4.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e460adf46522ec54de3a161bf9036c2219c180637cf3d49f8a71888aee723572"
+checksum = "41f26f7947c771662b6104e0efc39d5292a6e6343fb7a99debd3fa1fb9ec610a"
 dependencies = [
  "anyhow",
  "chrono",

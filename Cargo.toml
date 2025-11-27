@@ -13,7 +13,7 @@ resolver = "2"
 
 [workspace.package]
 edition = "2021"
-version = "0.4.15"
+version = "0.4.16"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/geoffsee/spec-ai"
 documentation = "https://docs.rs/spec-ai"
@@ -51,7 +51,7 @@ spider = "2"
 tempfile = "3"
 terminal_size = "0.4"
 thiserror = "1.0"
-toak-rs = "4.0.8"
+toak-rs = "4.0.9"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "io-util", "io-std", "sync", "process"] }
 toml = "0.8"
 tower = "0.4"

@@ -27,6 +27,8 @@ struct ChatMessage {
     timestamp: String,
     /// Optional tool name (for tool role)
     tool_name: Option<String>,
+    /// Whether this message is a prompt waiting for user input
+    is_prompt: bool,
 }
 
 impl ChatMessage {
@@ -36,6 +38,7 @@ impl ChatMessage {
             content: content.to_string(),
             timestamp: timestamp.to_string(),
             tool_name: None,
+            is_prompt: false,
         }
     }
 
@@ -45,6 +48,18 @@ impl ChatMessage {
             content: content.to_string(),
             timestamp: timestamp.to_string(),
             tool_name: Some(name.to_string()),
+            is_prompt: false,
+        }
+    }
+
+    /// Create an assistant message that prompts the user for input
+    fn prompt(content: &str, timestamp: &str) -> Self {
+        Self {
+            role: "assistant".to_string(),
+            content: content.to_string(),
+            timestamp: timestamp.to_string(),
+            tool_name: None,
+            is_prompt: true,
         }
     }
 }
@@ -695,6 +710,21 @@ impl App for DemoApp {
                             }
                             return true;
                         }
+                        KeyCode::Char('p') => {
+                            // Simulate model prompting for user input
+                            let timestamp = format!("{}:{:02}",
+                                10 + state.messages.len() / 60,
+                                state.messages.len() % 60);
+                            state.messages.push(ChatMessage::prompt(
+                                "I found multiple matching files. Which one would you like me to read?\n\n\
+                                 1. src/main.rs (entry point)\n\
+                                 2. src/lib.rs (library root)\n\
+                                 3. src/config.rs (configuration)",
+                                &timestamp,
+                            ));
+                            state.status = "Awaiting user response...".to_string();
+                            return true;
+                        }
                         _ => {}
                     }
                 }
@@ -1204,9 +1234,9 @@ impl DemoApp {
         for msg in &state.messages {
             // Role header
             let (role_style, role_display) = match msg.role.as_str() {
-                "user" => (Style::new().fg(Color::Green).bold(), "user".to_string()),
-                "assistant" => (Style::new().fg(Color::Cyan).bold(), "assistant".to_string()),
-                "system" => (Style::new().fg(Color::Yellow).bold(), "system".to_string()),
+                "user" => (Style::new().fg(Color::Green).bold(), "User".to_string()),
+                "assistant" => (Style::new().fg(Color::Cyan).bold(), "Assistant".to_string()),
+                "system" => (Style::new().fg(Color::Yellow).bold(), "System".to_string()),
                 "tool" => {
                     let name = msg.tool_name.as_deref().unwrap_or("tool");
                     (Style::new().fg(Color::Magenta).bold(), format!("⚙ {}", name))
@@ -1214,10 +1244,19 @@ impl DemoApp {
                 _ => (Style::new().fg(Color::White), msg.role.clone()),
             };
 
-            lines.push(Line::from_spans([
-                Span::styled(format!("[{}] ", msg.timestamp), Style::new().fg(Color::DarkGrey)),
-                Span::styled(format!("{}:", role_display), role_style),
-            ]));
+            // Add prompt indicator if this is a prompt message
+            if msg.is_prompt {
+                lines.push(Line::from_spans([
+                    Span::styled(format!("[{}] ", msg.timestamp), Style::new().fg(Color::DarkGrey)),
+                    Span::styled(format!("{}:", role_display), role_style),
+                    Span::styled(" (waiting for input)", Style::new().fg(Color::Yellow).italic()),
+                ]));
+            } else {
+                lines.push(Line::from_spans([
+                    Span::styled(format!("[{}] ", msg.timestamp), Style::new().fg(Color::DarkGrey)),
+                    Span::styled(format!("{}:", role_display), role_style),
+                ]));
+            }
 
             // Content lines with word wrapping
             // Tool messages get a special background indicator
@@ -1248,7 +1287,7 @@ impl DemoApp {
         if let Some(ref streaming) = state.streaming {
             lines.push(Line::from_spans([
                 Span::styled("[--:--] ", Style::new().fg(Color::DarkGrey)),
-                Span::styled("assistant:", Style::new().fg(Color::Cyan).bold()),
+                Span::styled("Assistant:", Style::new().fg(Color::Cyan).bold()),
                 Span::styled(" (streaming...)", Style::new().fg(Color::DarkGrey).italic()),
             ]));
 

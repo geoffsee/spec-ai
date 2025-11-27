@@ -212,7 +212,11 @@ impl StatefulWidget for SlashMenu {
 
         // Find maximum width needed
         let max_name_len = filtered.iter().map(|c| c.name.len()).max().unwrap_or(0);
-        let max_desc_len = filtered.iter().map(|c| c.description.len()).max().unwrap_or(0);
+        let max_desc_len = filtered
+            .iter()
+            .map(|c| c.description.len())
+            .max()
+            .unwrap_or(0);
         let menu_width = (max_name_len + max_desc_len + 6).min(area.width as usize - 2) as u16 + 2;
 
         // Position menu above the input area
@@ -231,32 +235,71 @@ impl StatefulWidget for SlashMenu {
         let chars = BorderChars::rounded();
 
         // Top border
-        buf.set_string(menu_area.x, menu_area.y, &chars.top_left.to_string(), self.border_style);
+        buf.set_string(
+            menu_area.x,
+            menu_area.y,
+            &chars.top_left.to_string(),
+            self.border_style,
+        );
         for x in (menu_area.x + 1)..(menu_area.right() - 1) {
             buf.set_string(x, menu_area.y, &chars.top.to_string(), self.border_style);
         }
-        buf.set_string(menu_area.right() - 1, menu_area.y, &chars.top_right.to_string(), self.border_style);
+        buf.set_string(
+            menu_area.right() - 1,
+            menu_area.y,
+            &chars.top_right.to_string(),
+            self.border_style,
+        );
 
         // Bottom border
-        buf.set_string(menu_area.x, menu_area.bottom() - 1, &chars.bottom_left.to_string(), self.border_style);
+        buf.set_string(
+            menu_area.x,
+            menu_area.bottom() - 1,
+            &chars.bottom_left.to_string(),
+            self.border_style,
+        );
         for x in (menu_area.x + 1)..(menu_area.right() - 1) {
-            buf.set_string(x, menu_area.bottom() - 1, &chars.bottom.to_string(), self.border_style);
+            buf.set_string(
+                x,
+                menu_area.bottom() - 1,
+                &chars.bottom.to_string(),
+                self.border_style,
+            );
         }
-        buf.set_string(menu_area.right() - 1, menu_area.bottom() - 1, &chars.bottom_right.to_string(), self.border_style);
+        buf.set_string(
+            menu_area.right() - 1,
+            menu_area.bottom() - 1,
+            &chars.bottom_right.to_string(),
+            self.border_style,
+        );
 
         // Side borders and items
         let inner_width = menu_area.width.saturating_sub(2) as usize;
 
-        for (i, cmd) in filtered.iter().enumerate().skip(state.scroll).take(self.max_visible) {
+        for (i, cmd) in filtered
+            .iter()
+            .enumerate()
+            .skip(state.scroll)
+            .take(self.max_visible)
+        {
             let y = menu_area.y + 1 + (i - state.scroll) as u16;
 
             // Side borders
             buf.set_string(menu_area.x, y, &chars.left.to_string(), self.border_style);
-            buf.set_string(menu_area.right() - 1, y, &chars.right.to_string(), self.border_style);
+            buf.set_string(
+                menu_area.right() - 1,
+                y,
+                &chars.right.to_string(),
+                self.border_style,
+            );
 
             // Item background
             let is_selected = i == state.selected;
-            let bg_style = if is_selected { self.selected_style } else { self.item_style };
+            let bg_style = if is_selected {
+                self.selected_style
+            } else {
+                self.item_style
+            };
 
             // Clear the row first
             for x in (menu_area.x + 1)..(menu_area.right() - 1) {
@@ -292,10 +335,20 @@ impl StatefulWidget for SlashMenu {
 
         // Draw scroll indicators if needed
         if state.scroll > 0 {
-            buf.set_string(menu_area.right() - 2, menu_area.y + 1, "▲", self.border_style);
+            buf.set_string(
+                menu_area.right() - 2,
+                menu_area.y + 1,
+                "▲",
+                self.border_style,
+            );
         }
         if state.scroll + self.max_visible < filtered.len() {
-            buf.set_string(menu_area.right() - 2, menu_area.bottom() - 2, "▼", self.border_style);
+            buf.set_string(
+                menu_area.right() - 2,
+                menu_area.bottom() - 2,
+                "▼",
+                self.border_style,
+            );
         }
     }
 }

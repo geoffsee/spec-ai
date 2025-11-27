@@ -1,9 +1,9 @@
 //! Geometry primitives for terminal positioning and sizing
 
 mod point;
-mod size;
 mod rect;
+mod size;
 
 pub use point::Point;
-pub use size::Size;
 pub use rect::Rect;
+pub use size::Size;

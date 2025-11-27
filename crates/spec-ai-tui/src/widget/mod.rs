@@ -1,8 +1,8 @@
 //! Widget system for building UI components
 
-mod traits;
-mod focus;
 pub mod builtin;
+mod focus;
+mod traits;
 
-pub use traits::{Widget, StatefulWidget};
-pub use focus::{FocusId, FocusManager, FocusDirection};
+pub use focus::{FocusDirection, FocusId, FocusManager};
+pub use traits::{StatefulWidget, Widget};

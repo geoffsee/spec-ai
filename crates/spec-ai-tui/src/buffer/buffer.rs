@@ -39,11 +39,7 @@ impl Buffer {
 
     /// Convert absolute (x, y) to index in the cells array
     fn index(&self, x: u16, y: u16) -> Option<usize> {
-        if x >= self.area.x
-            && x < self.area.right()
-            && y >= self.area.y
-            && y < self.area.bottom()
-        {
+        if x >= self.area.x && x < self.area.right() && y >= self.area.y && y < self.area.bottom() {
             let local_x = (x - self.area.x) as usize;
             let local_y = (y - self.area.y) as usize;
             Some(local_y * self.area.width as usize + local_x)
@@ -165,9 +161,7 @@ impl Buffer {
     /// Iterate over cells that differ from another buffer
     pub fn diff<'a>(&'a self, other: &'a Buffer) -> impl Iterator<Item = (u16, u16, &'a Cell)> {
         self.iter()
-            .filter(move |(x, y, cell)| {
-                other.get(*x, *y).map(|c| c != *cell).unwrap_or(true)
-            })
+            .filter(move |(x, y, cell)| other.get(*x, *y).map(|c| c != *cell).unwrap_or(true))
     }
 
     /// Merge another buffer into this one at its position

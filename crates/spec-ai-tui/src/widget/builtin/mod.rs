@@ -1,15 +1,17 @@
 //! Built-in widgets
 
-mod paragraph;
-mod input;
 mod block;
-mod status;
 mod editor;
+mod input;
+mod overlay;
+mod paragraph;
 mod slash_menu;
+mod status;
 
-pub use paragraph::{Paragraph, Alignment, Wrap};
-pub use input::{Input, InputState};
 pub use block::{Block, BorderType};
+pub use editor::{Editor, EditorAction, EditorState, Selection};
+pub use input::{Input, InputState};
+pub use overlay::Overlay;
+pub use paragraph::{Alignment, Paragraph, Wrap};
+pub use slash_menu::{SlashCommand, SlashMenu, SlashMenuState};
 pub use status::{StatusBar, StatusSection};
-pub use editor::{Editor, EditorState, EditorAction, Selection};
-pub use slash_menu::{SlashMenu, SlashMenuState, SlashCommand};

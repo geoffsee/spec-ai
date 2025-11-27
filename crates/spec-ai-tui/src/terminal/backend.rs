@@ -5,12 +5,10 @@ use crate::geometry::{Rect, Size};
 use crate::style::Color;
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
-    event::{EnableBracketedPaste},
+    event::EnableBracketedPaste,
     execute, queue,
-    style::{
-        Attribute, Print, ResetColor, SetAttribute, SetBackgroundColor, SetForegroundColor,
-    },
-    terminal::{self, Clear, ClearType, EnterAlternateScreen, enable_raw_mode},
+    style::{Attribute, Print, ResetColor, SetAttribute, SetBackgroundColor, SetForegroundColor},
+    terminal::{self, enable_raw_mode, Clear, ClearType, EnterAlternateScreen},
 };
 use std::io::{self, Stdout, Write};
 
@@ -48,7 +46,12 @@ impl Terminal {
     /// The returned guard will cleanup when dropped.
     pub fn enter_raw_mode(&mut self) -> io::Result<RawModeGuard> {
         enable_raw_mode()?;
-        execute!(self.stdout, EnterAlternateScreen, Hide, EnableBracketedPaste)?;
+        execute!(
+            self.stdout,
+            EnterAlternateScreen,
+            Hide,
+            EnableBracketedPaste
+        )?;
         Ok(RawModeGuard::new())
     }
 
@@ -141,7 +144,8 @@ impl Terminal {
         } else {
             // Diff rendering - collect changed cells first to avoid borrow issues
             let prev = self.prev_buffer.as_ref().unwrap();
-            let changes: Vec<_> = buffer.diff(prev)
+            let changes: Vec<_> = buffer
+                .diff(prev)
                 .map(|(x, y, cell)| (x, y, cell.clone()))
                 .collect();
 

@@ -227,11 +227,7 @@ mod tests {
 
     #[test]
     fn test_line_width() {
-        let line = Line::from_spans(vec![
-            Span::raw("hello"),
-            Span::raw(" "),
-            Span::raw("world"),
-        ]);
+        let line = Line::from_spans(vec![Span::raw("hello"), Span::raw(" "), Span::raw("world")]);
         assert_eq!(line.width(), 11);
     }
 

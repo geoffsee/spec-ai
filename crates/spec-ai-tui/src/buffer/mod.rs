@@ -1,7 +1,7 @@
 //! Buffer system for terminal rendering
 
-mod cell;
 mod buffer;
+mod cell;
 
-pub use cell::Cell;
 pub use buffer::Buffer;
+pub use cell::Cell;

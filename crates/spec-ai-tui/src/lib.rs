@@ -9,21 +9,21 @@
 //! - Async event loop integrated with tokio
 //! - Application framework with Elm-inspired architecture
 
-pub mod geometry;
-pub mod style;
-pub mod buffer;
-pub mod terminal;
-pub mod layout;
-pub mod widget;
-pub mod event;
 pub mod app;
+pub mod buffer;
+pub mod event;
+pub mod geometry;
+pub mod layout;
+pub mod style;
+pub mod terminal;
+pub mod widget;
 
 // Re-export commonly used types
-pub use geometry::{Point, Rect, Size};
-pub use style::{Color, Modifier, Style, Span, Line, Text};
-pub use buffer::{Cell, Buffer};
-pub use terminal::Terminal;
-pub use layout::{Constraint, Direction, Layout};
-pub use widget::Widget;
-pub use event::Event;
 pub use app::App;
+pub use buffer::{Buffer, Cell};
+pub use event::Event;
+pub use geometry::{Point, Rect, Size};
+pub use layout::{Constraint, Direction, Layout};
+pub use style::{truncate, wrap_text, Color, Line, Modifier, Span, Style, Text};
+pub use terminal::Terminal;
+pub use widget::Widget;

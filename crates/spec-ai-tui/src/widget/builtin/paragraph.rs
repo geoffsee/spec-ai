@@ -94,7 +94,9 @@ impl Paragraph {
         let mut current_width = 0usize;
 
         for span in &line.spans {
-            let words: Vec<&str> = span.content.split_inclusive(|c: char| c.is_whitespace())
+            let words: Vec<&str> = span
+                .content
+                .split_inclusive(|c: char| c.is_whitespace())
                 .collect();
 
             for word in words {
@@ -108,10 +110,9 @@ impl Paragraph {
 
                 // Add word to current line
                 if word_width > 0 {
-                    current_line.spans.push(crate::style::Span::styled(
-                        word.to_string(),
-                        span.style,
-                    ));
+                    current_line
+                        .spans
+                        .push(crate::style::Span::styled(word.to_string(), span.style));
                     current_width += word_width;
                 }
             }
@@ -161,10 +162,9 @@ impl Paragraph {
             }
 
             if !current_span.is_empty() {
-                current_line.spans.push(crate::style::Span::styled(
-                    current_span,
-                    span.style,
-                ));
+                current_line
+                    .spans
+                    .push(crate::style::Span::styled(current_span, span.style));
             }
         }
 
@@ -183,12 +183,8 @@ impl Paragraph {
     fn alignment_offset(&self, line_width: usize, area_width: u16) -> u16 {
         match self.alignment {
             Alignment::Left => 0,
-            Alignment::Center => {
-                (area_width as usize).saturating_sub(line_width) as u16 / 2
-            }
-            Alignment::Right => {
-                (area_width as usize).saturating_sub(line_width) as u16
-            }
+            Alignment::Center => (area_width as usize).saturating_sub(line_width) as u16 / 2,
+            Alignment::Right => (area_width as usize).saturating_sub(line_width) as u16,
         }
     }
 }
@@ -287,8 +283,7 @@ mod tests {
 
     #[test]
     fn test_paragraph_wrap_word() {
-        let para = Paragraph::raw("Hello World Test")
-            .wrap(Wrap::Word);
+        let para = Paragraph::raw("Hello World Test").wrap(Wrap::Word);
         let area = Rect::new(0, 0, 8, 5);
         let mut buf = Buffer::new(area);
 
@@ -300,8 +295,7 @@ mod tests {
 
     #[test]
     fn test_paragraph_style() {
-        let para = Paragraph::raw("Test")
-            .style(Style::new().fg(Color::Red));
+        let para = Paragraph::raw("Test").style(Style::new().fg(Color::Red));
         let area = Rect::new(0, 0, 10, 1);
         let mut buf = Buffer::new(area);
 

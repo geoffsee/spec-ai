@@ -118,10 +118,10 @@ impl FocusManager {
         match direction {
             FocusDirection::Next => self.focus_next(),
             FocusDirection::Previous => self.focus_previous(),
-            FocusDirection::Up | FocusDirection::Down |
-            FocusDirection::Left | FocusDirection::Right => {
-                self.focus_spatial(direction)
-            }
+            FocusDirection::Up
+            | FocusDirection::Down
+            | FocusDirection::Left
+            | FocusDirection::Right => self.focus_spatial(direction),
         }
     }
 
@@ -171,21 +171,22 @@ impl FocusManager {
         let current_pos = self.current.and_then(|id| self.positions.get(&id))?;
 
         // Find candidates in the given direction
-        let candidates: Vec<_> = self.positions.iter()
+        let candidates: Vec<_> = self
+            .positions
+            .iter()
             .filter(|(&id, _)| Some(id) != self.current)
-            .filter(|(_, rect)| {
-                match direction {
-                    FocusDirection::Up => rect.bottom() <= current_pos.top(),
-                    FocusDirection::Down => rect.top() >= current_pos.bottom(),
-                    FocusDirection::Left => rect.right() <= current_pos.left(),
-                    FocusDirection::Right => rect.left() >= current_pos.right(),
-                    _ => false,
-                }
+            .filter(|(_, rect)| match direction {
+                FocusDirection::Up => rect.bottom() <= current_pos.top(),
+                FocusDirection::Down => rect.top() >= current_pos.bottom(),
+                FocusDirection::Left => rect.right() <= current_pos.left(),
+                FocusDirection::Right => rect.left() >= current_pos.right(),
+                _ => false,
             })
             .collect();
 
         // Find the nearest candidate
-        let nearest = candidates.iter()
+        let nearest = candidates
+            .iter()
             .min_by_key(|(_, rect)| {
                 let dx = (rect.x as i32 - current_pos.x as i32).abs();
                 let dy = (rect.y as i32 - current_pos.y as i32).abs();

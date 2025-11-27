@@ -186,21 +186,51 @@ impl Widget for Block {
         let chars = self.border_type.chars();
 
         // Draw corners
-        buf.set_string(area.x, area.y, &chars.top_left.to_string(), self.border_style);
-        buf.set_string(area.right() - 1, area.y, &chars.top_right.to_string(), self.border_style);
-        buf.set_string(area.x, area.bottom() - 1, &chars.bottom_left.to_string(), self.border_style);
-        buf.set_string(area.right() - 1, area.bottom() - 1, &chars.bottom_right.to_string(), self.border_style);
+        buf.set_string(
+            area.x,
+            area.y,
+            &chars.top_left.to_string(),
+            self.border_style,
+        );
+        buf.set_string(
+            area.right() - 1,
+            area.y,
+            &chars.top_right.to_string(),
+            self.border_style,
+        );
+        buf.set_string(
+            area.x,
+            area.bottom() - 1,
+            &chars.bottom_left.to_string(),
+            self.border_style,
+        );
+        buf.set_string(
+            area.right() - 1,
+            area.bottom() - 1,
+            &chars.bottom_right.to_string(),
+            self.border_style,
+        );
 
         // Draw top and bottom borders
         for x in (area.x + 1)..(area.right() - 1) {
             buf.set_string(x, area.y, &chars.top.to_string(), self.border_style);
-            buf.set_string(x, area.bottom() - 1, &chars.bottom.to_string(), self.border_style);
+            buf.set_string(
+                x,
+                area.bottom() - 1,
+                &chars.bottom.to_string(),
+                self.border_style,
+            );
         }
 
         // Draw left and right borders
         for y in (area.y + 1)..(area.bottom() - 1) {
             buf.set_string(area.x, y, &chars.left.to_string(), self.border_style);
-            buf.set_string(area.right() - 1, y, &chars.right.to_string(), self.border_style);
+            buf.set_string(
+                area.right() - 1,
+                y,
+                &chars.right.to_string(),
+                self.border_style,
+            );
         }
 
         // Draw title if present

@@ -1,12 +1,7 @@
 //! Input event types
 
 // Re-export crossterm types with cleaner names
-pub use crossterm::event::{
-    KeyCode,
-    KeyEvent,
-    KeyModifiers,
-    MouseEvent,
-};
+pub use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent};
 
 /// Unified input event type
 #[derive(Debug, Clone)]
@@ -82,9 +77,15 @@ impl Event {
     /// Check if this is a Shift+Tab (backward focus)
     pub fn is_backtab(&self) -> bool {
         match self {
-            Event::Key(KeyEvent { code: KeyCode::BackTab, .. }) => true,
-            Event::Key(KeyEvent { code: KeyCode::Tab, modifiers, .. })
-                if modifiers.contains(KeyModifiers::SHIFT) => true,
+            Event::Key(KeyEvent {
+                code: KeyCode::BackTab,
+                ..
+            }) => true,
+            Event::Key(KeyEvent {
+                code: KeyCode::Tab,
+                modifiers,
+                ..
+            }) if modifiers.contains(KeyModifiers::SHIFT) => true,
             _ => false,
         }
     }
@@ -110,7 +111,10 @@ impl Event {
                 modifiers,
                 ..
             }) if !modifiers.contains(KeyModifiers::CONTROL)
-                && !modifiers.contains(KeyModifiers::ALT) => Some(*c),
+                && !modifiers.contains(KeyModifiers::ALT) =>
+            {
+                Some(*c)
+            }
             _ => None,
         }
     }
@@ -122,7 +126,10 @@ impl From<crossterm::event::Event> for Event {
         match event {
             CEvent::Key(key) => Event::Key(key),
             CEvent::Mouse(mouse) => Event::Mouse(mouse),
-            CEvent::Resize(w, h) => Event::Resize { width: w, height: h },
+            CEvent::Resize(w, h) => Event::Resize {
+                width: w,
+                height: h,
+            },
             CEvent::FocusGained => Event::FocusGained,
             CEvent::FocusLost => Event::FocusLost,
             CEvent::Paste(s) => Event::Paste(s),

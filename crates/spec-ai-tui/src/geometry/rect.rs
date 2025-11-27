@@ -14,7 +14,12 @@ pub struct Rect {
 impl Rect {
     /// Create a new rectangle
     pub const fn new(x: u16, y: u16, width: u16, height: u16) -> Self {
-        Self { x, y, width, height }
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
     }
 
     /// Create a rectangle at origin with given size
@@ -107,7 +112,12 @@ impl Rect {
         let at = at.min(self.width);
         (
             Self::new(self.x, self.y, at, self.height),
-            Self::new(self.x.saturating_add(at), self.y, self.width.saturating_sub(at), self.height),
+            Self::new(
+                self.x.saturating_add(at),
+                self.y,
+                self.width.saturating_sub(at),
+                self.height,
+            ),
         )
     }
 
@@ -116,7 +126,12 @@ impl Rect {
         let at = at.min(self.height);
         (
             Self::new(self.x, self.y, self.width, at),
-            Self::new(self.x, self.y.saturating_add(at), self.width, self.height.saturating_sub(at)),
+            Self::new(
+                self.x,
+                self.y.saturating_add(at),
+                self.width,
+                self.height.saturating_sub(at),
+            ),
         )
     }
 
@@ -240,9 +255,9 @@ mod tests {
     fn test_rect_positions() {
         let r = Rect::new(0, 0, 3, 2);
         let positions: Vec<_> = r.positions().collect();
-        assert_eq!(positions, vec![
-            (0, 0), (1, 0), (2, 0),
-            (0, 1), (1, 1), (2, 1),
-        ]);
+        assert_eq!(
+            positions,
+            vec![(0, 0), (1, 0), (2, 0), (0, 1), (1, 1), (2, 1),]
+        );
     }
 }

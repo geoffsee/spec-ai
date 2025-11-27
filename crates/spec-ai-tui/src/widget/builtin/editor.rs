@@ -52,7 +52,10 @@ impl Selection {
 
     /// Create a collapsed selection (cursor only, no selection)
     pub fn cursor(pos: usize) -> Self {
-        Self { anchor: pos, cursor: pos }
+        Self {
+            anchor: pos,
+            cursor: pos,
+        }
     }
 
     /// Check if there's an active selection
@@ -587,7 +590,6 @@ impl EditorState {
 
     /// Handle a key event (internal)
     fn handle_key_inner(&mut self, key: &crate::event::KeyEvent) -> EditorAction {
-
         let shift = key.modifiers.contains(KeyModifiers::SHIFT);
         let cmd = has_cmd_modifier(key.modifiers);
         let word = has_word_modifier(key.modifiers);
@@ -688,7 +690,11 @@ impl EditorState {
             }
 
             // Character input
-            KeyCode::Char(c) if !cmd && !key.modifiers.contains(KeyModifiers::CONTROL) && !key.modifiers.contains(KeyModifiers::ALT) => {
+            KeyCode::Char(c)
+                if !cmd
+                    && !key.modifiers.contains(KeyModifiers::CONTROL)
+                    && !key.modifiers.contains(KeyModifiers::ALT) =>
+            {
                 self.insert(c);
                 EditorAction::Handled
             }
@@ -957,7 +963,12 @@ impl StatefulWidget for Editor {
         if total_lines > height {
             let indicator = format!("↕{}/{}", state.scroll + 1, total_lines);
             let indicator_x = area.right().saturating_sub(indicator.len() as u16);
-            buf.set_string(indicator_x, area.y, &indicator, Style::new().fg(Color::DarkGrey));
+            buf.set_string(
+                indicator_x,
+                area.y,
+                &indicator,
+                Style::new().fg(Color::DarkGrey),
+            );
         }
     }
 }

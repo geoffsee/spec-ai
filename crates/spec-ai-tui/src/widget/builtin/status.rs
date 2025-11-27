@@ -99,7 +99,14 @@ impl StatusBar {
     }
 
     /// Render sections and return the ending x position
-    fn render_sections(&self, sections: &[StatusSection], x: u16, y: u16, buf: &mut Buffer, max_x: u16) -> u16 {
+    fn render_sections(
+        &self,
+        sections: &[StatusSection],
+        x: u16,
+        y: u16,
+        buf: &mut Buffer,
+        max_x: u16,
+    ) -> u16 {
         let mut current_x = x;
         let sep_width = unicode_width::UnicodeWidthStr::width(self.separator.as_str()) as u16;
 
@@ -196,8 +203,7 @@ mod tests {
 
     #[test]
     fn test_status_bar_left() {
-        let bar = StatusBar::new()
-            .left([StatusSection::new("Left")]);
+        let bar = StatusBar::new().left([StatusSection::new("Left")]);
 
         let area = Rect::new(0, 0, 20, 1);
         let mut buf = Buffer::new(area);
@@ -210,8 +216,7 @@ mod tests {
 
     #[test]
     fn test_status_bar_right() {
-        let bar = StatusBar::new()
-            .right([StatusSection::new("Right")]);
+        let bar = StatusBar::new().right([StatusSection::new("Right")]);
 
         let area = Rect::new(0, 0, 20, 1);
         let mut buf = Buffer::new(area);
@@ -225,11 +230,7 @@ mod tests {
 
     #[test]
     fn test_status_bar_multiple_sections() {
-        let bar = StatusBar::new()
-            .left([
-                StatusSection::new("A"),
-                StatusSection::new("B"),
-            ]);
+        let bar = StatusBar::new().left([StatusSection::new("A"), StatusSection::new("B")]);
 
         let area = Rect::new(0, 0, 20, 1);
         let mut buf = Buffer::new(area);

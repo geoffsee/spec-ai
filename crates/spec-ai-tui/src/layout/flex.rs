@@ -1,7 +1,7 @@
 //! Flexbox-like layout engine
 
-use crate::geometry::Rect;
 use super::{Constraint, Direction};
+use crate::geometry::Rect;
 
 /// Layout builder for arranging widgets
 #[derive(Debug, Clone)]
@@ -204,10 +204,7 @@ mod tests {
     fn test_horizontal_split() {
         let area = Rect::new(0, 0, 100, 50);
         let chunks = Layout::horizontal()
-            .constraints([
-                Constraint::Percentage(30),
-                Constraint::Fill(1),
-            ])
+            .constraints([Constraint::Percentage(30), Constraint::Fill(1)])
             .split(area);
 
         assert_eq!(chunks.len(), 2);

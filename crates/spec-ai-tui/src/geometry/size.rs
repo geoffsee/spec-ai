@@ -15,7 +15,10 @@ impl Size {
 
     /// Zero size
     pub const fn zero() -> Self {
-        Self { width: 0, height: 0 }
+        Self {
+            width: 0,
+            height: 0,
+        }
     }
 
     /// Check if the size is empty (zero area)

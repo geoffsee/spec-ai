@@ -1,10 +1,10 @@
 //! Event handling system
 
-mod input;
 mod event_loop;
+mod input;
 
-pub use input::{Event, KeyEvent, MouseEvent, KeyCode, KeyModifiers};
 pub use event_loop::EventLoop;
+pub use input::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent};
 
 /// Result of handling an event
 #[derive(Debug, Clone)]

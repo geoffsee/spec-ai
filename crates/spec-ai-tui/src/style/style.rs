@@ -86,8 +86,16 @@ impl Style {
     /// for non-default values
     pub fn patch(self, other: Style) -> Self {
         Self {
-            fg: if other.fg == Color::Reset { self.fg } else { other.fg },
-            bg: if other.bg == Color::Reset { self.bg } else { other.bg },
+            fg: if other.fg == Color::Reset {
+                self.fg
+            } else {
+                other.fg
+            },
+            bg: if other.bg == Color::Reset {
+                self.bg
+            } else {
+                other.bg
+            },
             modifier: self.modifier | other.modifier,
         }
     }
@@ -107,11 +115,7 @@ mod tests {
 
     #[test]
     fn test_style_builder() {
-        let s = Style::new()
-            .fg(Color::Red)
-            .bg(Color::Blue)
-            .bold()
-            .italic();
+        let s = Style::new().fg(Color::Red).bg(Color::Blue).bold().italic();
 
         assert_eq!(s.fg, Color::Red);
         assert_eq!(s.bg, Color::Blue);

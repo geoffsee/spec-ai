@@ -65,75 +65,171 @@ pub fn render(state: &DemoState, area: Rect, buf: &mut Buffer) {
 }
 
 fn render_glass_mode(state: &DemoState, area: Rect, buf: &mut Buffer) {
-    // Keep the background consistent and low-noise for a small FOV.
-    for y in area.y..area.bottom() {
-        for x in area.x..area.right() {
-            if let Some(cell) = buf.get_mut(x, y) {
-                cell.bg = Color::Rgb(5, 7, 12);
-            }
-        }
-    }
+    // Transparent background - no fill, just render content directly
+    // This is glass - we see through it
 
     let chunks = Layout::vertical()
         .constraints([
-            Constraint::Fixed(1), // Status bar
-            Constraint::Fill(1),  // Focus card
-            Constraint::Fixed(3), // Quick controls
+            Constraint::Fixed(1), // Header: GLASS + status
+            Constraint::Fill(1),  // Content area
+            Constraint::Fixed(1), // Footer: quick controls hint
         ])
         .split(area);
 
-    render_glass_status_bar(state, chunks[0], buf);
-    render_glass_focus_card(state, chunks[1], buf);
-    render_glass_footer(state, chunks[2], buf);
+    render_glass_header(state, chunks[0], buf);
+    render_glass_content(state, chunks[1], buf);
+    render_glass_footer_minimal(state, chunks[2], buf);
 
-    // Torus as ambient presence indicator in bottom-right corner
+    // Torus as ambient presence indicator - upper right, near status
     render_glass_torus_overlay(state, area, buf);
 }
 
-fn render_glass_status_bar(state: &DemoState, area: Rect, buf: &mut Buffer) {
-    let mic = if state.listening { "mic:on" } else { "mic:off" };
+/// Clean header: "GLASS" on left, status indicators on right
+fn render_glass_header(state: &DemoState, area: Rect, buf: &mut Buffer) {
+    // "GLASS" label on left
+    buf.set_string(
+        area.x + 1,
+        area.y,
+        "SPEC-AI",
+        Style::new().fg(Color::White).bold(),
+    );
+
+    // Status indicators on right
+    let mic_icon = if state.listening { "●" } else { "○" };
+    let mic_color = if state.listening {
+        Color::Green
+    } else {
+        Color::Rgb(80, 80, 80)
+    };
+
     let tools_active = state
         .tools
         .iter()
         .filter(|t| t.status == crate::models::ToolStatus::Running)
         .count();
-    let tools_label = if tools_active > 0 {
-        format!("tools:{}*", tools_active)
+
+    let status_text = if tools_active > 0 {
+        format!("{}  ⚡{}", mic_icon, tools_active)
     } else {
-        "tools:idle".to_string()
+        format!("{}  ◇", mic_icon)
     };
 
-    let status_text = truncate(&state.status, area.width.saturating_sub(24) as usize);
+    let status_width = status_text.chars().count() as u16;
+    buf.set_string(
+        area.right().saturating_sub(status_width + 2),
+        area.y,
+        &mic_icon.to_string(),
+        Style::new().fg(mic_color),
+    );
 
-    let bar = StatusBar::new()
-        .style(Style::new().bg(Color::Rgb(8, 8, 14)).fg(Color::White))
-        .left([
-            StatusSection::new("spec-ai").style(Style::new().fg(Color::Cyan).bold()),
-            StatusSection::new("GLASS").style(Style::new().fg(Color::Magenta)),
-        ])
-        .center([StatusSection::new(status_text)])
-        .right([
-            StatusSection::new(mic).style(Style::new().fg(Color::Yellow)),
-            StatusSection::new(tools_label).style(Style::new().fg(Color::DarkGrey)),
-            StatusSection::new(format!("msgs:{}", state.messages.len()))
-                .style(Style::new().fg(Color::DarkGrey)),
-        ]);
-
-    Widget::render(&bar, area, buf);
+    if tools_active > 0 {
+        buf.set_string(
+            area.right().saturating_sub(status_width - 2),
+            area.y,
+            &format!("⚡{}", tools_active),
+            Style::new().fg(Color::Yellow),
+        );
+    }
 }
 
-/// Renders a small torus as an ambient presence indicator in the bottom-right corner.
+/// Borderless content area - minimal by default, shows dialog only when streaming
+fn render_glass_content(state: &DemoState, area: Rect, buf: &mut Buffer) {
+    if area.is_empty() {
+        return;
+    }
+
+    // Reserve right side for torus (30 chars)
+    let content_width = area.width.saturating_sub(32) as usize;
+    let mut y = area.y + 1; // Small top margin
+
+    // Only show content when there's active streaming or reasoning
+    // Otherwise, glass mode stays minimal - just the torus as ambient presence
+    let is_active = state.streaming.is_some() || !state.reasoning.is_empty();
+
+    if !is_active {
+        // Minimal mode - just a subtle status hint
+        buf.set_string(
+            area.x + 2,
+            y,
+            "Ready",
+            Style::new().fg(Color::Rgb(60, 60, 70)),
+        );
+        return;
+    }
+
+    // Active mode - show streaming content
+    if let Some(ref streaming) = state.streaming {
+        let focus_line = format!("→ {}", truncate(streaming, content_width.saturating_sub(4)));
+
+        for line in wrap_text(&focus_line, content_width, "") {
+            if y >= area.bottom().saturating_sub(2) {
+                break;
+            }
+            buf.set_string(area.x + 2, y, &line, Style::new().fg(Color::White).bold());
+            y += 1;
+        }
+
+        y += 1;
+
+        // Show user's question that triggered this response
+        if let Some(msg) = state.messages.iter().rev().find(|m| m.role == "user") {
+            let user_line = format!(
+                "You: {}",
+                truncate(&msg.content.replace('\n', " "), content_width.saturating_sub(6))
+            );
+            buf.set_string(
+                area.x + 2,
+                y,
+                &truncate(&user_line, content_width),
+                Style::new().fg(Color::Rgb(100, 100, 100)),
+            );
+            y += 1;
+        }
+    }
+
+    // Show reasoning/thinking indicator when active
+    if !state.reasoning.is_empty() {
+        if y < area.bottom().saturating_sub(2) {
+            if state.streaming.is_some() {
+                y += 1; // Add spacing if we also have streaming content
+            }
+            if let Some(reason) = state.reasoning.first() {
+                buf.set_string(
+                    area.x + 2,
+                    y,
+                    &truncate(reason, content_width),
+                    Style::new().fg(Color::Rgb(80, 100, 120)),
+                );
+            }
+        }
+    }
+}
+
+/// Minimal footer - just a single line hint
+fn render_glass_footer_minimal(_state: &DemoState, area: Rect, buf: &mut Buffer) {
+    let hint = "QUICK CONTROLS  Ctrl+G toggle │ Ctrl+A mic │ Ctrl+S stream";
+    buf.set_string(
+        area.x + 1,
+        area.y,
+        &truncate(hint, area.width.saturating_sub(2) as usize),
+        Style::new().fg(Color::Rgb(60, 60, 70)),
+    );
+}
+
+/// Renders the torus as an ambient presence indicator on the right side.
 fn render_glass_torus_overlay(state: &DemoState, area: Rect, buf: &mut Buffer) {
-    // Larger size for better braille resolution
+    // Size tuned for braille resolution
     let torus_width: u16 = 28;
     let torus_height: u16 = 12;
 
-    // Position: bottom-right corner with small margin
-    let margin = 1_u16;
+    // Position: right side of content area, vertically centered
+    let margin = 2_u16;
     let x = area.right().saturating_sub(torus_width + margin);
-    let y = area.bottom().saturating_sub(torus_height + margin + 3); // Above footer
+    // Center vertically in the content area (skip header line)
+    let content_height = area.height.saturating_sub(2); // header + footer
+    let y = area.y + 1 + content_height.saturating_sub(torus_height) / 2;
 
-    if x < area.x || y < area.y {
+    if x < area.x || y < area.y || y + torus_height > area.bottom() {
         return;
     }
 

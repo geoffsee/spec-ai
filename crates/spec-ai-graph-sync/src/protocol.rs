@@ -1,8 +1,8 @@
-use super::VectorClock;
-use crate::types::{GraphEdge, GraphNode};
+//! Synchronization protocol types for graph synchronization.
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use spec_ai_knowledge_graph::{EdgeType, NodeType};
+use spec_ai_knowledge_graph::{EdgeType, NodeType, VectorClock};
 
 /// Type of graph synchronization operation
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -301,136 +301,6 @@ impl GraphSyncPayload {
                 "Conflict detected for {} {}: local={}, remote={}",
                 entity_type, entity_id, local_vector_clock, remote_vector_clock
             )),
-        }
-    }
-}
-
-impl SyncedNode {
-    /// Convert from GraphNode (without sync metadata)
-    pub fn from_node(
-        node: GraphNode,
-        vector_clock: VectorClock,
-        last_modified_by: Option<String>,
-    ) -> Self {
-        // Convert from spec-ai-config NodeType to knowledge-graph NodeType
-        let kg_node_type = match node.node_type {
-            crate::types::NodeType::Entity => NodeType::Entity,
-            crate::types::NodeType::Concept => NodeType::Concept,
-            crate::types::NodeType::Fact => NodeType::Fact,
-            crate::types::NodeType::Message => NodeType::Message,
-            crate::types::NodeType::ToolResult => NodeType::ToolResult,
-            crate::types::NodeType::Event => NodeType::Event,
-            crate::types::NodeType::Goal => NodeType::Goal,
-        };
-
-        Self {
-            id: node.id,
-            session_id: node.session_id,
-            node_type: kg_node_type,
-            label: node.label,
-            properties: node.properties,
-            embedding_id: node.embedding_id,
-            created_at: node.created_at,
-            updated_at: node.updated_at,
-            vector_clock,
-            last_modified_by,
-            is_deleted: false,
-            sync_enabled: false,
-        }
-    }
-
-    /// Convert to GraphNode (strip sync metadata)
-    pub fn to_node(&self) -> GraphNode {
-        // Convert from knowledge-graph NodeType back to spec-ai-config NodeType
-        let config_node_type = match &self.node_type {
-            NodeType::Entity => crate::types::NodeType::Entity,
-            NodeType::Concept => crate::types::NodeType::Concept,
-            NodeType::Fact => crate::types::NodeType::Fact,
-            NodeType::Message => crate::types::NodeType::Message,
-            NodeType::ToolResult => crate::types::NodeType::ToolResult,
-            NodeType::Event => crate::types::NodeType::Event,
-            NodeType::Goal => crate::types::NodeType::Goal,
-        };
-
-        GraphNode {
-            id: self.id,
-            session_id: self.session_id.clone(),
-            node_type: config_node_type,
-            label: self.label.clone(),
-            properties: self.properties.clone(),
-            embedding_id: self.embedding_id,
-            created_at: self.created_at,
-            updated_at: self.updated_at,
-        }
-    }
-}
-
-impl SyncedEdge {
-    /// Convert from GraphEdge (without sync metadata)
-    pub fn from_edge(
-        edge: GraphEdge,
-        vector_clock: VectorClock,
-        last_modified_by: Option<String>,
-    ) -> Self {
-        // Convert from spec-ai-config EdgeType to knowledge-graph EdgeType
-        let kg_edge_type = match edge.edge_type {
-            crate::types::EdgeType::RelatesTo => EdgeType::RelatesTo,
-            crate::types::EdgeType::CausedBy => EdgeType::CausedBy,
-            crate::types::EdgeType::PartOf => EdgeType::PartOf,
-            crate::types::EdgeType::Mentions => EdgeType::Mentions,
-            crate::types::EdgeType::FollowsFrom => EdgeType::FollowsFrom,
-            crate::types::EdgeType::Uses => EdgeType::Uses,
-            crate::types::EdgeType::Produces => EdgeType::Produces,
-            crate::types::EdgeType::DependsOn => EdgeType::DependsOn,
-            crate::types::EdgeType::Custom(s) => EdgeType::Custom(s),
-        };
-
-        Self {
-            id: edge.id,
-            session_id: edge.session_id,
-            source_id: edge.source_id,
-            target_id: edge.target_id,
-            edge_type: kg_edge_type,
-            predicate: edge.predicate,
-            properties: edge.properties,
-            weight: edge.weight,
-            temporal_start: edge.temporal_start,
-            temporal_end: edge.temporal_end,
-            created_at: edge.created_at,
-            vector_clock,
-            last_modified_by,
-            is_deleted: false,
-            sync_enabled: false,
-        }
-    }
-
-    /// Convert to GraphEdge (strip sync metadata)
-    pub fn to_edge(&self) -> GraphEdge {
-        // Convert from knowledge-graph EdgeType back to spec-ai-config EdgeType
-        let config_edge_type = match &self.edge_type {
-            EdgeType::RelatesTo => crate::types::EdgeType::RelatesTo,
-            EdgeType::CausedBy => crate::types::EdgeType::CausedBy,
-            EdgeType::PartOf => crate::types::EdgeType::PartOf,
-            EdgeType::Mentions => crate::types::EdgeType::Mentions,
-            EdgeType::FollowsFrom => crate::types::EdgeType::FollowsFrom,
-            EdgeType::Uses => crate::types::EdgeType::Uses,
-            EdgeType::Produces => crate::types::EdgeType::Produces,
-            EdgeType::DependsOn => crate::types::EdgeType::DependsOn,
-            EdgeType::Custom(s) => crate::types::EdgeType::Custom(s.clone()),
-        };
-
-        GraphEdge {
-            id: self.id,
-            session_id: self.session_id.clone(),
-            source_id: self.source_id,
-            target_id: self.target_id,
-            edge_type: config_edge_type,
-            predicate: self.predicate.clone(),
-            properties: self.properties.clone(),
-            weight: self.weight,
-            temporal_start: self.temporal_start,
-            temporal_end: self.temporal_end,
-            created_at: self.created_at,
         }
     }
 }

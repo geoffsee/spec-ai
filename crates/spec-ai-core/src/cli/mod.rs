@@ -6,6 +6,9 @@ use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
+use futures::StreamExt;
+use crossterm::event::{Event, EventStream, KeyCode};
+use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use tokio::sync::mpsc;
 
 use crate::agent::core::MemoryRecallStrategy;
@@ -872,17 +875,77 @@ impl CliState {
             if !matches!(command_preview, Command::Empty) {
                 self.render_status_line(&mut stdout).await?;
             }
-            if let Some(out) = self.handle_line(&line).await? {
-                if out == "__QUIT__" {
-                    break;
+
+            // If this is a normal message to the agent, allow interruption with ESC
+            if matches!(command_preview, Command::Message(_)) {
+                // Prepare the future for handling the line
+                let mut fut = Box::pin(self.handle_line(&line));
+
+                // Enable raw mode to capture ESC without requiring Enter
+                let _ = enable_raw_mode();
+                let mut events = EventStream::new();
+                let mut interrupted = false;
+
+                // Wait for either the agent response or an ESC key press
+                let out = loop {
+                    tokio::select! {
+                        res = &mut fut => {
+                            let _ = disable_raw_mode();
+                            break Some(res?);
+                        }
+                        maybe_event = events.next() => {
+                            match maybe_event {
+                                Some(Ok(Event::Key(key))) => {
+                                    if key.code == KeyCode::Esc {
+                                        // User requested interruption; drop the future by breaking
+                                        interrupted = true;
+                                        let _ = disable_raw_mode();
+                                        break None;
+                                    }
+                                }
+                                Some(Ok(_)) => { /* ignore other events */ }
+                                Some(Err(_)) => { /* ignore event errors */ }
+                                None => { /* stream ended */ }
+                            }
+                        }
+                    }
+                };
+
+                // Ensure the in-flight future is dropped before mutating self to release the &mut borrow
+                drop(fut);
+                let _ = disable_raw_mode();
+
+                if interrupted {
+                    // Set interrupted status and hand control back to the user
+                    self.status_message = "Status: interrupted".to_string();
+                    self.render_status_line(&mut stdout).await?;
+                    self.set_status_idle();
+                } else if let Some(out_opt) = out {
+                    if let Some(out) = out_opt {
+                        if out == "__QUIT__" {
+                            break;
+                        }
+                        stdout.write_all(out.as_bytes()).await?;
+                        if !out.ends_with('\n') {
+                            stdout.write_all(b"\n").await?;
+                        }
+                        stdout.flush().await?;
+                    }
+                    self.set_status_idle();
                 }
-                stdout.write_all(out.as_bytes()).await?;
-                if !out.ends_with('\n') {
-                    stdout.write_all(b"\n").await?;
+            } else {
+                if let Some(out) = self.handle_line(&line).await? {
+                    if out == "__QUIT__" {
+                        break;
+                    }
+                    stdout.write_all(out.as_bytes()).await?;
+                    if !out.ends_with('\n') {
+                        stdout.write_all(b"\n").await?;
+                    }
+                    stdout.flush().await?;
                 }
-                stdout.flush().await?;
+                self.set_status_idle();
             }
-            self.set_status_idle();
         }
 
         // Checkpoint database before exiting to ensure all WAL data is written
@@ -1122,6 +1185,32 @@ mod tests {
     use std::collections::HashMap;
     use std::path::PathBuf;
     use tempfile::tempdir;
+
+    #[test]
+    fn pad_line_to_width_padding_and_truncation() {
+        // Padding shorter string
+        let padded = CliState::pad_line_to_width("abc", 5);
+        assert_eq!(padded, "abc  ");
+
+        // Exact width should be unchanged
+        let exact = CliState::pad_line_to_width("hello", 5);
+        assert_eq!(exact, "hello");
+
+        // Truncation should occur cleanly by character boundaries
+        let truncated = CliState::pad_line_to_width("helloworld", 4);
+        assert_eq!(truncated, "hell");
+
+        // Zero width should return empty string
+        let zero = CliState::pad_line_to_width("anything", 0);
+        assert_eq!(zero, "");
+
+        // Unicode characters: ensure we truncate/pad by chars, not bytes
+        let unicode_trunc = CliState::pad_line_to_width("🔥fire", 2);
+        assert_eq!(unicode_trunc, "🔥f");
+
+        let unicode_pad = CliState::pad_line_to_width("🔥", 3);
+        assert_eq!(unicode_pad, "🔥  ");
+    }
 
     #[test]
     fn test_parse_commands() {

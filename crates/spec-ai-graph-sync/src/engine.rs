@@ -1,19 +1,25 @@
-use super::protocol::{GraphSyncPayload, SyncType, SyncedEdge, SyncedNode, Tombstone};
-use super::{ConflictResolution, ConflictResolver, VectorClock};
-use crate::persistence::{ChangelogEntry, Persistence, SyncedEdgeRecord, SyncedNodeRecord};
-use anyhow::Result;
+//! Graph synchronization engine with adaptive strategy.
 
-/// Threshold for deciding between full and incremental sync
-/// If more than this percentage of nodes changed, do a full sync
+use crate::persistence::SyncPersistence;
+use crate::protocol::{GraphSyncPayload, SyncType, SyncedEdge, SyncedNode, Tombstone};
+use crate::resolver::{ConflictResolution, ConflictResolver};
+use crate::types::{SyncedEdgeRecord, SyncedNodeRecord};
+use anyhow::Result;
+use spec_ai_knowledge_graph::{ClockOrder, EdgeType, NodeType, VectorClock};
+use std::collections::HashSet;
+
+/// Threshold for deciding between full and incremental sync.
+/// If more than this percentage of nodes changed, do a full sync.
 const INCREMENTAL_THRESHOLD: f32 = 0.3; // 30%
 
-/// Graph synchronization engine with adaptive strategy
-pub struct SyncEngine {
-    persistence: Persistence,
+/// Graph synchronization engine with adaptive strategy.
+pub struct SyncEngine<P: SyncPersistence> {
+    persistence: P,
     instance_id: String,
     resolver: ConflictResolver,
 }
 
+/// Statistics from a sync operation.
 #[derive(Debug, Clone)]
 pub struct SyncStats {
     pub nodes_sent: usize,
@@ -27,8 +33,9 @@ pub struct SyncStats {
     pub sync_type: String,
 }
 
-impl SyncEngine {
-    pub fn new(persistence: Persistence, instance_id: String) -> Self {
+impl<P: SyncPersistence> SyncEngine<P> {
+    /// Create a new sync engine.
+    pub fn new(persistence: P, instance_id: String) -> Self {
         Self {
             persistence,
             instance_id: instance_id.clone(),
@@ -36,7 +43,22 @@ impl SyncEngine {
         }
     }
 
-    /// Decide whether to use full or incremental sync based on changelog size
+    /// Get a reference to the persistence layer.
+    pub fn persistence(&self) -> &P {
+        &self.persistence
+    }
+
+    /// Get the instance ID.
+    pub fn instance_id(&self) -> &str {
+        &self.instance_id
+    }
+
+    /// Get a reference to the conflict resolver.
+    pub fn resolver(&self) -> &ConflictResolver {
+        &self.resolver
+    }
+
+    /// Decide whether to use full or incremental sync based on changelog size.
     pub async fn decide_sync_strategy(
         &self,
         session_id: &str,
@@ -84,7 +106,7 @@ impl SyncEngine {
         }
     }
 
-    /// Perform a full graph sync - send entire graph
+    /// Perform a full graph sync - send entire graph.
     pub async fn sync_full(&self, session_id: &str, graph_name: &str) -> Result<GraphSyncPayload> {
         // Get all synced nodes and edges
         let nodes = self
@@ -104,11 +126,11 @@ impl SyncEngine {
         // Convert to sync protocol types
         let synced_nodes: Vec<SyncedNode> = nodes
             .into_iter()
-            .map(|n| self.node_record_to_synced(n))
+            .map(|n| Self::node_record_to_synced(n))
             .collect();
         let synced_edges: Vec<SyncedEdge> = edges
             .into_iter()
-            .map(|e| self.edge_record_to_synced(e))
+            .map(|e| Self::edge_record_to_synced(e))
             .collect();
 
         Ok(GraphSyncPayload::response_full(
@@ -122,7 +144,7 @@ impl SyncEngine {
         ))
     }
 
-    /// Perform incremental sync - send only changes since their vector clock
+    /// Perform incremental sync - send only changes since their vector clock.
     pub async fn sync_incremental(
         &self,
         session_id: &str,
@@ -148,7 +170,7 @@ impl SyncEngine {
             .graph_changelog_get_since(session_id, &since_timestamp)?;
 
         // Filter changelog entries that happened after their vector clock
-        let relevant_changes: Vec<&ChangelogEntry> = changelog
+        let relevant_changes: Vec<_> = changelog
             .iter()
             .filter(|entry| {
                 if let Ok(entry_vc) = VectorClock::from_json(&entry.vector_clock) {
@@ -161,8 +183,8 @@ impl SyncEngine {
             .collect();
 
         // Group by entity type and ID
-        let mut node_ids: std::collections::HashSet<i64> = std::collections::HashSet::new();
-        let mut edge_ids: std::collections::HashSet<i64> = std::collections::HashSet::new();
+        let mut node_ids: HashSet<i64> = HashSet::new();
+        let mut edge_ids: HashSet<i64> = HashSet::new();
         let mut tombstones: Vec<Tombstone> = Vec::new();
 
         for entry in relevant_changes {
@@ -202,7 +224,7 @@ impl SyncEngine {
         for node_id in node_ids {
             if let Some(node) = self.persistence.graph_get_node_with_sync(node_id)? {
                 if node.sync_enabled && !node.is_deleted {
-                    synced_nodes.push(self.node_record_to_synced(node));
+                    synced_nodes.push(Self::node_record_to_synced(node));
                 }
             }
         }
@@ -211,7 +233,7 @@ impl SyncEngine {
         for edge_id in edge_ids {
             if let Some(edge) = self.persistence.graph_get_edge_with_sync(edge_id)? {
                 if edge.sync_enabled && !edge.is_deleted {
-                    synced_edges.push(self.edge_record_to_synced(edge));
+                    synced_edges.push(Self::edge_record_to_synced(edge));
                 }
             }
         }
@@ -227,7 +249,7 @@ impl SyncEngine {
         ))
     }
 
-    /// Apply incoming sync payload to local graph
+    /// Apply incoming sync payload to local graph.
     pub async fn apply_sync(
         &self,
         payload: &GraphSyncPayload,
@@ -266,7 +288,7 @@ impl SyncEngine {
                     let existing_node = self
                         .persistence
                         .graph_get_node_with_sync(node.id)?
-                        .map(|n| self.node_record_to_synced(n));
+                        .map(|n| Self::node_record_to_synced(n));
 
                     // Try to resolve conflict
                     match self.resolver.resolve_node_conflict(
@@ -327,7 +349,7 @@ impl SyncEngine {
                     let existing_edge = self
                         .persistence
                         .graph_get_edge_with_sync(edge.id)?
-                        .map(|e| self.edge_record_to_synced(e));
+                        .map(|e| Self::edge_record_to_synced(e));
 
                     // Try to resolve conflict
                     match self.resolver.resolve_edge_conflict(
@@ -408,7 +430,7 @@ impl SyncEngine {
         Ok(stats)
     }
 
-    /// Apply a single synced node with conflict detection
+    /// Apply a single synced node with conflict detection.
     async fn apply_synced_node(
         &self,
         node: &SyncedNode,
@@ -423,17 +445,17 @@ impl SyncEngine {
             let incoming_vc = &node.vector_clock;
 
             match incoming_vc.compare(&existing_vc) {
-                crate::sync::ClockOrder::After => {
+                ClockOrder::After => {
                     // Incoming is newer, apply it
                     self.update_node_from_synced(node)?;
                     our_vector_clock.merge(incoming_vc);
                     Ok(true)
                 }
-                crate::sync::ClockOrder::Before | crate::sync::ClockOrder::Equal => {
+                ClockOrder::Before | ClockOrder::Equal => {
                     // Our version is newer or equal, skip
                     Ok(false)
                 }
-                crate::sync::ClockOrder::Concurrent => {
+                ClockOrder::Concurrent => {
                     // Conflict - let resolver handle it
                     anyhow::bail!("conflict detected for node {}", node.id);
                 }
@@ -446,7 +468,7 @@ impl SyncEngine {
         }
     }
 
-    /// Apply a single synced edge with conflict detection
+    /// Apply a single synced edge with conflict detection.
     async fn apply_synced_edge(
         &self,
         edge: &SyncedEdge,
@@ -459,13 +481,13 @@ impl SyncEngine {
             let incoming_vc = &edge.vector_clock;
 
             match incoming_vc.compare(&existing_vc) {
-                crate::sync::ClockOrder::After => {
+                ClockOrder::After => {
                     self.update_edge_from_synced(edge)?;
                     our_vector_clock.merge(incoming_vc);
                     Ok(true)
                 }
-                crate::sync::ClockOrder::Before | crate::sync::ClockOrder::Equal => Ok(false),
-                crate::sync::ClockOrder::Concurrent => {
+                ClockOrder::Before | ClockOrder::Equal => Ok(false),
+                ClockOrder::Concurrent => {
                     anyhow::bail!("conflict detected for edge {}", edge.id);
                 }
             }
@@ -476,7 +498,7 @@ impl SyncEngine {
         }
     }
 
-    /// Apply a tombstone (deleted entity)
+    /// Apply a tombstone (deleted entity).
     async fn apply_tombstone(
         &self,
         tombstone: &Tombstone,
@@ -510,8 +532,7 @@ impl SyncEngine {
 
     // Helper methods for converting between record types
 
-    fn node_record_to_synced(&self, record: SyncedNodeRecord) -> SyncedNode {
-        use spec_ai_knowledge_graph::NodeType;
+    fn node_record_to_synced(record: SyncedNodeRecord) -> SyncedNode {
         SyncedNode {
             id: record.id,
             session_id: record.session_id,
@@ -528,8 +549,7 @@ impl SyncEngine {
         }
     }
 
-    fn edge_record_to_synced(&self, record: SyncedEdgeRecord) -> SyncedEdge {
-        use spec_ai_knowledge_graph::EdgeType;
+    fn edge_record_to_synced(record: SyncedEdgeRecord) -> SyncedEdge {
         SyncedEdge {
             id: record.id,
             session_id: record.session_id,
@@ -582,7 +602,7 @@ impl SyncEngine {
     }
 
     fn insert_node_from_synced(&self, node: &SyncedNode) -> Result<()> {
-        // Insert the node first using knowledge-graph types
+        // Insert the node first
         let node_id = self.persistence.insert_graph_node(
             &node.session_id,
             node.node_type.clone(),
@@ -606,7 +626,7 @@ impl SyncEngine {
     }
 
     fn insert_edge_from_synced(&self, edge: &SyncedEdge) -> Result<()> {
-        // Insert the edge first using knowledge-graph types
+        // Insert the edge first
         let edge_id = self.persistence.insert_graph_edge(
             &edge.session_id,
             edge.source_id,

@@ -1,8 +1,10 @@
-use super::protocol::{SyncedEdge, SyncedNode};
-use super::{ClockOrder, VectorClock};
+//! Conflict resolution for graph synchronization.
+
+use crate::protocol::{SyncedEdge, SyncedNode};
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde_json::{json, Value as JsonValue};
+use spec_ai_knowledge_graph::{ClockOrder, VectorClock};
 use tracing::{debug, info, warn};
 
 /// Represents a detected conflict for audit trail
@@ -57,7 +59,7 @@ impl ConflictResolver {
         let incoming_vc = &incoming.vector_clock;
 
         // Determine clock ordering
-        let clock_order = our_vector_clock.compare(&incoming_vc);
+        let clock_order = our_vector_clock.compare(incoming_vc);
 
         debug!(
             "Resolving node conflict for {}: clock_order = {:?}",
@@ -71,7 +73,7 @@ impl ConflictResolver {
                     "Node {} - our version is older, accepting remote",
                     incoming.id
                 );
-                our_vector_clock.merge(&incoming_vc);
+                our_vector_clock.merge(incoming_vc);
                 ConflictResolution::AcceptRemote
             }
             ClockOrder::After => {
@@ -141,7 +143,7 @@ impl ConflictResolver {
                     };
 
                     // Merge vector clocks
-                    our_vector_clock.merge(&incoming_vc);
+                    our_vector_clock.merge(incoming_vc);
                     our_vector_clock.increment(&self.instance_id);
 
                     // Create merged node
@@ -175,7 +177,7 @@ impl ConflictResolver {
 
                     // Check if we have a tombstone for this node
                     // For now, accept the remote version
-                    our_vector_clock.merge(&incoming_vc);
+                    our_vector_clock.merge(incoming_vc);
                     ConflictResolution::AcceptRemote
                 }
             }
@@ -195,7 +197,7 @@ impl ConflictResolver {
         let incoming_vc = &incoming.vector_clock;
 
         // Determine clock ordering
-        let clock_order = our_vector_clock.compare(&incoming_vc);
+        let clock_order = our_vector_clock.compare(incoming_vc);
 
         debug!(
             "Resolving edge conflict for {}: clock_order = {:?}",
@@ -209,7 +211,7 @@ impl ConflictResolver {
                     "Edge {} - our version is older, accepting remote",
                     incoming.id
                 );
-                our_vector_clock.merge(&incoming_vc);
+                our_vector_clock.merge(incoming_vc);
                 ConflictResolution::AcceptRemote
             }
             ClockOrder::After => {
@@ -272,7 +274,7 @@ impl ConflictResolver {
                     }
 
                     // Merge vector clocks
-                    our_vector_clock.merge(&incoming_vc);
+                    our_vector_clock.merge(incoming_vc);
                     our_vector_clock.increment(&self.instance_id);
 
                     // Create merged edge
@@ -307,7 +309,7 @@ impl ConflictResolver {
                     ConflictResolution::Merged(merged_edge)
                 } else {
                     // Edge doesn't exist locally but we have a concurrent clock
-                    our_vector_clock.merge(&incoming_vc);
+                    our_vector_clock.merge(incoming_vc);
                     ConflictResolution::AcceptRemote
                 }
             }

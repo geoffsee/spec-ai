@@ -16,7 +16,7 @@ lmstudio = ["reqwest"]
 vttrs = []
 web-scraping = ["spider"]
 integration-tests = []
-api = ["reqwest"]
+api = ["reqwest", "spec-ai-graph-sync"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -26,7 +26,7 @@ async-trait = { workspace = true }
 base64 = { workspace = true }
 blake3 = { workspace = true }
 chrono = { workspace = true }
-crossterm = { workspace = true }
+crossterm = { workspace = true, features = ["event-stream"] }
 directories = { workspace = true }
 futures = { workspace = true }
 hostname = { workspace = true }
@@ -53,6 +53,7 @@ spec-ai-config = { path = "../spec-ai-config", version = "0.5.0" }
 spec-ai-plugin = { path = "../spec-ai-plugin", version = "0.5.0" }
 spec-ai-policy = { path = "../spec-ai-policy", version = "0.5.0" }
 spec-ai-knowledge-graph = { path = "../spec-ai-knowledge-graph", version = "0.5.0" }
+spec-ai-graph-sync = { path = "../spec-ai-graph-sync", version = "0.5.0", optional = true }
 
 # extractous only on non-macOS (uses GraalVM/Tika which has AWT issues on macOS)
 [target.'cfg(not(target_os = "macos"))'.dependencies]

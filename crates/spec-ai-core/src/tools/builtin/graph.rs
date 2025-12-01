@@ -691,7 +691,8 @@ impl Tool for GraphTool {
                 let instance_id = persistence.instance_id().to_string();
 
                 // Create sync engine and trigger sync
-                let sync_engine = crate::sync::SyncEngine::new((*persistence).clone(), instance_id);
+                let adapter = crate::sync::SyncPersistenceAdapter::new((*persistence).clone());
+                let sync_engine = crate::sync::SyncEngine::new(adapter, instance_id);
 
                 let result = sync_engine.sync_full(&session_id, &graph_name).await?;
 

@@ -44,11 +44,32 @@ FILES=(
     "crates/spec-ai-api/Cargo.toml"
 )
 
+# Internal crates that need their dependency versions updated
+INTERNAL_CRATES=(
+    "spec-ai"
+    "spec-ai-core"
+    "spec-ai-config"
+    "spec-ai-policy"
+    "spec-ai-api"
+    "spec-ai-cli"
+    "spec-ai-plugin"
+    "spec-ai-knowledge-graph"
+    "spec-ai-graph-sync"
+)
+
 # Update each file
 for file in "${FILES[@]}"; do
     if [ -f "$file" ]; then
-        # Replace version in workspace.package section and dependency version strings
+        # Replace version in workspace.package section
         sed -i '' "s/version = \"$CURRENT_VERSION\"/version = \"$NEW_VERSION\"/g" "$file"
+
+        # Also update internal dependency versions (for prerelease compatibility)
+        for crate in "${INTERNAL_CRATES[@]}"; do
+            # Match patterns like: spec-ai-core = { path = "...", version = "X.Y.Z" }
+            # Update any semver version to the new version for internal crates
+            sed -i '' -E "s/($crate = \{[^}]*version = \")[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?(\")/\1$NEW_VERSION\3/g" "$file"
+        done
+
         echo "Updated: $file"
     else
         echo "Warning: $file not found"

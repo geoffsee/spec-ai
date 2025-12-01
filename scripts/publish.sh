@@ -29,7 +29,7 @@ CRATES=(
 )
 
 # Time to wait between publishes for crates.io index to update
-WAIT_SECONDS=30
+WAIT_SECONDS=10
 
 DRY_RUN=false
 if [[ "${1:-}" == "--dry-run" ]]; then

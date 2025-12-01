@@ -452,6 +452,7 @@ impl ToakTokenizerPlugin {
             verbose: false,
             chunker_config: Default::default(),
             max_concurrent_files: 4,
+            ..Default::default()
         };
 
         let generator = JsonDatabaseGenerator::new(options)

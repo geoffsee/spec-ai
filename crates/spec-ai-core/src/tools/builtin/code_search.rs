@@ -70,8 +70,7 @@ impl CodeSearchTool {
             verbose: false,
             chunker_config: Default::default(),
             max_concurrent_files: 4,
-            file_type_exclusions: Default::default(),
-            file_exclusions: Default::default(),
+            ..Default::default()
         };
 
         let generator = JsonDatabaseGenerator::new(options)

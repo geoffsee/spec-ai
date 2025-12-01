@@ -381,6 +381,20 @@ AI reasoning with graph-based memory:
 - **`/graph show [N]`** — Display last N graph nodes (default: 10)
 - **`/graph clear`** — Clear graph for current session
 
+## Graph Synchronization
+Distributed graph sync across instances:
+
+- **`/sync`** or **`/sync list`** — List all graphs with sync enabled
+
+Configure sync in `spec-ai.config.toml`:
+```toml
+[sync]
+enabled = true
+namespaces = [
+  { session_id = "shared", graph_name = "knowledge" }
+]
+```
+
 ## Repository Bootstrap
 Prime the knowledge graph with source facts before the first prompt:
 

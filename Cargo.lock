@@ -5783,7 +5783,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai"
-version = "0.5.1"
+version = "0.5.1-rc"
 dependencies = [
  "anyhow",
  "spec-ai-api",
@@ -5795,7 +5795,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-api"
-version = "0.5.1"
+version = "0.5.1-rc"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -5810,6 +5810,7 @@ dependencies = [
  "spec-ai-config",
  "spec-ai-core",
  "spec-ai-policy",
+ "tempfile",
  "thiserror 1.0.69",
  "tokio",
  "tower 0.4.13",
@@ -5820,7 +5821,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-cli"
-version = "0.5.1"
+version = "0.5.1-rc"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5838,7 +5839,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-config"
-version = "0.5.1"
+version = "0.5.1-rc"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5861,7 +5862,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-core"
-version = "0.5.1"
+version = "0.5.1-rc"
 dependencies = [
  "anyhow",
  "async-openai",
@@ -5903,7 +5904,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-graph-sync"
-version = "0.5.1"
+version = "0.5.1-rc"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5916,7 +5917,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-knowledge-graph"
-version = "0.5.1"
+version = "0.5.1-rc"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5927,7 +5928,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-plugin"
-version = "0.5.1"
+version = "0.5.1-rc"
 dependencies = [
  "abi_stable",
  "anyhow",
@@ -5941,7 +5942,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-policy"
-version = "0.5.1"
+version = "0.5.1-rc"
 dependencies = [
  "anyhow",
  "async-trait",

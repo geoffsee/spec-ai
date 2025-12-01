@@ -5,16 +5,18 @@ set -euo pipefail
 #
 # Dependency graph:
 #   spec-ai-knowledge-graph (no internal deps)
+#   spec-ai-graph-sync -> spec-ai-knowledge-graph
 #   spec-ai-config -> spec-ai-knowledge-graph
 #   spec-ai-policy -> spec-ai-config
 #   spec-ai-plugin (no internal deps)
-#   spec-ai-core   -> spec-ai-config, spec-ai-policy, spec-ai-plugin, spec-ai-knowledge-graph
+#   spec-ai-core   -> spec-ai-config, spec-ai-policy, spec-ai-plugin, spec-ai-knowledge-graph, spec-ai-graph-sync (optional)
 #   spec-ai-api    -> spec-ai-core, spec-ai-config, spec-ai-policy
 #   spec-ai        -> spec-ai-core, spec-ai-config, spec-ai-policy, spec-ai-api
 #   spec-ai-cli    -> spec-ai
 
 CRATES=(
     "spec-ai-knowledge-graph"
+    "spec-ai-graph-sync"
     "spec-ai-config"
     "spec-ai-policy"
     "spec-ai-plugin"

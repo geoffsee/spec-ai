@@ -14,6 +14,7 @@ use crate::policy::{PolicyDecision, PolicyEngine};
 use crate::spec::AgentSpec;
 use crate::tools::{ToolRegistry, ToolResult};
 use crate::types::{Message, MessageRole};
+use crate::SYNC_GRAPH_NAMESPACE;
 use anyhow::{Context, Result};
 use chrono::Utc;
 use serde_json::{json, Value};
@@ -98,6 +99,15 @@ pub struct AgentCore {
 }
 
 impl AgentCore {
+    /// Ensure the agent session namespace does not collide with the sync graph namespace.
+    fn sanitize_session_id(session_id: String) -> (String, bool) {
+        if session_id == SYNC_GRAPH_NAMESPACE {
+            (format!("{}-agent", session_id), true)
+        } else {
+            (session_id, false)
+        }
+    }
+
     /// Create a new agent core
     pub fn new(
         profile: AgentProfile,
@@ -110,6 +120,14 @@ impl AgentCore {
         policy_engine: Arc<PolicyEngine>,
         speak_responses: bool,
     ) -> Self {
+        let (session_id, rewrote_namespace) = Self::sanitize_session_id(session_id);
+        if rewrote_namespace {
+            warn!(
+                "Session namespace '{}' is reserved for sync; using '{}' for agent graph state",
+                SYNC_GRAPH_NAMESPACE, session_id
+            );
+        }
+
         Self {
             profile,
             provider,
@@ -134,6 +152,13 @@ impl AgentCore {
 
     /// Set a new session ID and clear conversation history
     pub fn with_session(mut self, session_id: String) -> Self {
+        let (session_id, rewrote_namespace) = Self::sanitize_session_id(session_id);
+        if rewrote_namespace {
+            warn!(
+                "Session namespace '{}' is reserved for sync; using '{}' for agent graph state",
+                SYNC_GRAPH_NAMESPACE, session_id
+            );
+        }
         self.session_id = session_id;
         self.conversation_history.clear();
         self.tool_permission_cache = Arc::new(RwLock::new(HashMap::new()));
@@ -2670,6 +2695,22 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn agent_session_avoids_sync_namespace() {
+        let (mut agent, _dir) = create_test_agent(SYNC_GRAPH_NAMESPACE);
+
+        assert_eq!(
+            agent.session_id(),
+            format!("{}-agent", SYNC_GRAPH_NAMESPACE)
+        );
+
+        agent = agent.with_session(SYNC_GRAPH_NAMESPACE.to_string());
+        assert_eq!(
+            agent.session_id(),
+            format!("{}-agent", SYNC_GRAPH_NAMESPACE)
+        );
+    }
+
+    #[tokio::test]
     async fn test_agent_core_build_prompt() {
         let (agent, _dir) = create_test_agent("test-session-3");
 
@@ -2922,6 +2963,7 @@ mod tests {
             Some("tool-agent".to_string()),
             Arc::new(tool_registry),
             policy_engine,
+            false,
         );
 
         // Execute tool directly

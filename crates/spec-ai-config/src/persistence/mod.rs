@@ -859,6 +859,11 @@ impl Persistence {
         self.graph_store.graph_list(session_id)
     }
 
+    /// List all sync-enabled graphs across all sessions
+    pub fn graph_list_sync_enabled(&self) -> Result<Vec<(String, String)>> {
+        self.graph_store.graph_list_sync_enabled()
+    }
+
     /// Get a node with its sync metadata
     pub fn graph_get_node_with_sync(&self, node_id: i64) -> Result<Option<SyncedNodeRecord>> {
         self.graph_store

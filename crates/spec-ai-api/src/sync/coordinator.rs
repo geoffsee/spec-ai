@@ -7,7 +7,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::api::mesh::{MeshClient, MeshRegistry};
 use crate::persistence::Persistence;
-use spec_ai_core::sync::{GraphSyncPayload, SyncEngine};
+use spec_ai_core::sync::{GraphSyncPayload, SyncEngine, SyncPersistenceAdapter};
 
 /// Configuration for the sync coordinator
 #[derive(Debug, Clone)]
@@ -29,6 +29,17 @@ impl Default for SyncCoordinatorConfig {
             max_concurrent_syncs: 3,  // Up to 3 concurrent syncs
             retry_interval_secs: 300, // Retry after 5 minutes
             max_retries: 3,           // Max 3 retry attempts
+        }
+    }
+}
+
+impl From<&spec_ai_config::config::SyncConfig> for SyncCoordinatorConfig {
+    fn from(config: &spec_ai_config::config::SyncConfig) -> Self {
+        Self {
+            sync_interval_secs: config.interval_secs,
+            max_concurrent_syncs: config.max_concurrent_syncs,
+            retry_interval_secs: config.retry_interval_secs,
+            max_retries: config.max_retries,
         }
     }
 }
@@ -163,15 +174,7 @@ impl SyncCoordinator {
 
     /// Get all sessions with sync-enabled graphs
     fn get_sync_enabled_sessions(&self) -> Result<Vec<(String, String)>> {
-        // TODO: This is a simplified implementation
-        // In production, we'd query the database for all sync-enabled graphs
-        let mut sessions = Vec::new();
-
-        // For now, just return a test session
-        // This would be replaced with actual database query
-        sessions.push(("default_session".to_string(), "default".to_string()));
-
-        Ok(sessions)
+        self.persistence.graph_list_sync_enabled()
     }
 
     /// Check if we should sync this graph now
@@ -212,8 +215,9 @@ impl SyncCoordinator {
             session_id, graph_name, peer_id, peer_url
         );
 
-        // Create sync engine
-        let sync_engine = SyncEngine::new((*self.persistence).clone(), self.instance_id.clone());
+        // Create sync engine using the adapter
+        let adapter = SyncPersistenceAdapter::new((*self.persistence).clone());
+        let sync_engine = SyncEngine::new(adapter, self.instance_id.clone());
 
         // Get our current vector clock
         let our_vc = self
@@ -268,6 +272,89 @@ impl SyncCoordinator {
     pub async fn shutdown(&self) {
         info!("Shutting down sync coordinator");
         // Any cleanup tasks would go here
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn get_sync_enabled_sessions_returns_empty_when_no_sync_enabled() {
+        let dir = tempdir().expect("tempdir");
+        let db_path = dir.path().join("sync.duckdb");
+        let persistence = Arc::new(Persistence::new(&db_path).expect("persistence"));
+        let mesh_registry = Arc::new(MeshRegistry::new());
+        let mesh_client = Arc::new(MeshClient::new("localhost", 0));
+        let coordinator = SyncCoordinator::new(
+            persistence,
+            mesh_registry,
+            mesh_client,
+            SyncCoordinatorConfig::default(),
+        );
+
+        let sessions = coordinator.get_sync_enabled_sessions().expect("sessions");
+        assert!(sessions.is_empty(), "Expected no sync-enabled sessions initially");
+    }
+
+    #[test]
+    fn get_sync_enabled_sessions_returns_enabled_graphs() {
+        let dir = tempdir().expect("tempdir");
+        let db_path = dir.path().join("sync.duckdb");
+        let persistence = Arc::new(Persistence::new(&db_path).expect("persistence"));
+
+        // Enable sync for a graph (this will create the metadata entry)
+        persistence
+            .graph_set_sync_enabled("test-session", "test-graph", true)
+            .expect("enable sync");
+
+        let mesh_registry = Arc::new(MeshRegistry::new());
+        let mesh_client = Arc::new(MeshClient::new("localhost", 0));
+        let coordinator = SyncCoordinator::new(
+            persistence,
+            mesh_registry,
+            mesh_client,
+            SyncCoordinatorConfig::default(),
+        );
+
+        let sessions = coordinator.get_sync_enabled_sessions().expect("sessions");
+        assert_eq!(
+            sessions,
+            vec![("test-session".to_string(), "test-graph".to_string())]
+        );
+    }
+
+    #[test]
+    fn get_sync_enabled_sessions_excludes_disabled_graphs() {
+        let dir = tempdir().expect("tempdir");
+        let db_path = dir.path().join("sync.duckdb");
+        let persistence = Arc::new(Persistence::new(&db_path).expect("persistence"));
+
+        // Create graph with sync enabled
+        persistence
+            .graph_set_sync_enabled("session-a", "enabled", true)
+            .expect("enable sync");
+
+        // Create graph with sync disabled
+        persistence
+            .graph_set_sync_enabled("session-b", "disabled", false)
+            .expect("create disabled graph");
+
+        let mesh_registry = Arc::new(MeshRegistry::new());
+        let mesh_client = Arc::new(MeshClient::new("localhost", 0));
+        let coordinator = SyncCoordinator::new(
+            persistence,
+            mesh_registry,
+            mesh_client,
+            SyncCoordinatorConfig::default(),
+        );
+
+        let sessions = coordinator.get_sync_enabled_sessions().expect("sessions");
+        assert_eq!(
+            sessions,
+            vec![("session-a".to_string(), "enabled".to_string())]
+        );
     }
 }
 

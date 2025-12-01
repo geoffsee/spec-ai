@@ -95,6 +95,7 @@ async fn main() -> Result<()> {
         Some("benchmark_agent".to_string()),
         Arc::new(spec_ai::tools::ToolRegistry::new()),
         Arc::new(spec_ai::policy::PolicyEngine::new()),
+        false,
     )
     .with_fast_provider(fast_provider);
 

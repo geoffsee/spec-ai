@@ -65,6 +65,9 @@ default_duration_secs = 30
 # Automatically respond to transcriptions with AI
 auto_respond = false
 
+# Speak responses aloud on macOS using the built-in `say` command
+speak_responses = false
+
 # ========== DEFAULT AGENT WITH ALL FEATURES ==========
 [agents.default]
 # System prompt

@@ -14,10 +14,10 @@ use crate::policy::{PolicyDecision, PolicyEngine};
 use crate::spec::AgentSpec;
 use crate::tools::{ToolRegistry, ToolResult};
 use crate::types::{Message, MessageRole};
-use spec_ai_knowledge_graph::{EdgeType, NodeType, TraversalDirection};
 use anyhow::{Context, Result};
 use chrono::Utc;
 use serde_json::{json, Value};
+use spec_ai_knowledge_graph::{EdgeType, NodeType, TraversalDirection};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
@@ -93,6 +93,8 @@ pub struct AgentCore {
     policy_engine: Arc<PolicyEngine>,
     /// Cache for tool permission checks to avoid repeated lookups
     tool_permission_cache: Arc<RwLock<HashMap<String, bool>>>,
+    /// Whether to tailor prompts for speech playback
+    speak_responses: bool,
 }
 
 impl AgentCore {
@@ -106,6 +108,7 @@ impl AgentCore {
         agent_name: Option<String>,
         tool_registry: Arc<ToolRegistry>,
         policy_engine: Arc<PolicyEngine>,
+        speak_responses: bool,
     ) -> Self {
         Self {
             profile,
@@ -119,6 +122,7 @@ impl AgentCore {
             tool_registry,
             policy_engine,
             tool_permission_cache: Arc::new(RwLock::new(HashMap::new())),
+            speak_responses,
         }
     }
 
@@ -960,6 +964,11 @@ impl AgentCore {
             prompt.push_str("System: ");
             prompt.push_str(system_prompt);
             prompt.push_str("\n\n");
+        }
+
+        // Tailor for speech playback when enabled
+        if self.speak_responses {
+            prompt.push_str("System: Speech mode is enabled; respond with concise, natural sentences suitable for text-to-speech. Avoid markdown/code fences and keep the reply brief.\n\n");
         }
 
         // Add tool instructions
@@ -2077,6 +2086,19 @@ impl AgentCore {
         self.policy_engine = policy_engine;
     }
 
+    /// Enable or disable speech-oriented prompting
+    pub fn set_speak_responses(&mut self, enabled: bool) {
+        #[cfg(target_os = "macos")]
+        {
+            self.speak_responses = enabled;
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = enabled;
+            self.speak_responses = false;
+        }
+    }
+
     /// Generate and store an embedding for arbitrary text (e.g., transcriptions)
     /// Returns the embedding_id if successful, None otherwise
     pub async fn generate_embedding(&self, text: &str) -> Option<i64> {
@@ -2479,6 +2501,7 @@ mod tests {
                 Some(session_id.to_string()),
                 tool_registry,
                 policy_engine,
+                false,
             ),
             dir,
         )
@@ -2539,6 +2562,7 @@ mod tests {
                 Some(session_id.to_string()),
                 tool_registry,
                 policy_engine,
+                false,
             )
             .with_fast_provider(fast_provider),
             dir,
@@ -2819,6 +2843,7 @@ mod tests {
             Some("policy-test".to_string()),
             tool_registry.clone(),
             policy_engine.clone(),
+            false,
         );
 
         assert!(agent.is_tool_allowed("echo").await);
@@ -2837,6 +2862,7 @@ mod tests {
             Some("policy-test-2".to_string()),
             tool_registry,
             policy_engine,
+            false,
         );
 
         assert!(agent.is_tool_allowed("echo").await);

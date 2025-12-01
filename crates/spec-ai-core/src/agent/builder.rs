@@ -33,6 +33,7 @@ pub struct AgentBuilder {
     tool_registry: Option<Arc<ToolRegistry>>,
     policy_engine: Option<Arc<PolicyEngine>>,
     agent_name: Option<String>,
+    speak_responses: bool,
 }
 
 impl AgentBuilder {
@@ -48,6 +49,7 @@ impl AgentBuilder {
             tool_registry: None,
             policy_engine: None,
             agent_name: None,
+            speak_responses: false,
         }
     }
 
@@ -115,12 +117,28 @@ impl AgentBuilder {
         self
     }
 
+    /// Enable speech-friendly responses (macOS `say`)
+    pub fn with_speak_responses(mut self, enabled: bool) -> Self {
+        self.speak_responses = enabled;
+        self
+    }
+
     /// Build the agent, validating all required fields
     pub fn build(self) -> Result<AgentCore> {
         // Get profile (required)
         let profile = self
             .profile
+            .as_ref()
+            .cloned()
             .ok_or_else(|| anyhow!("Agent profile is required"))?;
+
+        // Precompute session and speech settings before moving fields
+        let session_id = self
+            .session_id
+            .clone()
+            .unwrap_or_else(|| format!("session-{}", chrono::Utc::now().timestamp_millis()));
+        let speak_preference = self.resolve_speech_preference();
+        let agent_name = self.agent_name.clone();
 
         // Get or create persistence (needed for tool registry)
         let persistence = if let Some(persistence) = self.persistence {
@@ -303,11 +321,6 @@ impl AgentBuilder {
             ));
         };
 
-        // Get or generate session ID
-        let session_id = self
-            .session_id
-            .unwrap_or_else(|| format!("session-{}", chrono::Utc::now().timestamp_millis()));
-
         // Get or create policy engine (defaults to empty policy engine, or load from persistence)
         let policy_engine = if let Some(engine) = self.policy_engine {
             engine
@@ -365,9 +378,10 @@ impl AgentBuilder {
             embeddings_client,
             persistence,
             session_id,
-            self.agent_name,
+            agent_name,
             tool_registry,
             policy_engine,
+            speak_preference,
         );
 
         if let Some(fast_provider) = fast_provider {
@@ -375,6 +389,26 @@ impl AgentBuilder {
         }
 
         Ok(agent)
+    }
+
+    fn resolve_speech_preference(&self) -> bool {
+        let config_pref = self
+            .config
+            .as_ref()
+            .map(|c| c.audio.speak_responses)
+            .unwrap_or(false);
+        let requested = self.speak_responses || config_pref;
+
+        #[cfg(target_os = "macos")]
+        {
+            requested
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = requested; // silence unused warning when speech is unavailable
+            false
+        }
     }
 }
 

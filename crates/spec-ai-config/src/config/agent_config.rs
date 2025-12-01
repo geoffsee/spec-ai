@@ -422,6 +422,9 @@ pub struct AudioConfig {
     /// Delay between mock transcription events in milliseconds
     #[serde(default = "default_event_delay_ms")]
     pub event_delay_ms: u64,
+    /// Speak assistant responses aloud (macOS only, uses `say`)
+    #[serde(default)]
+    pub speak_responses: bool,
 }
 
 fn default_transcription_provider() -> String {
@@ -461,6 +464,7 @@ impl Default for AudioConfig {
             auto_respond: false,
             mock_scenario: default_mock_scenario(),
             event_delay_ms: default_event_delay_ms(),
+            speak_responses: false,
         }
     }
 }

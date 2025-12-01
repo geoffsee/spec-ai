@@ -394,6 +394,7 @@ Mock audio input transcription for testing:
   - **Scenarios:** `simple_conversation`, `command_sequence`, `noisy_environment`, `emotional_context`, `multi_speaker`
   - **Duration:** Time in seconds (default: 30)
   - Example: `/listen simple_conversation 60`
+- **`/speak [on|off|toggle]`** — Enable or disable macOS speech playback (`Ctrl+S` while a response is streaming also toggles)
 
 ## Spec Runs
 Execute structured `.spec` files with clear goals:

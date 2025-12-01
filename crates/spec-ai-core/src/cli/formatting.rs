@@ -381,6 +381,20 @@ AI reasoning with graph-based memory:
 - **`/graph show [N]`** — Display last N graph nodes (default: 10)
 - **`/graph clear`** — Clear graph for current session
 
+## Graph Synchronization
+Distributed graph sync across instances:
+
+- **`/sync`** or **`/sync list`** — List all graphs with sync enabled
+
+Configure sync in `spec-ai.config.toml`:
+```toml
+[sync]
+enabled = true
+namespaces = [
+  { session_id = "shared", graph_name = "knowledge" }
+]
+```
+
 ## Repository Bootstrap
 Prime the knowledge graph with source facts before the first prompt:
 
@@ -394,6 +408,7 @@ Mock audio input transcription for testing:
   - **Scenarios:** `simple_conversation`, `command_sequence`, `noisy_environment`, `emotional_context`, `multi_speaker`
   - **Duration:** Time in seconds (default: 30)
   - Example: `/listen simple_conversation 60`
+- **`/speak [on|off|toggle]`** — Enable or disable macOS speech playback (`Ctrl+S` while a response is streaming also toggles)
 
 ## Spec Runs
 Execute structured `.spec` files with clear goals:

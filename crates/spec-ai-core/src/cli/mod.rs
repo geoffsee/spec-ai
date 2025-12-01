@@ -3,7 +3,11 @@
 pub mod formatting;
 
 use anyhow::{Context, Result};
+use crossterm::event::{Event, EventStream, KeyCode, KeyModifiers};
+use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
+use futures::StreamExt;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc;
@@ -39,6 +43,8 @@ pub enum Command {
     GraphStatus,
     GraphShow(Option<usize>),
     GraphClear,
+    // Sync commands
+    SyncList,
     // Audio commands
     ListenStart(Option<u64>), // duration in seconds
     ListenStop,
@@ -46,6 +52,7 @@ pub enum Command {
     Listen(Option<String>, Option<u64>), // Deprecated: kept for backward compatibility
     PasteStart,
     RunSpec(PathBuf),
+    SpeechToggle(Option<bool>),
     Init(Option<Vec<String>>),    // optional plugins list
     Refresh(Option<Vec<String>>), // rerun bootstrap with caching
     Message(String),
@@ -114,6 +121,10 @@ pub fn parse_command(input: &str) -> Command {
                     Command::GraphShow(n)
                 }
                 Some("clear") => Command::GraphClear,
+                _ => Command::Help,
+            },
+            "sync" => match parts.next() {
+                Some("list") | None => Command::SyncList,
                 _ => Command::Help,
             },
             "listen" => {
@@ -187,6 +198,12 @@ pub fn parse_command(input: &str) -> Command {
                     }
                 }
             }
+            "speak" | "voice" => match parts.next() {
+                Some("on") => Command::SpeechToggle(Some(true)),
+                Some("off") => Command::SpeechToggle(Some(false)),
+                Some("toggle") | None => Command::SpeechToggle(None),
+                _ => Command::Help,
+            },
             _ => Command::Help,
         }
     } else {
@@ -211,6 +228,7 @@ pub struct CliState {
     pub transcription_provider: Arc<dyn TranscriptionProvider>,
     pub reasoning_messages: Vec<String>,
     pub status_message: String,
+    speech_enabled: Arc<AtomicBool>,
     paste_mode: bool,
     paste_buffer: String,
     init_allowed: bool,
@@ -284,6 +302,8 @@ impl CliState {
                 .context("Failed to create transcription provider")?
         };
 
+        let speech_on = cfg!(target_os = "macos") && config.audio.speak_responses;
+
         let mut state = Self {
             config,
             persistence,
@@ -292,15 +312,42 @@ impl CliState {
             transcription_provider,
             reasoning_messages: vec!["Reasoning: idle".to_string()],
             status_message: "Status: initializing".to_string(),
+            speech_enabled: Arc::new(AtomicBool::new(speech_on)),
             paste_mode: false,
             paste_buffer: String::new(),
             init_allowed: true,
             transcription_task: None,
         };
 
+        state.agent.set_speak_responses(speech_on);
         state.refresh_init_gate()?;
 
+        // Apply sync configuration from config file
+        state.apply_sync_config()?;
+
         Ok(state)
+    }
+
+    /// Apply sync configuration from config file
+    fn apply_sync_config(&self) -> Result<()> {
+        if !self.config.sync.enabled {
+            return Ok(());
+        }
+
+        // Enable sync for each configured namespace
+        for ns in &self.config.sync.namespaces {
+            if let Err(e) = self
+                .persistence
+                .graph_set_sync_enabled(&ns.session_id, &ns.graph_name, true)
+            {
+                eprintln!(
+                    "Warning: Failed to enable sync for {}/{}: {}",
+                    ns.session_id, ns.graph_name, e
+                );
+            }
+        }
+
+        Ok(())
     }
 
     /// Save transcription chunks to database with embeddings
@@ -385,6 +432,9 @@ impl CliState {
                     &self.config,
                     Some(current_session),
                 )?;
+                let speech_on = cfg!(target_os = "macos") && self.config.audio.speak_responses;
+                self.speech_enabled.store(speech_on, Ordering::Relaxed);
+                self.agent.set_speak_responses(speech_on);
                 self.refresh_init_gate()?;
                 Ok(Some("Configuration reloaded.".to_string()))
             }
@@ -408,6 +458,8 @@ impl CliState {
                 let session = self.agent.session_id().to_string();
                 self.agent =
                     AgentBuilder::new_with_registry(&self.registry, &self.config, Some(session))?;
+                let speak_enabled = self.speech_enabled.load(Ordering::Relaxed);
+                self.agent.set_speak_responses(speak_enabled);
                 Ok(Some(format!("Switched active agent to '{}'.", name)))
             }
             Command::MemoryShow(n) => {
@@ -433,6 +485,8 @@ impl CliState {
                     &self.config,
                     Some(new_id.clone()),
                 )?;
+                let speak_enabled = self.speech_enabled.load(Ordering::Relaxed);
+                self.agent.set_speak_responses(speak_enabled);
                 self.init_allowed = true;
                 Ok(Some(format!("Started new session '{}'.", new_id)))
             }
@@ -452,6 +506,8 @@ impl CliState {
                     &self.config,
                     Some(id.clone()),
                 )?;
+                let speak_enabled = self.speech_enabled.load(Ordering::Relaxed);
+                self.agent.set_speak_responses(speak_enabled);
                 self.refresh_init_gate()?;
                 Ok(Some(format!("Switched to session '{}'.", id)))
             }
@@ -550,6 +606,20 @@ impl CliState {
                     "Cleared {} graph nodes for session '{}'",
                     count, session_id
                 )))
+            }
+            // Sync commands
+            Command::SyncList => {
+                let sync_enabled = self.persistence.graph_list_sync_enabled()?;
+
+                if sync_enabled.is_empty() {
+                    Ok(Some("No graphs currently have sync enabled.".to_string()))
+                } else {
+                    let mut output = String::from("Sync-enabled graphs:\n");
+                    for (session_id, graph_name) in &sync_enabled {
+                        output.push_str(&format!("  - {}/{}\n", session_id, graph_name));
+                    }
+                    Ok(Some(output))
+                }
             }
             Command::ListenStart(duration) => {
                 use crate::agent::{TranscriptionConfig, TranscriptionEvent};
@@ -750,6 +820,30 @@ impl CliState {
                 let output = self.run_spec_command(&path).await?;
                 Ok(Some(output))
             }
+            Command::SpeechToggle(mode) => {
+                #[cfg(target_os = "macos")]
+                {
+                    let new_state = match mode {
+                        Some(explicit) => {
+                            self.speech_enabled.store(explicit, Ordering::Relaxed);
+                            explicit
+                        }
+                        None => !self.speech_enabled.fetch_xor(true, Ordering::Relaxed),
+                    };
+                    self.config.audio.speak_responses = new_state;
+                    self.agent.set_speak_responses(new_state);
+                    let status = if new_state { "enabled" } else { "disabled" };
+                    return Ok(Some(format!("Speech playback {}", status)));
+                }
+
+                #[cfg(not(target_os = "macos"))]
+                {
+                    return Ok(Some(
+                        "Speech playback requires macOS and is not available on this platform."
+                            .to_string(),
+                    ));
+                }
+            }
             Command::Init(plugins) => {
                 if !self.init_allowed {
                     return Ok(Some(
@@ -786,8 +880,12 @@ impl CliState {
             }
             Command::Message(text) => {
                 self.init_allowed = false;
+                let speak_enabled = self.speech_enabled.load(Ordering::Relaxed);
+                self.config.audio.speak_responses = speak_enabled;
+                self.agent.set_speak_responses(speak_enabled);
                 let output = self.agent.run_step(&text).await?;
                 self.update_reasoning_messages(&output);
+                self.maybe_speak_response(&output.response);
                 let mut formatted =
                     formatting::render_agent_response("assistant", &output.response);
                 let show_reasoning = self.agent.profile().show_reasoning;
@@ -872,17 +970,100 @@ impl CliState {
             if !matches!(command_preview, Command::Empty) {
                 self.render_status_line(&mut stdout).await?;
             }
-            if let Some(out) = self.handle_line(&line).await? {
-                if out == "__QUIT__" {
-                    break;
+
+            // If this is a normal message to the agent, allow interruption with ESC
+            if matches!(command_preview, Command::Message(_)) {
+                let speech_flag = self.speech_enabled.clone();
+                let mut pending_speech_toggle: Option<bool> = None;
+                // Prepare the future for handling the line
+                let mut fut = Box::pin(self.handle_line(&line));
+
+                // Enable raw mode to capture ESC without requiring Enter
+                let _ = enable_raw_mode();
+                let mut events = EventStream::new();
+                let mut interrupted = false;
+
+                // Wait for either the agent response or an ESC key press
+                let out = loop {
+                    tokio::select! {
+                        res = &mut fut => {
+                            let _ = disable_raw_mode();
+                            break Some(res?);
+                        }
+                        maybe_event = events.next() => {
+                            match maybe_event {
+                                Some(Ok(Event::Key(key))) => {
+                                    if key.code == KeyCode::Esc {
+                                        // User requested interruption; drop the future by breaking
+                                        interrupted = true;
+                                        let _ = disable_raw_mode();
+                                        break None;
+                                    } else if key.code == KeyCode::Char('s')
+                                        && key.modifiers.contains(KeyModifiers::CONTROL)
+                                    {
+                                        #[cfg(target_os = "macos")]
+                                        {
+                                            let now =
+                                                !speech_flag.fetch_xor(true, Ordering::Relaxed);
+                                            pending_speech_toggle = Some(now);
+                                            println!(
+                                                "\n[Speech] Playback {}",
+                                                if now { "enabled" } else { "disabled" }
+                                            );
+                                        }
+                                        #[cfg(not(target_os = "macos"))]
+                                        {
+                                            println!("\n[Speech] Playback unavailable on this platform");
+                                        }
+                                    }
+                                }
+                                Some(Ok(_)) => { /* ignore other events */ }
+                                Some(Err(_)) => { /* ignore event errors */ }
+                                None => { /* stream ended */ }
+                            }
+                        }
+                    }
+                };
+
+                // Ensure the in-flight future is dropped before mutating self to release the &mut borrow
+                drop(fut);
+                if let Some(state) = pending_speech_toggle {
+                    self.config.audio.speak_responses = state;
+                    self.agent.set_speak_responses(state);
                 }
-                stdout.write_all(out.as_bytes()).await?;
-                if !out.ends_with('\n') {
-                    stdout.write_all(b"\n").await?;
+                let _ = disable_raw_mode();
+
+                if interrupted {
+                    // Set interrupted status and hand control back to the user
+                    self.status_message = "Status: interrupted".to_string();
+                    self.render_status_line(&mut stdout).await?;
+                    self.set_status_idle();
+                } else if let Some(out_opt) = out {
+                    if let Some(out) = out_opt {
+                        if out == "__QUIT__" {
+                            break;
+                        }
+                        stdout.write_all(out.as_bytes()).await?;
+                        if !out.ends_with('\n') {
+                            stdout.write_all(b"\n").await?;
+                        }
+                        stdout.flush().await?;
+                    }
+                    self.set_status_idle();
                 }
-                stdout.flush().await?;
+            } else {
+                if let Some(out) = self.handle_line(&line).await? {
+                    if out == "__QUIT__" {
+                        break;
+                    }
+                    stdout.write_all(out.as_bytes()).await?;
+                    if !out.ends_with('\n') {
+                        stdout.write_all(b"\n").await?;
+                    }
+                    stdout.flush().await?;
+                }
+                self.set_status_idle();
             }
-            self.set_status_idle();
         }
 
         // Checkpoint database before exiting to ensure all WAL data is written
@@ -906,8 +1087,12 @@ impl CliState {
             intro.push_str("\n\n");
         }
 
+        let speak_enabled = self.speech_enabled.load(Ordering::Relaxed);
+        self.config.audio.speak_responses = speak_enabled;
+        self.agent.set_speak_responses(speak_enabled);
         let output = self.agent.run_spec(&spec).await?;
         self.update_reasoning_messages(&output);
+        self.maybe_speak_response(&output.response);
         intro.push_str(&formatting::render_agent_response(
             "assistant",
             &output.response,
@@ -1006,6 +1191,7 @@ impl CliState {
             }
             Command::GraphShow(None) => "Status: inspecting graph".to_string(),
             Command::GraphClear => "Status: clearing session graph".to_string(),
+            Command::SyncList => "Status: listing sync-enabled graphs".to_string(),
             Command::Init(_) => "Status: bootstrapping repository graph".to_string(),
             Command::ListenStart(duration) => {
                 let mut status = "Status: starting background transcription".to_string();
@@ -1032,6 +1218,9 @@ impl CliState {
             Command::PasteStart => {
                 "Status: entering paste mode (end with /end on its own line)".to_string()
             }
+            Command::SpeechToggle(Some(true)) => "Status: enabling speech playback".to_string(),
+            Command::SpeechToggle(Some(false)) => "Status: disabling speech playback".to_string(),
+            Command::SpeechToggle(None) => "Status: toggling speech playback".to_string(),
             Command::Message(_) => "Status: running agent step".to_string(),
             Command::Refresh(_) => "Status: refreshing internal knowledge graph".to_string(),
         }
@@ -1107,6 +1296,35 @@ impl CliState {
         self.init_allowed = messages.is_empty();
         Ok(())
     }
+
+    /// Optionally speak the assistant response aloud (macOS only)
+    #[cfg(target_os = "macos")]
+    pub fn maybe_speak_response(&self, text: &str) {
+        if !self.speech_enabled.load(Ordering::Relaxed) {
+            return;
+        }
+
+        let spoken = text.trim();
+        if spoken.is_empty() {
+            return;
+        }
+
+        let mut command = tokio::process::Command::new("say");
+        command.arg(spoken);
+
+        match command.spawn() {
+            Ok(mut child) => {
+                tokio::spawn(async move {
+                    let _ = child.wait().await;
+                });
+            }
+            Err(err) => eprintln!("[Speech] Failed to invoke `say`: {}", err),
+        }
+    }
+
+    /// No-op placeholder for non-macOS platforms
+    #[cfg(not(target_os = "macos"))]
+    pub fn maybe_speak_response(&self, _text: &str) {}
 }
 
 #[cfg(test)]
@@ -1116,12 +1334,39 @@ mod tests {
     use crate::agent::model::TokenUsage;
     use crate::agent::AgentOutput;
     use crate::config::{
-        AudioConfig, DatabaseConfig, LoggingConfig, ModelConfig, PluginConfig, UiConfig,
+        AudioConfig, DatabaseConfig, LoggingConfig, ModelConfig, PluginConfig, SyncConfig,
+        UiConfig,
     };
     use serde_json::json;
     use std::collections::HashMap;
     use std::path::PathBuf;
     use tempfile::tempdir;
+
+    #[test]
+    fn pad_line_to_width_padding_and_truncation() {
+        // Padding shorter string
+        let padded = CliState::pad_line_to_width("abc", 5);
+        assert_eq!(padded, "abc  ");
+
+        // Exact width should be unchanged
+        let exact = CliState::pad_line_to_width("hello", 5);
+        assert_eq!(exact, "hello");
+
+        // Truncation should occur cleanly by character boundaries
+        let truncated = CliState::pad_line_to_width("helloworld", 4);
+        assert_eq!(truncated, "hell");
+
+        // Zero width should return empty string
+        let zero = CliState::pad_line_to_width("anything", 0);
+        assert_eq!(zero, "");
+
+        // Unicode characters: ensure we truncate/pad by chars, not bytes
+        let unicode_trunc = CliState::pad_line_to_width("🔥fire", 2);
+        assert_eq!(unicode_trunc, "🔥f");
+
+        let unicode_pad = CliState::pad_line_to_width("🔥", 3);
+        assert_eq!(unicode_pad, "🔥  ");
+    }
 
     #[test]
     fn test_parse_commands() {
@@ -1165,6 +1410,11 @@ mod tests {
         assert_eq!(
             parse_command("/spec nested/path/my.spec"),
             Command::RunSpec(PathBuf::from("nested/path/my.spec"))
+        );
+        assert_eq!(parse_command("/speak"), Command::SpeechToggle(None));
+        assert_eq!(
+            parse_command("/speak on"),
+            Command::SpeechToggle(Some(true))
         );
         assert_eq!(parse_command("hello"), Command::Message("hello".into()));
         assert_eq!(parse_command("   "), Command::Empty);
@@ -1286,6 +1536,7 @@ mod tests {
             audio: AudioConfig::default(),
             mesh: crate::config::MeshConfig::default(),
             plugins: PluginConfig::default(),
+            sync: SyncConfig::default(),
             agents,
             default_agent: Some("test".into()),
         };
@@ -1349,6 +1600,7 @@ mod tests {
             audio: AudioConfig::default(),
             mesh: crate::config::MeshConfig::default(),
             plugins: PluginConfig::default(),
+            sync: SyncConfig::default(),
             agents,
             default_agent: Some("coder".into()),
         };
@@ -1400,6 +1652,7 @@ mod tests {
             audio: AudioConfig::default(),
             mesh: crate::config::MeshConfig::default(),
             plugins: PluginConfig::default(),
+            sync: SyncConfig::default(),
             agents,
             default_agent: Some("test".into()),
         };
@@ -1447,6 +1700,7 @@ mod tests {
             audio: AudioConfig::default(),
             mesh: crate::config::MeshConfig::default(),
             plugins: PluginConfig::default(),
+            sync: SyncConfig::default(),
             agents,
             default_agent: Some("test".into()),
         };

@@ -8,13 +8,15 @@ members = [
     "crates/spec-ai-cli",
     "crates/spec-ai-plugin",
     "crates/spec-ai-tui",
+    "crates/spec-ai-knowledge-graph",
+    "crates/spec-ai-graph-sync",
 ]
 default-members = ["crates/spec-ai"]
 resolver = "2"
 
 [workspace.package]
 edition = "2021"
-version = "0.4.16"
+version = "0.5.1-rc"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/geoffsee/spec-ai"
 documentation = "https://docs.rs/spec-ai"

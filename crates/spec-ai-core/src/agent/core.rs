@@ -13,10 +13,12 @@ use crate::persistence::Persistence;
 use crate::policy::{PolicyDecision, PolicyEngine};
 use crate::spec::AgentSpec;
 use crate::tools::{ToolRegistry, ToolResult};
-use crate::types::{EdgeType, Message, MessageRole, NodeType, TraversalDirection};
+use crate::types::{Message, MessageRole};
+use crate::SYNC_GRAPH_NAMESPACE;
 use anyhow::{Context, Result};
 use chrono::Utc;
 use serde_json::{json, Value};
+use spec_ai_knowledge_graph::{EdgeType, NodeType, TraversalDirection};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
@@ -92,9 +94,20 @@ pub struct AgentCore {
     policy_engine: Arc<PolicyEngine>,
     /// Cache for tool permission checks to avoid repeated lookups
     tool_permission_cache: Arc<RwLock<HashMap<String, bool>>>,
+    /// Whether to tailor prompts for speech playback
+    speak_responses: bool,
 }
 
 impl AgentCore {
+    /// Ensure the agent session namespace does not collide with the sync graph namespace.
+    fn sanitize_session_id(session_id: String) -> (String, bool) {
+        if session_id == SYNC_GRAPH_NAMESPACE {
+            (format!("{}-agent", session_id), true)
+        } else {
+            (session_id, false)
+        }
+    }
+
     /// Create a new agent core
     pub fn new(
         profile: AgentProfile,
@@ -105,7 +118,16 @@ impl AgentCore {
         agent_name: Option<String>,
         tool_registry: Arc<ToolRegistry>,
         policy_engine: Arc<PolicyEngine>,
+        speak_responses: bool,
     ) -> Self {
+        let (session_id, rewrote_namespace) = Self::sanitize_session_id(session_id);
+        if rewrote_namespace {
+            warn!(
+                "Session namespace '{}' is reserved for sync; using '{}' for agent graph state",
+                SYNC_GRAPH_NAMESPACE, session_id
+            );
+        }
+
         Self {
             profile,
             provider,
@@ -118,6 +140,7 @@ impl AgentCore {
             tool_registry,
             policy_engine,
             tool_permission_cache: Arc::new(RwLock::new(HashMap::new())),
+            speak_responses,
         }
     }
 
@@ -129,6 +152,13 @@ impl AgentCore {
 
     /// Set a new session ID and clear conversation history
     pub fn with_session(mut self, session_id: String) -> Self {
+        let (session_id, rewrote_namespace) = Self::sanitize_session_id(session_id);
+        if rewrote_namespace {
+            warn!(
+                "Session namespace '{}' is reserved for sync; using '{}' for agent graph state",
+                SYNC_GRAPH_NAMESPACE, session_id
+            );
+        }
         self.session_id = session_id;
         self.conversation_history.clear();
         self.tool_permission_cache = Arc::new(RwLock::new(HashMap::new()));
@@ -959,6 +989,11 @@ impl AgentCore {
             prompt.push_str("System: ");
             prompt.push_str(system_prompt);
             prompt.push_str("\n\n");
+        }
+
+        // Tailor for speech playback when enabled
+        if self.speak_responses {
+            prompt.push_str("System: Speech mode is enabled; respond with concise, natural sentences suitable for text-to-speech. Avoid markdown/code fences and keep the reply brief.\n\n");
         }
 
         // Add tool instructions
@@ -2076,6 +2111,19 @@ impl AgentCore {
         self.policy_engine = policy_engine;
     }
 
+    /// Enable or disable speech-oriented prompting
+    pub fn set_speak_responses(&mut self, enabled: bool) {
+        #[cfg(target_os = "macos")]
+        {
+            self.speak_responses = enabled;
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = enabled;
+            self.speak_responses = false;
+        }
+    }
+
     /// Generate and store an embedding for arbitrary text (e.g., transcriptions)
     /// Returns the embedding_id if successful, None otherwise
     pub async fn generate_embedding(&self, text: &str) -> Option<i64> {
@@ -2478,6 +2526,7 @@ mod tests {
                 Some(session_id.to_string()),
                 tool_registry,
                 policy_engine,
+                false,
             ),
             dir,
         )
@@ -2538,6 +2587,7 @@ mod tests {
                 Some(session_id.to_string()),
                 tool_registry,
                 policy_engine,
+                false,
             )
             .with_fast_provider(fast_provider),
             dir,
@@ -2642,6 +2692,22 @@ mod tests {
         agent = agent.with_session("session-2".to_string());
         assert_eq!(agent.session_id(), "session-2");
         assert_eq!(agent.conversation_history().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn agent_session_avoids_sync_namespace() {
+        let (mut agent, _dir) = create_test_agent(SYNC_GRAPH_NAMESPACE);
+
+        assert_eq!(
+            agent.session_id(),
+            format!("{}-agent", SYNC_GRAPH_NAMESPACE)
+        );
+
+        agent = agent.with_session(SYNC_GRAPH_NAMESPACE.to_string());
+        assert_eq!(
+            agent.session_id(),
+            format!("{}-agent", SYNC_GRAPH_NAMESPACE)
+        );
     }
 
     #[tokio::test]
@@ -2818,6 +2884,7 @@ mod tests {
             Some("policy-test".to_string()),
             tool_registry.clone(),
             policy_engine.clone(),
+            false,
         );
 
         assert!(agent.is_tool_allowed("echo").await);
@@ -2836,6 +2903,7 @@ mod tests {
             Some("policy-test-2".to_string()),
             tool_registry,
             policy_engine,
+            false,
         );
 
         assert!(agent.is_tool_allowed("echo").await);
@@ -2895,6 +2963,7 @@ mod tests {
             Some("tool-agent".to_string()),
             Arc::new(tool_registry),
             policy_engine,
+            false,
         );
 
         // Execute tool directly

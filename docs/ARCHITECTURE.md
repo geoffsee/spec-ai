@@ -5,7 +5,8 @@
 ```mermaid
 graph TB
     subgraph UI["User Interface"]
-        CLI["CLI/REPL<br/>(spec-ai-core/src/cli)"]
+        CLI["CLI/REPL<br/>(spec-ai-cli)"]
+        TUI["Terminal UI<br/>(spec-ai-tui-app)"]
         Spec["Agent Spec<br/>(TOML)"]
     end
 
@@ -36,7 +37,7 @@ graph TB
         MeshRegistry["MeshRegistry<br/>Leader + Peers"]
         MessageBus["Message Bus<br/>Delegation/GraphSync"]
         SyncAPI["Sync API<br/>(graph sync)"]
-        SyncEngine["SyncEngine<br/>(vector clocks + resolver)"]
+        SyncEngine["SyncEngine<br/>(spec-ai-graph-sync)"]
     end
 
     subgraph Persistence["Persistence Layer (DuckDB)"]
@@ -48,6 +49,7 @@ graph TB
     end
 
     CLI --> AgentCore
+    TUI --> AgentCore
     Spec --> ConfigCore
     ConfigCore --> AgentReg
     AgentReg --> AgentCore
@@ -78,7 +80,8 @@ graph TB
 ## Key Components
 
 ### User Interface
-- **CLI/REPL**: Command-line interface for interactive agent control
+- **CLI/REPL** (`spec-ai-cli`): Command-line interface for interactive agent control
+- **Terminal UI** (`spec-ai-tui-app`): Full-featured interactive terminal application built on the `spec-ai-tui` framework
 - **Agent Spec**: TOML-based declarative specifications for structured execution
 
 ### Configuration & Registry
@@ -114,9 +117,13 @@ Multi-provider support:
 - **Embeddings Service**: Vector generation for semantic search
 - **Knowledge Graph** (`spec-ai-knowledge-graph`): Isolated crate for graph storage, vector clocks, and graph types (GraphNodes, GraphEdges) for relationship tracking
 
+### Terminal UI Framework
+- **spec-ai-tui**: Low-level TUI framework built from scratch on crossterm, providing geometry primitives, cell-based buffer rendering, constraint-based layout, widget system, and async event loop
+- **spec-ai-tui-app**: Interactive terminal application using the TUI framework, with chat interface, backend integration, and Elm-inspired state management
+
 ### Distributed Coordination & Sync
 - **Mesh Registry & Messaging**: Agents register, exchange heartbeats, and route inter-agent messages (task delegation, notifications, sync triggers) via the mesh API and tooling (`crates/spec-ai-api/src/api/mesh.rs`, `crates/spec-ai-core/src/tools/builtin/mesh_communication.rs`).
-- **Graph Sync Pipeline**: Vector-clock negotiation chooses full vs incremental graph exchange; conflict resolution merges concurrent edits before persisting (`crates/spec-ai-core/src/sync/protocol.rs`, `crates/spec-ai-core/src/sync/engine.rs`, `crates/spec-ai-core/src/sync/resolver.rs`).
+- **Graph Sync Pipeline** (`spec-ai-graph-sync`): Vector-clock negotiation chooses full vs incremental graph exchange; conflict resolution merges concurrent edits before persisting. Key modules: `engine.rs`, `protocol.rs`, `resolver.rs`.
 - **State Persistence**: Sync state, changelog, tombstones, and vector clocks are stored alongside graph data in DuckDB (`crates/spec-ai-config/src/persistence`).
 
 ### Persistence Layer (DuckDB)
@@ -139,7 +146,7 @@ Multi-provider support:
 ## Data Flow
 
 1. **Initialization**:
-   - CLI loads configuration
+   - CLI or TUI loads configuration
    - Agent profile selected from registry
    - AgentCore initialized with tools and model provider
 

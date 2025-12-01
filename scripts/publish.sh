@@ -20,8 +20,10 @@ CRATES=(
     "spec-ai-config"
     "spec-ai-policy"
     "spec-ai-plugin"
+    "spec-ai-tui"
     "spec-ai-core"
     "spec-ai-api"
+    "spec-ai-tui-app"
     "spec-ai-cli"
     "spec-ai"
 )

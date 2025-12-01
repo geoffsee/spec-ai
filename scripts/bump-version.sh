@@ -43,6 +43,8 @@ FILES=(
     "crates/spec-ai-plugin/Cargo.toml"
     "crates/spec-ai-cli/Cargo.toml"
     "crates/spec-ai-api/Cargo.toml"
+    "crates/spec-ai-tui/Cargo.toml"
+    "crates/spec-ai-tui-app/Cargo.toml"
 )
 
 # Internal crates that need their dependency versions updated
@@ -56,6 +58,8 @@ INTERNAL_CRATES=(
     "spec-ai-plugin"
     "spec-ai-knowledge-graph"
     "spec-ai-graph-sync"
+    "spec-ai-tui"
+    "spec-ai-tui-app"
 )
 
 # Update each file

@@ -28,7 +28,7 @@ categories = ["development-tools"]
 [workspace.dependencies]
 abi_stable = "0.11"
 anyhow = "1.0"
-async-openai = "0.30.1"
+async-openai = "0.31.1"
 async-stream = "0.3"
 async-trait = "0.1"
 axum = { version = "0.7", default-features = true }

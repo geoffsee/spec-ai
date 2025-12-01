@@ -1,7 +1,8 @@
-use super::VectorClock;
-use crate::types::{EdgeType, GraphEdge, GraphNode, NodeType};
+//! Synchronization protocol types for graph synchronization.
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use spec_ai_knowledge_graph::{EdgeType, NodeType, VectorClock};
 
 /// Type of graph synchronization operation
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -300,88 +301,6 @@ impl GraphSyncPayload {
                 "Conflict detected for {} {}: local={}, remote={}",
                 entity_type, entity_id, local_vector_clock, remote_vector_clock
             )),
-        }
-    }
-}
-
-impl SyncedNode {
-    /// Convert from GraphNode (without sync metadata)
-    pub fn from_node(
-        node: GraphNode,
-        vector_clock: VectorClock,
-        last_modified_by: Option<String>,
-    ) -> Self {
-        Self {
-            id: node.id,
-            session_id: node.session_id,
-            node_type: node.node_type,
-            label: node.label,
-            properties: node.properties,
-            embedding_id: node.embedding_id,
-            created_at: node.created_at,
-            updated_at: node.updated_at,
-            vector_clock,
-            last_modified_by,
-            is_deleted: false,
-            sync_enabled: false,
-        }
-    }
-
-    /// Convert to GraphNode (strip sync metadata)
-    pub fn to_node(&self) -> GraphNode {
-        GraphNode {
-            id: self.id,
-            session_id: self.session_id.clone(),
-            node_type: self.node_type.clone(),
-            label: self.label.clone(),
-            properties: self.properties.clone(),
-            embedding_id: self.embedding_id,
-            created_at: self.created_at,
-            updated_at: self.updated_at,
-        }
-    }
-}
-
-impl SyncedEdge {
-    /// Convert from GraphEdge (without sync metadata)
-    pub fn from_edge(
-        edge: GraphEdge,
-        vector_clock: VectorClock,
-        last_modified_by: Option<String>,
-    ) -> Self {
-        Self {
-            id: edge.id,
-            session_id: edge.session_id,
-            source_id: edge.source_id,
-            target_id: edge.target_id,
-            edge_type: edge.edge_type,
-            predicate: edge.predicate,
-            properties: edge.properties,
-            weight: edge.weight,
-            temporal_start: edge.temporal_start,
-            temporal_end: edge.temporal_end,
-            created_at: edge.created_at,
-            vector_clock,
-            last_modified_by,
-            is_deleted: false,
-            sync_enabled: false,
-        }
-    }
-
-    /// Convert to GraphEdge (strip sync metadata)
-    pub fn to_edge(&self) -> GraphEdge {
-        GraphEdge {
-            id: self.id,
-            session_id: self.session_id.clone(),
-            source_id: self.source_id,
-            target_id: self.target_id,
-            edge_type: self.edge_type.clone(),
-            predicate: self.predicate.clone(),
-            properties: self.properties.clone(),
-            weight: self.weight,
-            temporal_start: self.temporal_start,
-            temporal_end: self.temporal_end,
-            created_at: self.created_at,
         }
     }
 }

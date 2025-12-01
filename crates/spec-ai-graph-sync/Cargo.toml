@@ -1,0 +1,21 @@
+[package]
+name = "spec-ai-graph-sync"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation.workspace = true
+description = "Knowledge graph synchronization engine for spec-ai"
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+# Internal dependencies
+spec-ai-knowledge-graph = { path = "../spec-ai-knowledge-graph" }

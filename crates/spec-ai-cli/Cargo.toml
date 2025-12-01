@@ -25,11 +25,11 @@ api = ["dep:spec-ai-api", "spec-ai-core/api"]
 axum-extra = ["api"]
 
 [dependencies]
-spec-ai-core = { path = "../spec-ai-core", version = "0.5.1-rc" }
-spec-ai-config = { path = "../spec-ai-config", version = "0.5.1-rc" }
-spec-ai-policy = { path = "../spec-ai-policy", version = "0.5.1-rc" }
-spec-ai-api = { path = "../spec-ai-api", version = "0.5.1-rc", optional = true }
-spec-ai-tui-app = { path = "../spec-ai-tui-app", version = "0.5.1-rc" }
+spec-ai-core = { path = "../spec-ai-core", version = "0.6.0-prerelease" }
+spec-ai-config = { path = "../spec-ai-config", version = "0.6.0-prerelease" }
+spec-ai-policy = { path = "../spec-ai-policy", version = "0.6.0-prerelease" }
+spec-ai-api = { path = "../spec-ai-api", version = "0.6.0-prerelease", optional = true }
+spec-ai-tui-app = { path = "../spec-ai-tui-app", version = "0.6.0-prerelease" }
 
 chrono = { workspace = true }
 anyhow = { workspace = true }

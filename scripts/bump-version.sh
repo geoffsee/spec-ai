@@ -35,6 +35,7 @@ echo ""
 FILES=(
     "Cargo.toml"
     "crates/spec-ai-knowledge-graph/Cargo.toml"
+    "crates/spec-ai-graph-sync/Cargo.toml"
     "crates/spec-ai/Cargo.toml"
     "crates/spec-ai-core/Cargo.toml"
     "crates/spec-ai-config/Cargo.toml"

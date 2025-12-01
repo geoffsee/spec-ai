@@ -295,7 +295,10 @@ mod tests {
         );
 
         let sessions = coordinator.get_sync_enabled_sessions().expect("sessions");
-        assert!(sessions.is_empty(), "Expected no sync-enabled sessions initially");
+        assert!(
+            sessions.is_empty(),
+            "Expected no sync-enabled sessions initially"
+        );
     }
 
     #[test]

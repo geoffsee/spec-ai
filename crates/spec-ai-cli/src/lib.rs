@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use spec_ai_core::cli::CliState;
 use spec_ai_core::spec::AgentSpec;
 use std::path::PathBuf;
@@ -21,6 +21,17 @@ struct Cli {
     /// Path to config file
     #[arg(short, long, global = true)]
     config: Option<PathBuf>,
+
+    /// Launch mode. Defaults to the new TUI; use `--mode legacy` for the legacy REPL.
+    #[arg(
+        long = "mode",
+        value_enum,
+        num_args = 0..=1,
+        default_value = "new",
+        default_missing_value = "new",
+        global = true
+    )]
+    mode: TuiMode,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -46,6 +57,12 @@ enum Commands {
         #[arg(long)]
         join: Option<String>,
     },
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
+enum TuiMode {
+    New,
+    Legacy,
 }
 
 fn collect_spec_files(path: &PathBuf) -> Result<Vec<PathBuf>> {
@@ -540,45 +557,50 @@ pub async fn run() -> Result<()> {
             eprintln!("Please rebuild with: cargo build --features api");
             std::process::exit(1);
         }
-        None => {
-            // No subcommand - run the REPL
-            let mut cli_state = match CliState::initialize_with_path(cli.config) {
-                Ok(cli) => cli,
-                Err(e) => {
-                    let error_chain = format!("{:#}", e);
-                    if error_chain.contains("Could not set lock")
-                        || error_chain.contains("Conflicting lock")
-                    {
-                        eprintln!("Error: Another instance of spec-ai is already running.");
-                        eprintln!();
-                        eprintln!("Only one instance can access the database at a time.");
-                        eprintln!("Please close the other instance or wait for it to finish.");
-                        std::process::exit(1);
-                    }
-                    return Err(e);
-                }
-            };
-
-            // Initialize logging based on config
-            let log_level = cli_state.config.logging.level.to_uppercase();
-            let default_directive = format!("spec_ai={}", log_level.to_lowercase());
-            let env_override = std::env::var("RUST_LOG").unwrap_or_default();
-            let combined_filter = if env_override.trim().is_empty() {
-                default_directive.clone()
-            } else if env_override.contains("spec_ai") {
-                env_override
-            } else {
-                format!("{},{}", env_override, default_directive)
-            };
-
-            tracing_subscriber::fmt()
-                .with_env_filter(combined_filter)
-                .with_target(true)
-                .init();
-
-            // Run REPL
-            cli_state.run_repl().await?;
-            Ok(())
-        }
+        None => match cli.mode {
+            TuiMode::New => {
+                spec_ai_tui_app::run_tui(cli.config).await?;
+                Ok(())
+            }
+            TuiMode::Legacy => run_repl_with_config(cli.config).await,
+        },
     }
+}
+
+async fn run_repl_with_config(config: Option<PathBuf>) -> Result<()> {
+    let mut cli_state = match CliState::initialize_with_path(config) {
+        Ok(cli) => cli,
+        Err(e) => {
+            let error_chain = format!("{:#}", e);
+            if error_chain.contains("Could not set lock")
+                || error_chain.contains("Conflicting lock")
+            {
+                eprintln!("Error: Another instance of spec-ai is already running.");
+                eprintln!();
+                eprintln!("Only one instance can access the database at a time.");
+                eprintln!("Please close the other instance or wait for it to finish.");
+                std::process::exit(1);
+            }
+            return Err(e);
+        }
+    };
+
+    // Initialize logging based on config
+    let log_level = cli_state.config.logging.level.to_uppercase();
+    let default_directive = format!("spec_ai={}", log_level.to_lowercase());
+    let env_override = std::env::var("RUST_LOG").unwrap_or_default();
+    let combined_filter = if env_override.trim().is_empty() {
+        default_directive.clone()
+    } else if env_override.contains("spec_ai") {
+        env_override
+    } else {
+        format!("{},{}", env_override, default_directive)
+    };
+
+    tracing_subscriber::fmt()
+        .with_env_filter(combined_filter)
+        .with_target(true)
+        .init();
+
+    cli_state.run_repl().await
 }

@@ -138,9 +138,11 @@ impl SyncPersistence for SyncPersistenceAdapter {
         sync_enabled_only: bool,
         include_deleted: bool,
     ) -> Result<Vec<SyncedNodeRecord>> {
-        let records = self
-            .persistence
-            .graph_list_nodes_with_sync(session_id, sync_enabled_only, include_deleted)?;
+        let records = self.persistence.graph_list_nodes_with_sync(
+            session_id,
+            sync_enabled_only,
+            include_deleted,
+        )?;
         Ok(records
             .into_iter()
             .map(|r| SyncedNodeRecord {
@@ -212,9 +214,11 @@ impl SyncPersistence for SyncPersistenceAdapter {
         sync_enabled_only: bool,
         include_deleted: bool,
     ) -> Result<Vec<SyncedEdgeRecord>> {
-        let records = self
-            .persistence
-            .graph_list_edges_with_sync(session_id, sync_enabled_only, include_deleted)?;
+        let records = self.persistence.graph_list_edges_with_sync(
+            session_id,
+            sync_enabled_only,
+            include_deleted,
+        )?;
         Ok(records
             .into_iter()
             .map(|r| SyncedEdgeRecord {
@@ -289,13 +293,7 @@ impl SyncPersistence for SyncPersistenceAdapter {
         weight: f32,
     ) -> Result<i64> {
         self.persistence.insert_graph_edge(
-            session_id,
-            source_id,
-            target_id,
-            edge_type,
-            predicate,
-            properties,
-            weight,
+            session_id, source_id, target_id, edge_type, predicate, properties, weight,
         )
     }
 }

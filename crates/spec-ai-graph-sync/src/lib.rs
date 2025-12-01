@@ -43,10 +43,10 @@ pub mod types;
 pub use engine::{SyncEngine, SyncStats};
 pub use persistence::SyncPersistence;
 pub use protocol::{
-    GraphSyncPayload, SyncAck, SyncConflict, SyncFullRequest, SyncIncrementalRequest,
-    SyncResponse, SyncType, SyncedEdge, SyncedNode, Tombstone,
+    GraphSyncPayload, SyncAck, SyncConflict, SyncFullRequest, SyncIncrementalRequest, SyncResponse,
+    SyncType, SyncedEdge, SyncedNode, Tombstone,
 };
-pub use resolver::{ConflictResolution, ConflictResolver, ConflictRecord, ConflictType};
+pub use resolver::{ConflictRecord, ConflictResolution, ConflictResolver, ConflictType};
 pub use types::{ChangelogEntry, SyncedEdgeRecord, SyncedNodeRecord};
 
 // Re-export vector clock types from knowledge-graph crate

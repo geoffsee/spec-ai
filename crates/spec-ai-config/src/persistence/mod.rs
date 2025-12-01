@@ -5,9 +5,9 @@ use chrono::{DateTime, Utc};
 use directories::BaseDirs;
 use duckdb::{params, Connection};
 use serde_json::Value as JsonValue;
+use spec_ai_knowledge_graph::KnowledgeGraphStore;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use spec_ai_knowledge_graph::KnowledgeGraphStore;
 
 use crate::types::{
     EdgeType, GraphEdge, GraphNode, GraphPath, MemoryVector, Message, MessageRole, NodeType,
@@ -388,7 +388,6 @@ fn from_kg_path(path: spec_ai_knowledge_graph::GraphPath) -> GraphPath {
     }
 }
 
-
 impl Persistence {
     // ---------- Graph Node Operations ----------
 
@@ -400,7 +399,8 @@ impl Persistence {
         properties: &JsonValue,
         embedding_id: Option<i64>,
     ) -> Result<i64> {
-        self.graph_store.insert_graph_node(session_id, node_type, label, properties, embedding_id)
+        self.graph_store
+            .insert_graph_node(session_id, node_type, label, properties, embedding_id)
     }
 
     pub fn get_graph_node(&self, node_id: i64) -> Result<Option<GraphNode>> {
@@ -445,13 +445,7 @@ impl Persistence {
         weight: f32,
     ) -> Result<i64> {
         self.graph_store.insert_graph_edge(
-            session_id,
-            source_id,
-            target_id,
-            edge_type,
-            predicate,
-            properties,
-            weight,
+            session_id, source_id, target_id, edge_type, predicate, properties, weight,
         )
     }
 
@@ -983,8 +977,12 @@ impl Persistence {
         last_modified_by: &str,
         sync_enabled: bool,
     ) -> Result<()> {
-        self.graph_store
-            .graph_update_node_sync_metadata(node_id, vector_clock, last_modified_by, sync_enabled)
+        self.graph_store.graph_update_node_sync_metadata(
+            node_id,
+            vector_clock,
+            last_modified_by,
+            sync_enabled,
+        )
     }
 
     /// Update an edge's sync metadata
@@ -995,8 +993,12 @@ impl Persistence {
         last_modified_by: &str,
         sync_enabled: bool,
     ) -> Result<()> {
-        self.graph_store
-            .graph_update_edge_sync_metadata(edge_id, vector_clock, last_modified_by, sync_enabled)
+        self.graph_store.graph_update_edge_sync_metadata(
+            edge_id,
+            vector_clock,
+            last_modified_by,
+            sync_enabled,
+        )
     }
 
     /// Mark a node as deleted (tombstone pattern)

@@ -3,7 +3,9 @@ use axum::extract::{Json, Path, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use serde::{Deserialize, Serialize};
-use spec_ai_core::sync::{GraphSyncPayload, SyncEngine, SyncPersistenceAdapter, SyncType, VectorClock};
+use spec_ai_core::sync::{
+    GraphSyncPayload, SyncEngine, SyncPersistenceAdapter, SyncType, VectorClock,
+};
 
 /// Request to initiate a sync
 #[derive(Debug, Deserialize)]

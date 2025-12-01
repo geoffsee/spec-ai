@@ -76,7 +76,7 @@ pub struct PolicyEntry {
 
 // ========== Knowledge Graph Types ==========
 // Re-exported from knowledge-graph crate for consolidation
-pub use spec_ai_knowledge_graph::{NodeType, EdgeType};
+pub use spec_ai_knowledge_graph::{EdgeType, NodeType};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphNode {

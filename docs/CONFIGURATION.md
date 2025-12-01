@@ -192,6 +192,9 @@ language = "en"  # Optional, auto-detect if not set
 # Automatically respond to transcriptions with AI
 auto_respond = false  # Default: false
 
+# Speak assistant responses aloud on macOS using the built-in `say` command
+speak_responses = false  # Default: false (macOS only)
+
 # Mock scenario for testing (when provider = "mock")
 # Options: "simple_conversation", "emotional_context", etc.
 mock_scenario = "simple_conversation"  # Default: "simple_conversation"

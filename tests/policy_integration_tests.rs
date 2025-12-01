@@ -36,6 +36,7 @@ fn create_test_agent_with_policy(
         Some("policy-test".to_string()),
         Arc::new(tool_registry),
         policy_engine,
+        false,
     );
 
     (agent, dir)
@@ -277,6 +278,7 @@ fn test_policy_reload_updates_agent() {
         Some("policy-reload".to_string()),
         tool_registry,
         Arc::new(policy_engine),
+        false,
     );
 
     // Verify initial policy allows echo

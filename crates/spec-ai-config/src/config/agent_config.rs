@@ -41,6 +41,9 @@ pub struct AppConfig {
     /// Plugin configuration for custom tools
     #[serde(default)]
     pub plugins: PluginConfig,
+    /// Graph synchronization configuration
+    #[serde(default)]
+    pub sync: SyncConfig,
     /// Available agent profiles
     #[serde(default)]
     pub agents: HashMap<String, AgentProfile>,
@@ -422,6 +425,9 @@ pub struct AudioConfig {
     /// Delay between mock transcription events in milliseconds
     #[serde(default = "default_event_delay_ms")]
     pub event_delay_ms: u64,
+    /// Speak assistant responses aloud (macOS only, uses `say`)
+    #[serde(default)]
+    pub speak_responses: bool,
 }
 
 fn default_transcription_provider() -> String {
@@ -461,6 +467,7 @@ impl Default for AudioConfig {
             auto_respond: false,
             mock_scenario: default_mock_scenario(),
             event_delay_ms: default_event_delay_ms(),
+            speak_responses: false,
         }
     }
 }
@@ -500,6 +507,77 @@ impl Default for PluginConfig {
             custom_tools_dir: default_plugins_dir(),
             continue_on_error: true,
             allow_override_builtin: false,
+        }
+    }
+}
+
+/// Graph synchronization configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncConfig {
+    /// Enable graph synchronization
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// How often to check for sync opportunities (in seconds)
+    #[serde(default = "default_sync_interval")]
+    pub interval_secs: u64,
+
+    /// Maximum number of concurrent sync operations
+    #[serde(default = "default_max_concurrent_syncs")]
+    pub max_concurrent_syncs: usize,
+
+    /// Retry interval for failed syncs (in seconds)
+    #[serde(default = "default_retry_interval")]
+    pub retry_interval_secs: u64,
+
+    /// Maximum number of retry attempts
+    #[serde(default = "default_max_retries")]
+    pub max_retries: usize,
+
+    /// Graph namespaces to sync automatically on startup
+    #[serde(default)]
+    pub namespaces: Vec<SyncNamespace>,
+}
+
+/// A graph namespace to participate in synchronization
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncNamespace {
+    /// Session ID (namespace) for the graph
+    pub session_id: String,
+    /// Graph name within the session (defaults to "default")
+    #[serde(default = "default_graph_name")]
+    pub graph_name: String,
+}
+
+fn default_sync_interval() -> u64 {
+    60
+}
+
+fn default_max_concurrent_syncs() -> usize {
+    3
+}
+
+fn default_retry_interval() -> u64 {
+    300
+}
+
+fn default_max_retries() -> usize {
+    3
+}
+
+fn default_graph_name() -> String {
+    "default".to_string()
+}
+
+impl Default for SyncConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            interval_secs: default_sync_interval(),
+            max_concurrent_syncs: default_max_concurrent_syncs(),
+            retry_interval_secs: default_retry_interval(),
+            max_retries: default_max_retries(),
+            namespaces: Vec::new(),
         }
     }
 }

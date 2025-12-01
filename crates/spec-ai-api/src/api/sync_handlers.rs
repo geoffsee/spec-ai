@@ -3,7 +3,9 @@ use axum::extract::{Json, Path, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use serde::{Deserialize, Serialize};
-use spec_ai_core::sync::{GraphSyncPayload, SyncEngine, SyncType, VectorClock};
+use spec_ai_core::sync::{
+    GraphSyncPayload, SyncEngine, SyncPersistenceAdapter, SyncType, VectorClock,
+};
 
 /// Request to initiate a sync
 #[derive(Debug, Deserialize)]
@@ -57,7 +59,8 @@ pub async fn handle_sync_request(
 ) -> impl IntoResponse {
     let persistence = state.persistence.clone();
     let instance_id = crate::api::mesh::MeshClient::generate_instance_id();
-    let sync_engine = SyncEngine::new(persistence.clone(), instance_id);
+    let adapter = SyncPersistenceAdapter::new(persistence.clone());
+    let sync_engine = SyncEngine::new(adapter, instance_id);
 
     // Parse their vector clock
     let their_vc = if let Some(ref vc_str) = request.vector_clock {
@@ -174,7 +177,8 @@ pub async fn handle_sync_apply(
 ) -> impl IntoResponse {
     let persistence = state.persistence.clone();
     let instance_id = crate::api::mesh::MeshClient::generate_instance_id();
-    let sync_engine = SyncEngine::new(persistence.clone(), instance_id);
+    let adapter = SyncPersistenceAdapter::new(persistence.clone());
+    let sync_engine = SyncEngine::new(adapter, instance_id);
 
     let graph_name = payload.graph_name.as_deref().unwrap_or("default");
 

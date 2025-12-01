@@ -99,6 +99,7 @@ async fn run_spec_file(cli: &mut CliState, spec_path: &PathBuf) -> Result<bool> 
 
     let spec = AgentSpec::from_file(&abs_path)?;
     let output = cli.agent.run_spec(&spec).await?;
+    cli.maybe_speak_response(&output.response);
 
     // Print the response
     println!("{}", output.response);

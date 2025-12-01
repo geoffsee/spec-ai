@@ -2,7 +2,7 @@
 use crate::api::handlers::{health_check, list_agents, query, stream_query, AppState};
 use crate::api::mesh::{
     acknowledge_messages, deregister_instance, get_messages, heartbeat, list_instances,
-    register_instance, send_message,
+    register_instance, send_message, MeshClient,
 };
 use crate::api::sync_handlers::{
     bulk_toggle_sync, configure_sync, get_sync_status, handle_sync_apply, handle_sync_request,
@@ -10,6 +10,7 @@ use crate::api::sync_handlers::{
 };
 use crate::config::{AgentRegistry, AppConfig};
 use crate::persistence::Persistence;
+use crate::sync::{start_sync_coordinator, SyncCoordinatorConfig};
 use crate::tools::ToolRegistry;
 use anyhow::Result;
 use axum::{
@@ -161,6 +162,11 @@ impl ApiServer {
 
     /// Run the server
     pub async fn run(self) -> Result<()> {
+        // Start sync coordinator if sync is enabled
+        if self.state.config.sync.enabled {
+            self.start_sync_coordinator_background();
+        }
+
         let app = self.build_router();
         let bind_addr = self.config.bind_address();
 
@@ -175,11 +181,51 @@ impl ApiServer {
         Ok(())
     }
 
+    /// Start the sync coordinator as a background task
+    fn start_sync_coordinator_background(&self) {
+        let persistence = Arc::new(self.state.persistence.clone());
+        let mesh_registry = Arc::new(self.state.mesh_registry.clone());
+        let mesh_client = Arc::new(MeshClient::new("localhost", self.config.port));
+        let sync_config = SyncCoordinatorConfig::from(&self.state.config.sync);
+
+        // Apply configured namespaces
+        for ns in &self.state.config.sync.namespaces {
+            if let Err(e) = self
+                .state
+                .persistence
+                .graph_set_sync_enabled(&ns.session_id, &ns.graph_name, true)
+            {
+                tracing::warn!(
+                    "Failed to enable sync for {}/{}: {}",
+                    ns.session_id,
+                    ns.graph_name,
+                    e
+                );
+            }
+        }
+
+        // Spawn the sync coordinator
+        tokio::spawn(async move {
+            let _handle = start_sync_coordinator(persistence, mesh_registry, mesh_client, sync_config).await;
+            // The coordinator runs indefinitely
+        });
+
+        tracing::info!(
+            "Started sync coordinator with {} configured namespaces",
+            self.state.config.sync.namespaces.len()
+        );
+    }
+
     /// Run the server with graceful shutdown
     pub async fn run_with_shutdown(
         self,
         shutdown_signal: impl std::future::Future<Output = ()> + Send + 'static,
     ) -> Result<()> {
+        // Start sync coordinator if sync is enabled
+        if self.state.config.sync.enabled {
+            self.start_sync_coordinator_background();
+        }
+
         let app = self.build_router();
         let bind_addr = self.config.bind_address();
 

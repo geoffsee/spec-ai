@@ -1,11 +1,16 @@
-pub mod engine;
-pub mod protocol;
-pub mod resolver;
+//! Graph synchronization module.
+//!
+//! This module re-exports types from the `spec-ai-graph-sync` crate and provides
+//! the implementation of `SyncPersistence` for `spec-ai-config::Persistence`.
 
-pub use engine::{SyncEngine, SyncStats};
-pub use protocol::{
-    GraphSyncPayload, SyncAck, SyncConflict, SyncFullRequest, SyncIncrementalRequest, SyncResponse,
-    SyncType, SyncedEdge, SyncedNode, Tombstone,
+mod persistence_impl;
+
+// Re-export the adapter
+pub use persistence_impl::SyncPersistenceAdapter;
+
+// Re-export everything from spec-ai-graph-sync
+pub use spec_ai_graph_sync::{
+    ClockOrder, ConflictResolution, ConflictResolver, GraphSyncPayload, SyncAck, SyncConflict,
+    SyncEngine, SyncFullRequest, SyncIncrementalRequest, SyncPersistence, SyncResponse, SyncStats,
+    SyncType, SyncedEdge, SyncedNode, Tombstone, VectorClock,
 };
-pub use resolver::{ConflictResolution, ConflictResolver};
-pub use spec_ai_config::sync::vector_clock::{ClockOrder, VectorClock};

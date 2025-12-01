@@ -116,6 +116,32 @@ graph_depth = 3
 graph_weight = 0.4  # More semantic, less structural
 memory_k = 15
 
+# ========== GRAPH SYNCHRONIZATION ==========
+# Enable distributed graph sync across multiple spec-ai instances
+
+[sync]
+# Enable or disable graph synchronization
+enabled = false
+
+# How often to check for sync opportunities (in seconds)
+interval_secs = 60
+
+# Maximum number of concurrent sync operations
+max_concurrent_syncs = 3
+
+# Retry interval for failed syncs (in seconds)
+retry_interval_secs = 300
+
+# Graph namespaces to sync automatically
+# Each namespace is a session_id + graph_name pair
+# [[sync.namespaces]]
+# session_id = "shared-knowledge"
+# graph_name = "default"
+#
+# [[sync.namespaces]]
+# session_id = "team-graph"
+# graph_name = "entities"
+
 # ========== POLICY CONFIGURATION ==========
 # Example policy rules for graph operations
 # Store these in the database using the policy management commands

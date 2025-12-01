@@ -32,7 +32,7 @@ async-openai = "0.30.1"
 async-stream = "0.3"
 async-trait = "0.1"
 axum = { version = "0.7", default-features = true }
-axum-extra = { version = "0.9", features = ["typed-header"] }
+axum-extra = { version = "0.12", features = ["typed-header"] }
 base64 = "0.22"
 blake3 = "1.5"
 chrono = { version = "0.4", features = ["serde"] }

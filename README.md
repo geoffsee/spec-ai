@@ -42,19 +42,12 @@ docs/, examples/, specs/, etc.
 
 ## Quick Start
 
-```shell
-# Warning: If it goes rouge on your machine, that is unfortunate, but ultimately it is your responsibility.
-# Compiles from source and executes directly on the host
-$ cargo binstall spec-ai --features bundled
-$ spec-ai
-```
-
 ### Installation
 
 ```bash
 cargo install spec-ai --features bundled
-# OR
-cargo binstall spec-ai --features bundled
+# OR (requires additional configuration of duckdb)
+cargo binstall spec-ai
 ```
 
 ### Configuration

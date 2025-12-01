@@ -1,8 +1,7 @@
 # spec-ai
 ### (Experimental)
-*hits rock with other rock*
 
-**~~Wild Animal~~ Extradimensional Consciousness has appeared.**
+![specailogo](./spec-ai.png)
 
 ## Documentation
 

@@ -7,6 +7,6 @@ pub mod registry;
 pub use agent::AgentProfile;
 pub use agent_config::{
     AppConfig, AudioConfig, DatabaseConfig, LoggingConfig, MeshConfig, ModelConfig, PluginConfig,
-    UiConfig,
+    SyncConfig, SyncNamespace, UiConfig,
 };
 pub use registry::AgentRegistry;

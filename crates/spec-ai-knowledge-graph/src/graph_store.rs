@@ -815,9 +815,12 @@ impl KnowledgeGraphStore {
         enabled: bool,
     ) -> Result<()> {
         let conn = self.conn();
+        // Upsert: insert if not exists, update if exists
         conn.execute(
-            "UPDATE graph_metadata SET sync_enabled = ? WHERE session_id = ? AND graph_name = ?",
-            params![enabled, session_id, graph_name],
+            "INSERT INTO graph_metadata (session_id, graph_name, sync_enabled)
+             VALUES (?, ?, ?)
+             ON CONFLICT (session_id, graph_name) DO UPDATE SET sync_enabled = EXCLUDED.sync_enabled",
+            params![session_id, graph_name, enabled],
         )?;
         Ok(())
     }
@@ -865,6 +868,24 @@ impl KnowledgeGraphStore {
         }
 
         Ok(graphs)
+    }
+
+    /// List all sync-enabled graphs across all sessions
+    pub fn graph_list_sync_enabled(&self) -> Result<Vec<(String, String)>> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare(
+            "SELECT session_id, graph_name FROM graph_metadata WHERE sync_enabled = TRUE ORDER BY session_id, graph_name",
+        )?;
+
+        let mut results = Vec::new();
+        let mut rows = stmt.query(params![])?;
+        while let Some(row) = rows.next()? {
+            let session_id: String = row.get(0)?;
+            let graph_name: String = row.get(1)?;
+            results.push((session_id, graph_name));
+        }
+
+        Ok(results)
     }
 
     pub fn graph_get_node_with_sync(&self, node_id: i64) -> Result<Option<SyncedNodeRecord>> {

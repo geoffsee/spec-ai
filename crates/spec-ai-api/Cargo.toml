@@ -26,3 +26,6 @@ uuid = { workspace = true }
 spec-ai-core = { path = "../spec-ai-core", version = "0.5.0", features = ["api"] }
 spec-ai-config = { path = "../spec-ai-config", version = "0.5.0" }
 spec-ai-policy = { path = "../spec-ai-policy", version = "0.5.0" }
+
+[dev-dependencies]
+tempfile = { workspace = true }

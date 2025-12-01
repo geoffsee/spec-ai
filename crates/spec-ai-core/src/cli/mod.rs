@@ -43,6 +43,8 @@ pub enum Command {
     GraphStatus,
     GraphShow(Option<usize>),
     GraphClear,
+    // Sync commands
+    SyncList,
     // Audio commands
     ListenStart(Option<u64>), // duration in seconds
     ListenStop,
@@ -119,6 +121,10 @@ pub fn parse_command(input: &str) -> Command {
                     Command::GraphShow(n)
                 }
                 Some("clear") => Command::GraphClear,
+                _ => Command::Help,
+            },
+            "sync" => match parts.next() {
+                Some("list") | None => Command::SyncList,
                 _ => Command::Help,
             },
             "listen" => {
@@ -316,7 +322,32 @@ impl CliState {
         state.agent.set_speak_responses(speech_on);
         state.refresh_init_gate()?;
 
+        // Apply sync configuration from config file
+        state.apply_sync_config()?;
+
         Ok(state)
+    }
+
+    /// Apply sync configuration from config file
+    fn apply_sync_config(&self) -> Result<()> {
+        if !self.config.sync.enabled {
+            return Ok(());
+        }
+
+        // Enable sync for each configured namespace
+        for ns in &self.config.sync.namespaces {
+            if let Err(e) = self
+                .persistence
+                .graph_set_sync_enabled(&ns.session_id, &ns.graph_name, true)
+            {
+                eprintln!(
+                    "Warning: Failed to enable sync for {}/{}: {}",
+                    ns.session_id, ns.graph_name, e
+                );
+            }
+        }
+
+        Ok(())
     }
 
     /// Save transcription chunks to database with embeddings
@@ -575,6 +606,20 @@ impl CliState {
                     "Cleared {} graph nodes for session '{}'",
                     count, session_id
                 )))
+            }
+            // Sync commands
+            Command::SyncList => {
+                let sync_enabled = self.persistence.graph_list_sync_enabled()?;
+
+                if sync_enabled.is_empty() {
+                    Ok(Some("No graphs currently have sync enabled.".to_string()))
+                } else {
+                    let mut output = String::from("Sync-enabled graphs:\n");
+                    for (session_id, graph_name) in &sync_enabled {
+                        output.push_str(&format!("  - {}/{}\n", session_id, graph_name));
+                    }
+                    Ok(Some(output))
+                }
             }
             Command::ListenStart(duration) => {
                 use crate::agent::{TranscriptionConfig, TranscriptionEvent};
@@ -1146,6 +1191,7 @@ impl CliState {
             }
             Command::GraphShow(None) => "Status: inspecting graph".to_string(),
             Command::GraphClear => "Status: clearing session graph".to_string(),
+            Command::SyncList => "Status: listing sync-enabled graphs".to_string(),
             Command::Init(_) => "Status: bootstrapping repository graph".to_string(),
             Command::ListenStart(duration) => {
                 let mut status = "Status: starting background transcription".to_string();
@@ -1288,7 +1334,8 @@ mod tests {
     use crate::agent::model::TokenUsage;
     use crate::agent::AgentOutput;
     use crate::config::{
-        AudioConfig, DatabaseConfig, LoggingConfig, ModelConfig, PluginConfig, UiConfig,
+        AudioConfig, DatabaseConfig, LoggingConfig, ModelConfig, PluginConfig, SyncConfig,
+        UiConfig,
     };
     use serde_json::json;
     use std::collections::HashMap;
@@ -1489,6 +1536,7 @@ mod tests {
             audio: AudioConfig::default(),
             mesh: crate::config::MeshConfig::default(),
             plugins: PluginConfig::default(),
+            sync: SyncConfig::default(),
             agents,
             default_agent: Some("test".into()),
         };
@@ -1552,6 +1600,7 @@ mod tests {
             audio: AudioConfig::default(),
             mesh: crate::config::MeshConfig::default(),
             plugins: PluginConfig::default(),
+            sync: SyncConfig::default(),
             agents,
             default_agent: Some("coder".into()),
         };
@@ -1603,6 +1652,7 @@ mod tests {
             audio: AudioConfig::default(),
             mesh: crate::config::MeshConfig::default(),
             plugins: PluginConfig::default(),
+            sync: SyncConfig::default(),
             agents,
             default_agent: Some("test".into()),
         };
@@ -1650,6 +1700,7 @@ mod tests {
             audio: AudioConfig::default(),
             mesh: crate::config::MeshConfig::default(),
             plugins: PluginConfig::default(),
+            sync: SyncConfig::default(),
             agents,
             default_agent: Some("test".into()),
         };

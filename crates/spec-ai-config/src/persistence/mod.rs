@@ -809,6 +809,28 @@ impl Persistence {
             })
     }
 
+    /// List conflict entries stored in the changelog
+    pub fn graph_list_conflicts(&self, session_id: Option<&str>) -> Result<Vec<ChangelogEntry>> {
+        self.graph_store
+            .graph_list_conflicts(session_id, 100)
+            .map(|entries| {
+                entries
+                    .into_iter()
+                    .map(|e| ChangelogEntry {
+                        id: e.id,
+                        session_id: e.session_id,
+                        instance_id: e.instance_id,
+                        entity_type: e.entity_type,
+                        entity_id: e.entity_id,
+                        operation: e.operation,
+                        vector_clock: e.vector_clock,
+                        data: e.data,
+                        created_at: e.created_at,
+                    })
+                    .collect()
+            })
+    }
+
     /// Prune old changelog entries (keep last N days)
     pub fn graph_changelog_prune(&self, days_to_keep: i64) -> Result<usize> {
         self.graph_store.graph_changelog_prune(days_to_keep)
@@ -825,6 +847,23 @@ impl Persistence {
             .graph_sync_state_get(instance_id, session_id, graph_name)
     }
 
+    /// Get sync state metadata including last_sync_at
+    pub fn graph_sync_state_get_metadata(
+        &self,
+        instance_id: &str,
+        session_id: &str,
+        graph_name: &str,
+    ) -> Result<Option<SyncStateRecord>> {
+        self.graph_store
+            .graph_sync_state_get_metadata(instance_id, session_id, graph_name)
+            .map(|opt| {
+                opt.map(|r| SyncStateRecord {
+                    vector_clock: r.vector_clock,
+                    last_sync_at: r.last_sync_at,
+                })
+            })
+    }
+
     /// Update the vector clock for an instance/session/graph combination
     pub fn graph_sync_state_update(
         &self,
@@ -835,6 +874,45 @@ impl Persistence {
     ) -> Result<()> {
         self.graph_store
             .graph_sync_state_update(instance_id, session_id, graph_name, vector_clock)
+    }
+
+    /// Persist sync configuration for a graph
+    pub fn graph_set_sync_config(
+        &self,
+        session_id: &str,
+        graph_name: &str,
+        sync_enabled: bool,
+        conflict_resolution_strategy: Option<&str>,
+        sync_interval_seconds: Option<u64>,
+    ) -> Result<GraphSyncConfig> {
+        self.graph_store
+            .graph_set_sync_config(
+                session_id,
+                graph_name,
+                sync_enabled,
+                conflict_resolution_strategy,
+                sync_interval_seconds,
+            )
+            .map(|cfg| GraphSyncConfig {
+                sync_enabled: cfg.sync_enabled,
+                conflict_resolution_strategy: cfg.conflict_resolution_strategy,
+                sync_interval_seconds: cfg.sync_interval_seconds,
+            })
+    }
+
+    /// Retrieve sync configuration for a graph
+    pub fn graph_get_sync_config(
+        &self,
+        session_id: &str,
+        graph_name: &str,
+    ) -> Result<GraphSyncConfig> {
+        self.graph_store
+            .graph_get_sync_config(session_id, graph_name)
+            .map(|cfg| GraphSyncConfig {
+                sync_enabled: cfg.sync_enabled,
+                conflict_resolution_strategy: cfg.conflict_resolution_strategy,
+                sync_interval_seconds: cfg.sync_interval_seconds,
+            })
     }
 
     /// Enable or disable sync for a graph
@@ -1109,6 +1187,19 @@ impl MeshMessageRecord {
 }
 
 // ===== Graph Sync Record Types =====
+
+#[derive(Debug, Clone)]
+pub struct SyncStateRecord {
+    pub vector_clock: String,
+    pub last_sync_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct GraphSyncConfig {
+    pub sync_enabled: bool,
+    pub conflict_resolution_strategy: Option<String>,
+    pub sync_interval_seconds: Option<u64>,
+}
 
 #[derive(Debug, Clone)]
 pub struct ChangelogEntry {

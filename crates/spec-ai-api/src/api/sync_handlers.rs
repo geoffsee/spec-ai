@@ -231,10 +231,9 @@ pub async fn get_sync_status(
     };
 
     // Get vector clock
-    let vector_clock =
-        match persistence.graph_sync_state_get(&instance_id, &session_id, &graph_name) {
-            Ok(Some(vc)) => vc,
-            Ok(None) => "{}".to_string(),
+    let sync_state =
+        match persistence.graph_sync_state_get_metadata(&instance_id, &session_id, &graph_name) {
+            Ok(state) => state,
             Err(e) => {
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
@@ -245,6 +244,12 @@ pub async fn get_sync_status(
                     .into_response()
             }
         };
+
+    let vector_clock = sync_state
+        .as_ref()
+        .map(|s| s.vector_clock.clone())
+        .unwrap_or_else(|| "{}".to_string());
+    let last_sync_at = sync_state.and_then(|s| s.last_sync_at);
 
     // Count pending changes (approximate)
     let since_timestamp = chrono::Utc::now()
@@ -265,7 +270,7 @@ pub async fn get_sync_status(
             graph_name,
             sync_enabled,
             vector_clock,
-            last_sync_at: None, // TODO: Track this
+            last_sync_at,
             pending_changes,
         }),
     )
@@ -396,24 +401,31 @@ pub async fn configure_sync(
 ) -> impl IntoResponse {
     let persistence = &state.persistence;
 
-    // First set the enabled status
-    match persistence.graph_set_sync_enabled(&session_id, &graph_name, config.sync_enabled) {
-        Ok(_) => {
-            // TODO: Store additional configuration parameters
-            // For now, we'll just acknowledge them
-            (
-                StatusCode::OK,
-                Json(serde_json::json!({
-                    "success": true,
-                    "message": format!("Sync configuration updated for graph {}/{}", session_id, graph_name),
-                    "config": {
-                        "sync_enabled": config.sync_enabled,
-                        "conflict_resolution_strategy": config.conflict_resolution_strategy.unwrap_or_else(|| "vector_clock".to_string()),
-                        "sync_interval_seconds": config.sync_interval_seconds.unwrap_or(60),
-                    }
-                })),
-            )
-        }
+    let strategy = config
+        .conflict_resolution_strategy
+        .clone()
+        .unwrap_or_else(|| "vector_clock".to_string());
+    let interval = config.sync_interval_seconds.unwrap_or(60);
+
+    match persistence.graph_set_sync_config(
+        &session_id,
+        &graph_name,
+        config.sync_enabled,
+        Some(strategy.as_str()),
+        Some(interval),
+    ) {
+        Ok(saved) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "success": true,
+                "message": format!("Sync configuration updated for graph {}/{}", session_id, graph_name),
+                "config": {
+                    "sync_enabled": saved.sync_enabled,
+                    "conflict_resolution_strategy": saved.conflict_resolution_strategy.unwrap_or_else(|| "vector_clock".to_string()),
+                    "sync_interval_seconds": saved.sync_interval_seconds.unwrap_or(60),
+                }
+            })),
+        ),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({
@@ -425,10 +437,52 @@ pub async fn configure_sync(
 }
 
 /// List unresolved conflicts
-pub async fn list_conflicts(State(_state): State<AppState>) -> impl IntoResponse {
-    // TODO: Implement conflict tracking
-    // For now, return empty list
-    let conflicts: Vec<ConflictInfo> = Vec::new();
+pub async fn list_conflicts(State(state): State<AppState>) -> impl IntoResponse {
+    match state.persistence.graph_list_conflicts(None) {
+        Ok(entries) => {
+            let conflicts: Vec<ConflictInfo> = entries
+                .into_iter()
+                .map(|entry| {
+                    let (local_version, remote_version) = entry
+                        .data
+                        .as_deref()
+                        .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
+                        .map(|val| {
+                            let local = val
+                                .get("local_version")
+                                .map(|v| {
+                                    serde_json::to_string(v).unwrap_or_else(|_| "null".to_string())
+                                })
+                                .unwrap_or_else(|| "null".to_string());
+                            let remote = val
+                                .get("remote_version")
+                                .map(|v| {
+                                    serde_json::to_string(v).unwrap_or_else(|_| "null".to_string())
+                                })
+                                .unwrap_or_else(|| "null".to_string());
+                            (local, remote)
+                        })
+                        .unwrap_or_else(|| ("null".to_string(), "null".to_string()));
 
-    (StatusCode::OK, Json(conflicts))
+                    ConflictInfo {
+                        session_id: entry.session_id,
+                        entity_type: entry.entity_type,
+                        entity_id: entry.entity_id,
+                        local_version,
+                        remote_version,
+                        detected_at: entry.created_at.to_rfc3339(),
+                    }
+                })
+                .collect();
+
+            (StatusCode::OK, Json(conflicts)).into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "error": format!("Failed to list conflicts: {}", e)
+            })),
+        )
+            .into_response(),
+    }
 }

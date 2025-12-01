@@ -3,7 +3,7 @@ use crate::vector_clock::VectorClock;
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
 use duckdb::{params, Connection};
-use serde_json::Value as JsonValue;
+use serde_json::{Map, Value as JsonValue};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -757,6 +757,43 @@ impl KnowledgeGraphStore {
         Ok(entries)
     }
 
+    pub fn graph_list_conflicts(
+        &self,
+        session_id: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<ChangelogEntry>> {
+        let conn = self.conn();
+        let mut entries = Vec::new();
+
+        if let Some(sid) = session_id {
+            let mut stmt = conn.prepare(
+                "SELECT id, session_id, instance_id, entity_type, entity_id, operation, vector_clock, data, CAST(created_at AS TEXT)
+                 FROM graph_changelog
+                 WHERE operation = 'conflict' AND session_id = ?
+                 ORDER BY created_at DESC
+                 LIMIT ?",
+            )?;
+            let mut rows = stmt.query(params![sid, limit as i64])?;
+            while let Some(row) = rows.next()? {
+                entries.push(ChangelogEntry::from_row(row)?);
+            }
+        } else {
+            let mut stmt = conn.prepare(
+                "SELECT id, session_id, instance_id, entity_type, entity_id, operation, vector_clock, data, CAST(created_at AS TEXT)
+                 FROM graph_changelog
+                 WHERE operation = 'conflict'
+                 ORDER BY created_at DESC
+                 LIMIT ?",
+            )?;
+            let mut rows = stmt.query(params![limit as i64])?;
+            while let Some(row) = rows.next()? {
+                entries.push(ChangelogEntry::from_row(row)?);
+            }
+        }
+
+        Ok(entries)
+    }
+
     pub fn graph_changelog_prune(&self, days_to_keep: i64) -> Result<usize> {
         let conn = self.conn();
         let cutoff = Utc::now() - Duration::days(days_to_keep);
@@ -768,23 +805,41 @@ impl KnowledgeGraphStore {
         Ok(deleted)
     }
 
+    pub fn graph_sync_state_get_metadata(
+        &self,
+        instance_id: &str,
+        session_id: &str,
+        graph_name: &str,
+    ) -> Result<Option<SyncStateRecord>> {
+        let conn = self.conn();
+        let result: Result<SyncStateRecord, _> = conn.query_row(
+            "SELECT vector_clock, CAST(last_sync_at AS TEXT)
+             FROM graph_sync_state WHERE instance_id = ? AND session_id = ? AND graph_name = ?",
+            params![instance_id, session_id, graph_name],
+            |row| {
+                Ok(SyncStateRecord {
+                    vector_clock: row.get(0)?,
+                    last_sync_at: row.get(1).ok(),
+                })
+            },
+        );
+
+        match result {
+            Ok(record) => Ok(Some(record)),
+            Err(duckdb::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
     pub fn graph_sync_state_get(
         &self,
         instance_id: &str,
         session_id: &str,
         graph_name: &str,
     ) -> Result<Option<String>> {
-        let conn = self.conn();
-        let result: Result<String, _> = conn.query_row(
-            "SELECT vector_clock FROM graph_sync_state WHERE instance_id = ? AND session_id = ? AND graph_name = ?",
-            params![instance_id, session_id, graph_name],
-            |row| row.get(0),
-        );
-        match result {
-            Ok(vc) => Ok(Some(vc)),
-            Err(duckdb::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(e.into()),
-        }
+        Ok(self
+            .graph_sync_state_get_metadata(instance_id, session_id, graph_name)?
+            .map(|r| r.vector_clock))
     }
 
     pub fn graph_sync_state_update(
@@ -795,16 +850,13 @@ impl KnowledgeGraphStore {
         vector_clock: &str,
     ) -> Result<()> {
         let conn = self.conn();
-        conn.execute("BEGIN TRANSACTION", params![])?;
         conn.execute(
-            "DELETE FROM graph_sync_state WHERE instance_id = ? AND session_id = ? AND graph_name = ?",
-            params![instance_id, session_id, graph_name],
-        )?;
-        conn.execute(
-            "INSERT INTO graph_sync_state (instance_id, session_id, graph_name, vector_clock) VALUES (?, ?, ?, ?)",
+            "INSERT INTO graph_sync_state (instance_id, session_id, graph_name, vector_clock, last_sync_at)
+             VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+             ON CONFLICT (instance_id, session_id, graph_name)
+             DO UPDATE SET vector_clock = EXCLUDED.vector_clock, last_sync_at = CURRENT_TIMESTAMP",
             params![instance_id, session_id, graph_name, vector_clock],
         )?;
-        conn.execute("COMMIT", params![])?;
         Ok(())
     }
 
@@ -835,6 +887,130 @@ impl KnowledgeGraphStore {
         match result {
             Ok(enabled) => Ok(enabled),
             Err(duckdb::Error::QueryReturnedNoRows) => Ok(false),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    pub fn graph_set_sync_config(
+        &self,
+        session_id: &str,
+        graph_name: &str,
+        sync_enabled: bool,
+        conflict_resolution_strategy: Option<&str>,
+        sync_interval_seconds: Option<u64>,
+    ) -> Result<GraphSyncConfig> {
+        let conn = self.conn();
+
+        // Load existing config to preserve unrelated keys
+        let existing_config_value: JsonValue = conn
+            .query_row(
+                "SELECT config FROM graph_metadata WHERE session_id = ? AND graph_name = ?",
+                params![session_id, graph_name],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .unwrap_or(None)
+            .as_deref()
+            .and_then(|s| serde_json::from_str(s).ok())
+            .unwrap_or_else(|| JsonValue::Object(Map::new()));
+
+        let mut root_obj = existing_config_value
+            .as_object()
+            .cloned()
+            .unwrap_or_default();
+        let mut sync_obj = root_obj
+            .get("sync")
+            .and_then(|v| v.as_object())
+            .cloned()
+            .unwrap_or_default();
+
+        let final_strategy = conflict_resolution_strategy
+            .map(|s| s.to_string())
+            .or_else(|| {
+                sync_obj
+                    .get("conflict_resolution_strategy")
+                    .and_then(|v| v.as_str().map(|s| s.to_string()))
+            })
+            .or_else(|| Some("vector_clock".to_string()));
+
+        let final_interval = sync_interval_seconds
+            .or_else(|| {
+                sync_obj
+                    .get("sync_interval_seconds")
+                    .and_then(|v| v.as_u64())
+            })
+            .or(Some(60));
+
+        if let Some(strategy) = final_strategy.clone() {
+            sync_obj.insert(
+                "conflict_resolution_strategy".to_string(),
+                JsonValue::String(strategy),
+            );
+        }
+        if let Some(interval) = final_interval {
+            sync_obj.insert(
+                "sync_interval_seconds".to_string(),
+                JsonValue::from(interval),
+            );
+        }
+
+        root_obj.insert("sync".to_string(), JsonValue::Object(sync_obj));
+        let merged_config = JsonValue::Object(root_obj).to_string();
+
+        conn.execute(
+            "INSERT INTO graph_metadata (session_id, graph_name, sync_enabled, config, updated_at)
+             VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+             ON CONFLICT (session_id, graph_name)
+             DO UPDATE SET sync_enabled = EXCLUDED.sync_enabled,
+                           config = EXCLUDED.config,
+                           updated_at = CURRENT_TIMESTAMP",
+            params![session_id, graph_name, sync_enabled, merged_config],
+        )?;
+
+        Ok(GraphSyncConfig {
+            sync_enabled,
+            conflict_resolution_strategy: final_strategy,
+            sync_interval_seconds: final_interval,
+        })
+    }
+
+    pub fn graph_get_sync_config(
+        &self,
+        session_id: &str,
+        graph_name: &str,
+    ) -> Result<GraphSyncConfig> {
+        let conn = self.conn();
+        let result: Result<(bool, Option<String>), _> = conn.query_row(
+            "SELECT sync_enabled, config FROM graph_metadata WHERE session_id = ? AND graph_name = ?",
+            params![session_id, graph_name],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        );
+
+        match result {
+            Ok((sync_enabled, config_json)) => {
+                let config_value: JsonValue = config_json
+                    .as_deref()
+                    .and_then(|s| serde_json::from_str(s).ok())
+                    .unwrap_or_else(|| JsonValue::Object(Map::new()));
+                let sync_obj = config_value
+                    .get("sync")
+                    .and_then(|v| v.as_object())
+                    .cloned()
+                    .unwrap_or_default();
+
+                Ok(GraphSyncConfig {
+                    sync_enabled,
+                    conflict_resolution_strategy: sync_obj
+                        .get("conflict_resolution_strategy")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string())
+                        .or_else(|| Some("vector_clock".to_string())),
+                    sync_interval_seconds: sync_obj
+                        .get("sync_interval_seconds")
+                        .and_then(|v| v.as_u64())
+                        .or(Some(60)),
+                })
+            }
+            Err(duckdb::Error::QueryReturnedNoRows) => Ok(GraphSyncConfig::default()),
             Err(e) => Err(e.into()),
         }
     }
@@ -1045,6 +1221,19 @@ impl KnowledgeGraphStore {
         )?;
         Ok(())
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct SyncStateRecord {
+    pub vector_clock: String,
+    pub last_sync_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct GraphSyncConfig {
+    pub sync_enabled: bool,
+    pub conflict_resolution_strategy: Option<String>,
+    pub sync_interval_seconds: Option<u64>,
 }
 
 #[derive(Debug, Clone)]

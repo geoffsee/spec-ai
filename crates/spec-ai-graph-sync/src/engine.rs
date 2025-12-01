@@ -5,6 +5,8 @@ use crate::protocol::{GraphSyncPayload, SyncType, SyncedEdge, SyncedNode, Tombst
 use crate::resolver::{ConflictResolution, ConflictResolver};
 use crate::types::{SyncedEdgeRecord, SyncedNodeRecord};
 use anyhow::Result;
+use serde::Serialize;
+use serde_json::json;
 use spec_ai_knowledge_graph::{ClockOrder, EdgeType, NodeType, VectorClock};
 use std::collections::HashSet;
 
@@ -290,12 +292,25 @@ impl<P: SyncPersistence> SyncEngine<P> {
                         .graph_get_node_with_sync(node.id)?
                         .map(|n| Self::node_record_to_synced(n));
 
-                    // Try to resolve conflict
-                    match self.resolver.resolve_node_conflict(
+                    let resolution = self.resolver.resolve_node_conflict(
                         node,
                         existing_node.as_ref(),
                         &mut our_vector_clock,
-                    ) {
+                    );
+
+                    self.record_conflict(
+                        &node.session_id,
+                        graph_name,
+                        "node",
+                        node.id,
+                        existing_node.as_ref(),
+                        node,
+                        &our_vector_clock,
+                        resolution.as_ref().ok(),
+                    );
+
+                    // Try to resolve conflict
+                    match resolution {
                         Ok(ConflictResolution::AcceptRemote) => {
                             // Apply the remote version
                             self.update_node_from_synced(node)?;
@@ -351,12 +366,25 @@ impl<P: SyncPersistence> SyncEngine<P> {
                         .graph_get_edge_with_sync(edge.id)?
                         .map(|e| Self::edge_record_to_synced(e));
 
-                    // Try to resolve conflict
-                    match self.resolver.resolve_edge_conflict(
+                    let resolution = self.resolver.resolve_edge_conflict(
                         edge,
                         existing_edge.as_ref(),
                         &mut our_vector_clock,
-                    ) {
+                    );
+
+                    self.record_conflict(
+                        &edge.session_id,
+                        graph_name,
+                        "edge",
+                        edge.id,
+                        existing_edge.as_ref(),
+                        edge,
+                        &our_vector_clock,
+                        resolution.as_ref().ok(),
+                    );
+
+                    // Try to resolve conflict
+                    match resolution {
                         Ok(ConflictResolution::AcceptRemote) => {
                             // Apply the remote version
                             self.update_edge_from_synced(edge)?;
@@ -428,6 +456,54 @@ impl<P: SyncPersistence> SyncEngine<P> {
         )?;
 
         Ok(stats)
+    }
+
+    fn record_conflict<V: Serialize>(
+        &self,
+        session_id: &str,
+        graph_name: &str,
+        entity_type: &str,
+        entity_id: i64,
+        local_version: Option<&V>,
+        remote_version: &V,
+        vector_clock: &VectorClock,
+        resolution: Option<&ConflictResolution>,
+    ) {
+        let vc_json = match vector_clock.to_json() {
+            Ok(vc) => vc,
+            Err(e) => {
+                tracing::warn!("Failed to serialize vector clock for conflict log: {}", e);
+                return;
+            }
+        };
+
+        let local_json = local_version.and_then(|v| serde_json::to_value(v).ok());
+        let remote_json = serde_json::to_value(remote_version).ok();
+
+        let data = json!({
+            "graph_name": graph_name,
+            "resolution": resolution.map(|r| format!("{:?}", r)),
+            "local_version": local_json,
+            "remote_version": remote_json,
+        })
+        .to_string();
+
+        if let Err(e) = self.persistence.graph_changelog_append(
+            session_id,
+            &self.instance_id,
+            entity_type,
+            entity_id,
+            "conflict",
+            &vc_json,
+            Some(&data),
+        ) {
+            tracing::warn!(
+                "Failed to append conflict log for {} {}: {}",
+                entity_type,
+                entity_id,
+                e
+            );
+        }
     }
 
     /// Apply a single synced node with conflict detection.

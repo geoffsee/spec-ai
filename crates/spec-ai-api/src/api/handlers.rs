@@ -60,12 +60,19 @@ impl MeshState for AppState {
 /// Health check endpoint
 pub async fn health_check(State(state): State<AppState>) -> impl IntoResponse {
     let uptime = state.start_time.elapsed().as_secs();
+    let active_sessions = match state.persistence.list_sessions() {
+        Ok(sessions) => sessions.len(),
+        Err(e) => {
+            tracing::warn!("Failed to count active sessions: {}", e);
+            0
+        }
+    };
 
     let response = HealthResponse {
         status: "healthy".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         uptime_seconds: uptime,
-        active_sessions: 0, // TODO: Track active sessions
+        active_sessions,
     };
 
     Json(response)

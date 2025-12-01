@@ -1,0 +1,15 @@
+[package]
+name = "spec-ai-tui-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Interactive terminal UI for spec-ai built on spec-ai-tui"
+
+[dependencies]
+anyhow = { workspace = true }
+chrono = { workspace = true }
+spec-ai-core = { path = "../spec-ai-core", version = "0.5.1-rc", features = ["openai", "vttrs"] }
+spec-ai-tui = { path = "../spec-ai-tui", version = "0.5.1-rc" }
+tokio = { workspace = true }
+strip-ansi-escapes = "0.1"

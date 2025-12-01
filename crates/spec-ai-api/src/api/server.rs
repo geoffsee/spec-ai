@@ -190,10 +190,10 @@ impl ApiServer {
 
         // Apply configured namespaces
         for ns in &self.state.config.sync.namespaces {
-            if let Err(e) = self
-                .state
-                .persistence
-                .graph_set_sync_enabled(&ns.session_id, &ns.graph_name, true)
+            if let Err(e) =
+                self.state
+                    .persistence
+                    .graph_set_sync_enabled(&ns.session_id, &ns.graph_name, true)
             {
                 tracing::warn!(
                     "Failed to enable sync for {}/{}: {}",
@@ -206,7 +206,8 @@ impl ApiServer {
 
         // Spawn the sync coordinator
         tokio::spawn(async move {
-            let _handle = start_sync_coordinator(persistence, mesh_registry, mesh_client, sync_config).await;
+            let _handle =
+                start_sync_coordinator(persistence, mesh_registry, mesh_client, sync_config).await;
             // The coordinator runs indefinitely
         });
 

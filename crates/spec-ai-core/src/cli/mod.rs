@@ -336,9 +336,9 @@ impl CliState {
 
         // Enable sync for each configured namespace
         for ns in &self.config.sync.namespaces {
-            if let Err(e) = self
-                .persistence
-                .graph_set_sync_enabled(&ns.session_id, &ns.graph_name, true)
+            if let Err(e) =
+                self.persistence
+                    .graph_set_sync_enabled(&ns.session_id, &ns.graph_name, true)
             {
                 eprintln!(
                     "Warning: Failed to enable sync for {}/{}: {}",
@@ -1334,8 +1334,7 @@ mod tests {
     use crate::agent::model::TokenUsage;
     use crate::agent::AgentOutput;
     use crate::config::{
-        AudioConfig, DatabaseConfig, LoggingConfig, ModelConfig, PluginConfig, SyncConfig,
-        UiConfig,
+        AudioConfig, DatabaseConfig, LoggingConfig, ModelConfig, PluginConfig, SyncConfig, UiConfig,
     };
     use serde_json::json;
     use std::collections::HashMap;

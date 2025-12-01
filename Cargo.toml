@@ -8,6 +8,7 @@ members = [
     "crates/spec-ai-cli",
     "crates/spec-ai-plugin",
     "crates/spec-ai-tui",
+    "crates/spec-ai-tui-app",
     "crates/spec-ai-knowledge-graph",
     "crates/spec-ai-graph-sync",
 ]

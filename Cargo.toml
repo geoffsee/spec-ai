@@ -11,6 +11,7 @@ members = [
     "crates/spec-ai-tui-app",
     "crates/spec-ai-knowledge-graph",
     "crates/spec-ai-graph-sync",
+    "crates/spec-ai-collective",
 ]
 default-members = ["crates/spec-ai"]
 resolver = "2"

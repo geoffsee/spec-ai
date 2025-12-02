@@ -20,6 +20,9 @@ pub mod web_scraper;
 #[cfg(feature = "api")]
 pub mod mesh_communication;
 
+#[cfg(feature = "api")]
+pub mod collective;
+
 pub use audio_transcription::AudioTranscriptionTool;
 pub use bash::BashTool;
 pub use calculator::MathTool;
@@ -41,3 +44,9 @@ pub use web_scraper::WebScraperTool;
 
 #[cfg(feature = "api")]
 pub use mesh_communication::{GetMessagesTool, QueryMeshTool, SendMessageTool};
+
+#[cfg(feature = "api")]
+pub use collective::{
+    CastVoteTool, CreateWorkflowTool, DelegateTaskTool, QueryCapabilitiesTool,
+    ReportStageResultTool, ShareCapabilitiesTool, ShareStrategyTool, SubmitProposalTool,
+};

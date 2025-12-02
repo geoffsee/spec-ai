@@ -2510,6 +2510,7 @@ mod tests {
             enable_audio_transcription: false,
             audio_response_mode: "immediate".to_string(),
             audio_scenario: None,
+            ..Default::default()
         };
 
         let provider = Arc::new(MockProvider::new("This is a test response."));
@@ -2568,6 +2569,7 @@ mod tests {
             enable_audio_transcription: false,
             audio_response_mode: "immediate".to_string(),
             audio_scenario: None,
+            ..Default::default()
         };
 
         profile.validate().unwrap();
@@ -2860,6 +2862,7 @@ mod tests {
             enable_audio_transcription: false,
             audio_response_mode: "immediate".to_string(),
             audio_scenario: None,
+            ..Default::default()
         };
 
         let provider = Arc::new(MockProvider::new("Test"));
@@ -2944,6 +2947,7 @@ mod tests {
             enable_audio_transcription: false,
             audio_response_mode: "immediate".to_string(),
             audio_scenario: None,
+            ..Default::default()
         };
 
         let provider = Arc::new(MockProvider::new("Test"));

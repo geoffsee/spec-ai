@@ -76,7 +76,15 @@ pub enum MessageType {
     TaskDelegation, // Delegate a task to another agent
     TaskResult,     // Result of a delegated task
     GraphSync,      // Knowledge graph synchronization
-    Custom(String), // Custom message type
+    // Collective intelligence message types
+    CapabilityUpdate,    // Share capability/expertise profile updates
+    CapabilityQuery,     // Request capability information from peers
+    LearningShare,       // Share a learned strategy with the mesh
+    ProposalSubmit,      // Submit a proposal for collective decision
+    ProposalVote,        // Cast a vote on a proposal
+    WorkflowAssignment,  // Assign a workflow stage to an agent
+    WorkflowStageResult, // Report completion of a workflow stage
+    Custom(String),      // Custom message type
 }
 
 impl MessageType {
@@ -88,6 +96,13 @@ impl MessageType {
             MessageType::TaskDelegation => "task_delegation".to_string(),
             MessageType::TaskResult => "task_result".to_string(),
             MessageType::GraphSync => "graph_sync".to_string(),
+            MessageType::CapabilityUpdate => "capability_update".to_string(),
+            MessageType::CapabilityQuery => "capability_query".to_string(),
+            MessageType::LearningShare => "learning_share".to_string(),
+            MessageType::ProposalSubmit => "proposal_submit".to_string(),
+            MessageType::ProposalVote => "proposal_vote".to_string(),
+            MessageType::WorkflowAssignment => "workflow_assignment".to_string(),
+            MessageType::WorkflowStageResult => "workflow_stage_result".to_string(),
             MessageType::Custom(s) => s.clone(),
         }
     }
@@ -100,6 +115,13 @@ impl MessageType {
             "task_delegation" => MessageType::TaskDelegation,
             "task_result" => MessageType::TaskResult,
             "graph_sync" => MessageType::GraphSync,
+            "capability_update" => MessageType::CapabilityUpdate,
+            "capability_query" => MessageType::CapabilityQuery,
+            "learning_share" => MessageType::LearningShare,
+            "proposal_submit" => MessageType::ProposalSubmit,
+            "proposal_vote" => MessageType::ProposalVote,
+            "workflow_assignment" => MessageType::WorkflowAssignment,
+            "workflow_stage_result" => MessageType::WorkflowStageResult,
             custom => MessageType::Custom(custom.to_string()),
         }
     }

@@ -64,6 +64,12 @@ pub fn run(conn: &Connection) -> Result<()> {
         migrations_applied = true;
     }
 
+    if current < 9 {
+        apply_v9(conn)?;
+        set_version(conn, 9)?;
+        migrations_applied = true;
+    }
+
     // Force checkpoint after migrations to ensure WAL is merged into the database file.
     // This prevents ALTER TABLE operations from being stuck in the WAL, which can cause
     // "no default database set" errors during WAL replay on subsequent startups.
@@ -445,4 +451,129 @@ fn apply_v8(conn: &Connection) -> Result<()> {
     .context("adding indexes to mesh_messages")?;
 
     Ok(())
+}
+
+fn apply_v9(conn: &Connection) -> Result<()> {
+    // Collective intelligence tables for emergent multi-agent coordination
+    conn.execute_batch(
+        r#"
+        -- Sequences for collective intelligence tables
+        CREATE SEQUENCE IF NOT EXISTS agent_capabilities_id_seq START 1;
+        CREATE SEQUENCE IF NOT EXISTS strategies_id_seq START 1;
+        CREATE SEQUENCE IF NOT EXISTS proposals_id_seq START 1;
+        CREATE SEQUENCE IF NOT EXISTS votes_id_seq START 1;
+        CREATE SEQUENCE IF NOT EXISTS workflows_id_seq START 1;
+        CREATE SEQUENCE IF NOT EXISTS workflow_executions_id_seq START 1;
+
+        -- Agent capabilities and expertise profiles
+        CREATE TABLE IF NOT EXISTS agent_capabilities (
+            id BIGINT PRIMARY KEY DEFAULT nextval('agent_capabilities_id_seq'),
+            instance_id TEXT NOT NULL,
+            domain TEXT NOT NULL,
+            proficiency REAL NOT NULL DEFAULT 0.0,
+            experience_count INTEGER NOT NULL DEFAULT 0,
+            success_rate REAL NOT NULL DEFAULT 0.0,
+            last_used_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(instance_id, domain),
+            FOREIGN KEY (instance_id) REFERENCES mesh_registry(instance_id)
+        );
+
+        -- Learned strategies that can be shared across agents
+        CREATE TABLE IF NOT EXISTS strategies (
+            id BIGINT PRIMARY KEY DEFAULT nextval('strategies_id_seq'),
+            strategy_id TEXT UNIQUE NOT NULL,
+            origin_instance TEXT NOT NULL,
+            task_type TEXT NOT NULL,
+            approach_steps TEXT NOT NULL,  -- JSON array of steps
+            embedding TEXT,  -- Semantic embedding for similarity search
+            success_count INTEGER NOT NULL DEFAULT 0,
+            failure_count INTEGER NOT NULL DEFAULT 0,
+            avg_duration_ms BIGINT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (origin_instance) REFERENCES mesh_registry(instance_id)
+        );
+
+        -- Proposals for collective decision-making
+        CREATE TABLE IF NOT EXISTS proposals (
+            id BIGINT PRIMARY KEY DEFAULT nextval('proposals_id_seq'),
+            proposal_id TEXT UNIQUE NOT NULL,
+            proposer_instance TEXT NOT NULL,
+            proposal_type TEXT NOT NULL,  -- StrategyAdoption, PolicyChange, ResourceAllocation, ConflictResolution
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            data TEXT,  -- JSON payload specific to proposal type
+            status TEXT NOT NULL DEFAULT 'open',  -- open, passed, rejected, expired
+            quorum_required REAL NOT NULL DEFAULT 0.5,
+            deadline TIMESTAMP NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            resolved_at TIMESTAMP,
+            FOREIGN KEY (proposer_instance) REFERENCES mesh_registry(instance_id)
+        );
+
+        -- Votes on proposals with expertise weighting
+        CREATE TABLE IF NOT EXISTS votes (
+            id BIGINT PRIMARY KEY DEFAULT nextval('votes_id_seq'),
+            proposal_id TEXT NOT NULL,
+            voter_instance TEXT NOT NULL,
+            vote_value TEXT NOT NULL,  -- approve, reject, abstain
+            weight REAL NOT NULL DEFAULT 1.0,  -- expertise-based weight
+            rationale TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(proposal_id, voter_instance),
+            FOREIGN KEY (proposal_id) REFERENCES proposals(proposal_id),
+            FOREIGN KEY (voter_instance) REFERENCES mesh_registry(instance_id)
+        );
+
+        -- Multi-agent workflow definitions
+        CREATE TABLE IF NOT EXISTS workflows (
+            id BIGINT PRIMARY KEY DEFAULT nextval('workflows_id_seq'),
+            workflow_id TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT,
+            stages TEXT NOT NULL,  -- JSON array of workflow stages
+            created_by TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (created_by) REFERENCES mesh_registry(instance_id)
+        );
+
+        -- Workflow execution tracking
+        CREATE TABLE IF NOT EXISTS workflow_executions (
+            id BIGINT PRIMARY KEY DEFAULT nextval('workflow_executions_id_seq'),
+            execution_id TEXT UNIQUE NOT NULL,
+            workflow_id TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',  -- pending, running, completed, failed
+            current_stage TEXT,
+            stage_results TEXT,  -- JSON map of stage_id -> result
+            started_at TIMESTAMP,
+            completed_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (workflow_id) REFERENCES workflows(workflow_id)
+        );
+
+        -- Indexes for efficient queries
+        CREATE INDEX IF NOT EXISTS idx_agent_capabilities_instance ON agent_capabilities(instance_id);
+        CREATE INDEX IF NOT EXISTS idx_agent_capabilities_domain ON agent_capabilities(domain);
+        CREATE INDEX IF NOT EXISTS idx_agent_capabilities_proficiency ON agent_capabilities(proficiency);
+
+        CREATE INDEX IF NOT EXISTS idx_strategies_type ON strategies(task_type);
+        CREATE INDEX IF NOT EXISTS idx_strategies_origin ON strategies(origin_instance);
+        CREATE INDEX IF NOT EXISTS idx_strategies_success ON strategies(success_count);
+
+        CREATE INDEX IF NOT EXISTS idx_proposals_status ON proposals(status);
+        CREATE INDEX IF NOT EXISTS idx_proposals_type ON proposals(proposal_type);
+        CREATE INDEX IF NOT EXISTS idx_proposals_deadline ON proposals(deadline);
+
+        CREATE INDEX IF NOT EXISTS idx_votes_proposal ON votes(proposal_id);
+        CREATE INDEX IF NOT EXISTS idx_votes_voter ON votes(voter_instance);
+
+        CREATE INDEX IF NOT EXISTS idx_workflows_created_by ON workflows(created_by);
+        CREATE INDEX IF NOT EXISTS idx_workflow_executions_workflow ON workflow_executions(workflow_id);
+        CREATE INDEX IF NOT EXISTS idx_workflow_executions_status ON workflow_executions(status);
+        "#,
+    )
+    .context("applying v9 schema (collective intelligence)")
 }

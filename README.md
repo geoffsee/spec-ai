@@ -11,6 +11,7 @@ For detailed documentation, see:
 - [`docs/SETUP.md`](docs/SETUP.md) - Detailed setup instructions
 - [`docs/SELF-INIT.md`](docs/SELF-INIT.md) - Bootstrap self-discovery process
 - [`docs/VERIFY.md`](docs/VERIFY.md) - Testing and verification guide
+- [`docs/COLLECTIVE_INTELLIGENCE.md`](docs/COLLECTIVE_INTELLIGENCE.md) - Multi-agent coordination and emergent specialization
 
 Example configurations are available in `examples/configs/`:
 - `config.openai.example.toml` - OpenAI provider setup
@@ -31,6 +32,7 @@ crates/
 ├── spec-ai-config/          # Config models, persistence layer, shared types
 ├── spec-ai-knowledge-graph/ # Knowledge graph storage, vector clocks, types
 ├── spec-ai-graph-sync/      # Distributed knowledge graph synchronization engine
+├── spec-ai-collective/      # Emergent collective intelligence (capabilities, learning, consensus)
 ├── spec-ai-policy/          # Policy engine and plugin system
 ├── spec-ai-plugin/          # Custom tool plugin system (dynamic library loading)
 ├── spec-ai-api/             # HTTP/mesh server and sync coordinator

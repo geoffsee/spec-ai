@@ -122,6 +122,35 @@ pub struct AgentProfile {
     /// Preferred audio transcription scenario for testing
     #[serde(default)]
     pub audio_scenario: Option<String>,
+
+    // ========== Collective Intelligence Configuration ==========
+    /// Enable collective intelligence features for this agent
+    #[serde(default)]
+    pub enable_collective: bool,
+
+    /// Allow this agent to accept delegated tasks from peers
+    #[serde(default = "AgentProfile::default_accept_delegations")]
+    pub accept_delegations: bool,
+
+    /// Domains this agent prefers to specialize in
+    #[serde(default)]
+    pub preferred_domains: Vec<String>,
+
+    /// Maximum concurrent delegated tasks this agent can handle
+    #[serde(default = "AgentProfile::default_max_concurrent_tasks")]
+    pub max_concurrent_tasks: usize,
+
+    /// Minimum capability score required to accept a delegated task
+    #[serde(default = "AgentProfile::default_min_delegation_score")]
+    pub min_delegation_score: f32,
+
+    /// Enable sharing learned strategies with the mesh
+    #[serde(default)]
+    pub share_learnings: bool,
+
+    /// Participate in collective decision-making (voting)
+    #[serde(default = "AgentProfile::default_participate_in_voting")]
+    pub participate_in_voting: bool,
 }
 
 impl AgentProfile {
@@ -166,6 +195,22 @@ impl AgentProfile {
 
     fn default_audio_response_mode() -> String {
         "immediate".to_string()
+    }
+
+    fn default_accept_delegations() -> bool {
+        true
+    }
+
+    fn default_max_concurrent_tasks() -> usize {
+        3
+    }
+
+    fn default_min_delegation_score() -> f32 {
+        0.3
+    }
+
+    fn default_participate_in_voting() -> bool {
+        true
     }
 
     /// Validate the agent profile configuration
@@ -307,6 +352,14 @@ impl Default for AgentProfile {
             enable_audio_transcription: false, // Disabled by default
             audio_response_mode: Self::default_audio_response_mode(),
             audio_scenario: None,
+            // Collective intelligence - disabled by default until explicitly enabled
+            enable_collective: false,
+            accept_delegations: Self::default_accept_delegations(),
+            preferred_domains: Vec::new(),
+            max_concurrent_tasks: Self::default_max_concurrent_tasks(),
+            min_delegation_score: Self::default_min_delegation_score(),
+            share_learnings: false, // Disabled by default
+            participate_in_voting: Self::default_participate_in_voting(),
         }
     }
 }

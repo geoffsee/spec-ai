@@ -575,6 +575,7 @@ mod tests {
             enable_audio_transcription: false,
             audio_response_mode: "immediate".to_string(),
             audio_scenario: None,
+            ..Default::default()
         }
     }
 

@@ -377,9 +377,17 @@ pub struct MeshClient {
 
 impl MeshClient {
     pub fn new(host: &str, port: u16) -> Self {
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .build()
+            .unwrap_or_else(|e| {
+                tracing::warn!("Failed to build mesh client without proxy lookup: {}", e);
+                reqwest::Client::new()
+            });
+
         Self {
             base_url: format!("http://{}:{}", host, port),
-            client: reqwest::Client::new(),
+            client,
         }
     }
 

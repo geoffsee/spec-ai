@@ -40,12 +40,21 @@ graph TB
         SyncEngine["SyncEngine<br/>(spec-ai-graph-sync)"]
     end
 
+    subgraph Collective["Collective Intelligence"]
+        CapTracker["Capability Tracker"]
+        LearningFabric["Learning Fabric"]
+        Consensus["Consensus Coordinator"]
+        Workflows["Workflow Engine"]
+        Specialization["Specialization Engine"]
+    end
+
     subgraph Persistence["Persistence Layer (DuckDB)"]
         DB["DuckDB"]
         Messages["Messages"]
         ToolLogs["Tool Logs"]
         GraphTables["Graph Tables"]
         PolicyCache["Policy Cache"]
+        CollectiveTables["Collective Tables<br/>(capabilities, strategies,<br/>proposals, workflows)"]
     end
 
     CLI --> AgentCore
@@ -69,8 +78,15 @@ graph TB
     AgentCore --> DB
     DB --> Messages
     DB --> PolicyCache
+    AgentCore --> CapTracker
+    CapTracker --> LearningFabric
+    CapTracker --> Specialization
+    MessageBus --> Consensus
+    MessageBus --> Workflows
+    Collective --> CollectiveTables
 
     style AgentCore fill:#ff6b6b
+    style Collective fill:#9b59b6
     style DB fill:#2a8b9d
     style Embeddings fill:#2a8b9d
     style MeshAPI fill:#2a8b9d
@@ -125,6 +141,18 @@ Multi-provider support:
 - **Mesh Registry & Messaging**: Agents register, exchange heartbeats, and route inter-agent messages (task delegation, notifications, sync triggers) via the mesh API and tooling (`crates/spec-ai-api/src/api/mesh.rs`, `crates/spec-ai-core/src/tools/builtin/mesh_communication.rs`).
 - **Graph Sync Pipeline** (`spec-ai-graph-sync`): Vector-clock negotiation chooses full vs incremental graph exchange; conflict resolution merges concurrent edits before persisting. Key modules: `engine.rs`, `protocol.rs`, `resolver.rs`.
 - **State Persistence**: Sync state, changelog, tombstones, and vector clocks are stored alongside graph data in DuckDB (`crates/spec-ai-config/src/persistence`).
+
+### Collective Intelligence (`spec-ai-collective`)
+Emergent multi-agent coordination enabling agents to learn from each other and develop specializations.
+
+- **Capability Tracking**: Agents track proficiency per domain using EMA-based updates. The `CapabilityTracker` routes tasks to the most capable agent.
+- **Task Delegation**: `DelegationManager` handles task routing, delegation chains, and result aggregation across the mesh.
+- **Learning Fabric**: Agents share successful strategies. Strategies include approach steps and semantic embeddings for similarity-based discovery.
+- **Consensus Coordinator**: Expertise-weighted voting on proposals (strategy adoption, policy changes, resource allocation, conflict resolution).
+- **Workflow Engine**: Multi-agent workflow orchestration with Sequential, Parallel, MapReduce, Consensus, and ConditionalBranch stage types.
+- **Specialization Engine**: Detects emergent specialists, identifies capability gaps, and routes queries to domain experts.
+
+See [`docs/COLLECTIVE_INTELLIGENCE.md`](COLLECTIVE_INTELLIGENCE.md) for detailed documentation.
 
 ### Persistence Layer (DuckDB)
 - **Messages**: Conversation history

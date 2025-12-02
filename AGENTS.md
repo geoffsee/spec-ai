@@ -40,3 +40,43 @@
 - Define agents in `spec-ai.config.toml` (or `~/.spec-ai/spec-ai.config.toml`) under `[agents.<name>]` with `prompt`, `temperature`, and tool allow/deny lists as shown in README.
 - Use `/spec run specs/<file>.spec` (or `/spec specs/<file>.spec`) inside the CLI; every `.spec` needs a `goal` plus `tasks` or `deliverables`.
 - Update `crates/spec-ai-config/src/config/registry.rs` when agent-switching behavior changes and rerun `cargo fmt`/`cargo clippy` afterward.
+
+## Collective Intelligence Configuration
+Enable multi-agent coordination and emergent specialization:
+
+```toml
+[agents.collaborative]
+# Enable collective intelligence features
+enable_collective = true
+
+# Accept delegated tasks from peer agents
+accept_delegations = true
+
+# Domains this agent prefers to specialize in
+preferred_domains = ["code_review", "testing", "documentation"]
+
+# Maximum concurrent delegated tasks
+max_concurrent_tasks = 3
+
+# Minimum capability score to accept a delegation (0.0 - 1.0)
+min_delegation_score = 0.3
+
+# Share successful strategies with the mesh
+share_learnings = true
+
+# Participate in collective decision-making (voting)
+participate_in_voting = true
+```
+
+### Collective Intelligence Tools
+When `enable_collective = true`, agents gain access to:
+- `delegate_task` - Route tasks to capable peers
+- `query_capabilities` - Discover peer expertise
+- `share_capabilities` - Broadcast capability updates
+- `share_strategy` - Share learned strategies
+- `submit_proposal` - Submit proposals for voting
+- `cast_vote` - Vote on proposals
+- `create_workflow` - Create multi-agent workflows
+- `report_stage_result` - Report workflow progress
+
+See [`docs/COLLECTIVE_INTELLIGENCE.md`](docs/COLLECTIVE_INTELLIGENCE.md) for detailed documentation.

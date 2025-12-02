@@ -5845,6 +5845,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "spec-ai-collective"
+version = "0.6.0-prerelease.2"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "serde",
+ "serde_json",
+ "spec-ai-knowledge-graph",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "spec-ai-config"
 version = "0.6.0-prerelease.2"
 dependencies = [

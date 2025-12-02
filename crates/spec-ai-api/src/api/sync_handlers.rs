@@ -45,8 +45,10 @@ pub struct SyncToggleRequest {
 #[derive(Debug, Serialize)]
 pub struct ConflictInfo {
     pub session_id: String,
+    pub graph_name: Option<String>,
     pub entity_type: String,
     pub entity_id: i64,
+    pub resolution: Option<String>,
     pub local_version: String,
     pub remote_version: String,
     pub detected_at: String,
@@ -58,7 +60,7 @@ pub async fn handle_sync_request(
     Json(request): Json<SyncRequest>,
 ) -> impl IntoResponse {
     let persistence = state.persistence.clone();
-    let instance_id = crate::api::mesh::MeshClient::generate_instance_id();
+    let instance_id = persistence.instance_id().to_string();
     let adapter = SyncPersistenceAdapter::new(persistence.clone());
     let sync_engine = SyncEngine::new(adapter, instance_id);
 
@@ -176,7 +178,7 @@ pub async fn handle_sync_apply(
     Json(payload): Json<GraphSyncPayload>,
 ) -> impl IntoResponse {
     let persistence = state.persistence.clone();
-    let instance_id = crate::api::mesh::MeshClient::generate_instance_id();
+    let instance_id = persistence.instance_id().to_string();
     let adapter = SyncPersistenceAdapter::new(persistence.clone());
     let sync_engine = SyncEngine::new(adapter, instance_id);
 
@@ -214,7 +216,7 @@ pub async fn get_sync_status(
     Path((session_id, graph_name)): Path<(String, String)>,
 ) -> impl IntoResponse {
     let persistence = &state.persistence;
-    let instance_id = crate::api::mesh::MeshClient::generate_instance_id();
+    let instance_id = persistence.instance_id().to_string();
 
     // Check if sync is enabled
     let sync_enabled = match persistence.graph_get_sync_enabled(&session_id, &graph_name) {
@@ -312,19 +314,49 @@ pub async fn list_sync_configs(
     Path(session_id): Path<String>,
 ) -> impl IntoResponse {
     let persistence = &state.persistence;
+    let instance_id = persistence.instance_id().to_string();
 
     // Get all graphs for this session
     match persistence.graph_list(&session_id) {
         Ok(graphs) => {
             let mut configs = Vec::new();
             for graph_name in graphs {
-                let sync_enabled = persistence
-                    .graph_get_sync_enabled(&session_id, &graph_name)
-                    .unwrap_or(false);
+                let config = match persistence.graph_get_sync_config(&session_id, &graph_name) {
+                    Ok(cfg) => cfg,
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to load sync config for {}/{}: {}",
+                            session_id,
+                            graph_name,
+                            e
+                        );
+                        Default::default()
+                    }
+                };
+
+                let last_sync_at = match persistence.graph_sync_state_get_metadata(
+                    &instance_id,
+                    &session_id,
+                    &graph_name,
+                ) {
+                    Ok(state) => state.and_then(|s| s.last_sync_at),
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to load sync state for {}/{}: {}",
+                            session_id,
+                            graph_name,
+                            e
+                        );
+                        None
+                    }
+                };
 
                 configs.push(serde_json::json!({
                     "graph_name": graph_name,
-                    "sync_enabled": sync_enabled,
+                    "sync_enabled": config.sync_enabled,
+                    "conflict_resolution_strategy": config.conflict_resolution_strategy.unwrap_or_else(|| "vector_clock".to_string()),
+                    "sync_interval_seconds": config.sync_interval_seconds.unwrap_or(60),
+                    "last_sync_at": last_sync_at,
                 }));
             }
 
@@ -401,18 +433,12 @@ pub async fn configure_sync(
 ) -> impl IntoResponse {
     let persistence = &state.persistence;
 
-    let strategy = config
-        .conflict_resolution_strategy
-        .clone()
-        .unwrap_or_else(|| "vector_clock".to_string());
-    let interval = config.sync_interval_seconds.unwrap_or(60);
-
     match persistence.graph_set_sync_config(
         &session_id,
         &graph_name,
         config.sync_enabled,
-        Some(strategy.as_str()),
-        Some(interval),
+        config.conflict_resolution_strategy.as_deref(),
+        config.sync_interval_seconds,
     ) {
         Ok(saved) => (
             StatusCode::OK,
@@ -443,31 +469,35 @@ pub async fn list_conflicts(State(state): State<AppState>) -> impl IntoResponse 
             let conflicts: Vec<ConflictInfo> = entries
                 .into_iter()
                 .map(|entry| {
-                    let (local_version, remote_version) = entry
+                    let parsed_data = entry
                         .data
                         .as_deref()
-                        .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
-                        .map(|val| {
-                            let local = val
-                                .get("local_version")
-                                .map(|v| {
-                                    serde_json::to_string(v).unwrap_or_else(|_| "null".to_string())
-                                })
-                                .unwrap_or_else(|| "null".to_string());
-                            let remote = val
-                                .get("remote_version")
-                                .map(|v| {
-                                    serde_json::to_string(v).unwrap_or_else(|_| "null".to_string())
-                                })
-                                .unwrap_or_else(|| "null".to_string());
-                            (local, remote)
-                        })
-                        .unwrap_or_else(|| ("null".to_string(), "null".to_string()));
+                        .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok());
+
+                    let local_version = parsed_data
+                        .as_ref()
+                        .and_then(|val| val.get("local_version"))
+                        .map(|v| serde_json::to_string(v).unwrap_or_else(|_| "null".to_string()))
+                        .unwrap_or_else(|| "null".to_string());
+
+                    let remote_version = parsed_data
+                        .as_ref()
+                        .and_then(|val| val.get("remote_version"))
+                        .map(|v| serde_json::to_string(v).unwrap_or_else(|_| "null".to_string()))
+                        .unwrap_or_else(|| "null".to_string());
 
                     ConflictInfo {
                         session_id: entry.session_id,
+                        graph_name: parsed_data
+                            .as_ref()
+                            .and_then(|val| val.get("graph_name"))
+                            .and_then(|v| v.as_str().map(|s| s.to_string())),
                         entity_type: entry.entity_type,
                         entity_id: entry.entity_id,
+                        resolution: parsed_data
+                            .as_ref()
+                            .and_then(|val| val.get("resolution"))
+                            .and_then(|v| v.as_str().map(|s| s.to_string())),
                         local_version,
                         remote_version,
                         detected_at: entry.created_at.to_rfc3339(),

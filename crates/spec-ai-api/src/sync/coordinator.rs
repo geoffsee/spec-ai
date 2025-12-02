@@ -62,7 +62,7 @@ impl SyncCoordinator {
         mesh_client: Arc<MeshClient>,
         config: SyncCoordinatorConfig,
     ) -> Self {
-        let instance_id = MeshClient::generate_instance_id();
+        let instance_id = persistence.instance_id().to_string();
         Self {
             persistence,
             mesh_registry,

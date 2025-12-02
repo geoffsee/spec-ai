@@ -36,7 +36,7 @@ jobs:
             
 
       - name: Run tests
-        run: cargo test
+        run: cargo test --workspace
 
   # Slow integration tests - only runs on main branch
   integration-tests:

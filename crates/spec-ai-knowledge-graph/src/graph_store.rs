@@ -728,12 +728,14 @@ impl KnowledgeGraphStore {
         data: Option<&str>,
     ) -> Result<i64> {
         let conn = self.conn();
-        conn.execute(
+        let mut stmt = conn.prepare(
             "INSERT INTO graph_changelog (session_id, instance_id, entity_type, entity_id, operation, vector_clock, data)
-             VALUES (?, ?, ?, ?, ?, ?, ?)",
-            params![session_id, instance_id, entity_type, entity_id, operation, vector_clock, data],
+             VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
         )?;
-        let id: i64 = conn.query_row("SELECT last_insert_rowid()", params![], |row| row.get(0))?;
+        let id: i64 = stmt.query_row(
+            params![session_id, instance_id, entity_type, entity_id, operation, vector_clock, data],
+            |row| row.get(0),
+        )?;
         Ok(id)
     }
 
@@ -852,9 +854,9 @@ impl KnowledgeGraphStore {
         let conn = self.conn();
         conn.execute(
             "INSERT INTO graph_sync_state (instance_id, session_id, graph_name, vector_clock, last_sync_at)
-             VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+             VALUES (?, ?, ?, ?, now())
              ON CONFLICT (instance_id, session_id, graph_name)
-             DO UPDATE SET vector_clock = EXCLUDED.vector_clock, last_sync_at = CURRENT_TIMESTAMP",
+             DO UPDATE SET vector_clock = EXCLUDED.vector_clock, last_sync_at = now()",
             params![instance_id, session_id, graph_name, vector_clock],
         )?;
         Ok(())
@@ -958,11 +960,11 @@ impl KnowledgeGraphStore {
 
         conn.execute(
             "INSERT INTO graph_metadata (session_id, graph_name, sync_enabled, config, updated_at)
-             VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+             VALUES (?, ?, ?, ?, now())
              ON CONFLICT (session_id, graph_name)
              DO UPDATE SET sync_enabled = EXCLUDED.sync_enabled,
                            config = EXCLUDED.config,
-                           updated_at = CURRENT_TIMESTAMP",
+                           updated_at = now()",
             params![session_id, graph_name, sync_enabled, merged_config],
         )?;
 
@@ -1229,11 +1231,21 @@ pub struct SyncStateRecord {
     pub last_sync_at: Option<String>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct GraphSyncConfig {
     pub sync_enabled: bool,
     pub conflict_resolution_strategy: Option<String>,
     pub sync_interval_seconds: Option<u64>,
+}
+
+impl Default for GraphSyncConfig {
+    fn default() -> Self {
+        Self {
+            sync_enabled: false,
+            conflict_resolution_strategy: Some("vector_clock".to_string()),
+            sync_interval_seconds: Some(60),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -1446,7 +1458,13 @@ mod tests {
                 id BIGINT PRIMARY KEY DEFAULT nextval('graph_metadata_id_seq'),
                 session_id TEXT NOT NULL,
                 graph_name TEXT NOT NULL,
-                sync_enabled BOOLEAN DEFAULT FALSE
+                is_created BOOLEAN DEFAULT FALSE,
+                schema_version INTEGER DEFAULT 1,
+                config TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                sync_enabled BOOLEAN DEFAULT FALSE,
+                UNIQUE(session_id, graph_name)
             );
 
             CREATE TABLE graph_changelog (
@@ -1466,7 +1484,8 @@ mod tests {
                 session_id TEXT NOT NULL,
                 graph_name TEXT NOT NULL,
                 vector_clock TEXT NOT NULL,
-                last_sync_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                last_sync_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (instance_id, session_id, graph_name)
             );
 
             CREATE TABLE graph_tombstones (
@@ -1557,6 +1576,107 @@ mod tests {
         assert_eq!(incoming.len(), 2);
         assert!(incoming.iter().any(|node| node.label == "Beta"));
         assert!(incoming.iter().any(|node| node.label == "Alpha"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn sync_config_round_trip() -> Result<()> {
+        let store = setup_store();
+
+        let saved = store.graph_set_sync_config(
+            "session",
+            "default",
+            true,
+            Some("last_write_wins"),
+            Some(120),
+        )?;
+        assert!(saved.sync_enabled);
+        assert_eq!(
+            saved.conflict_resolution_strategy.as_deref(),
+            Some("last_write_wins")
+        );
+        assert_eq!(saved.sync_interval_seconds, Some(120));
+
+        let fetched = store.graph_get_sync_config("session", "default")?;
+        assert!(fetched.sync_enabled);
+        assert_eq!(
+            fetched.conflict_resolution_strategy.as_deref(),
+            Some("last_write_wins")
+        );
+        assert_eq!(fetched.sync_interval_seconds, Some(120));
+
+        let defaults = store.graph_get_sync_config("other_session", "missing")?;
+        assert!(!defaults.sync_enabled);
+        assert_eq!(
+            defaults.conflict_resolution_strategy.as_deref(),
+            Some("vector_clock")
+        );
+        assert_eq!(defaults.sync_interval_seconds, Some(60));
+
+        Ok(())
+    }
+
+    #[test]
+    fn sync_state_metadata_round_trip() -> Result<()> {
+        let store = setup_store();
+        store.graph_sync_state_update("instance", "session", "graph", r#"{"a":1}"#)?;
+
+        let state = store
+            .graph_sync_state_get_metadata("instance", "session", "graph")?
+            .expect("state exists");
+
+        assert_eq!(state.vector_clock, r#"{"a":1}"#);
+        assert!(state.last_sync_at.is_some());
+
+        Ok(())
+    }
+
+    #[test]
+    fn graph_conflict_listing_filters() -> Result<()> {
+        let store = setup_store();
+        let vc_json = VectorClock::new().to_json()?;
+
+        let conflict_payload = json!({
+            "graph_name": "g1",
+            "local_version": { "id": 1 },
+            "remote_version": { "id": 2 },
+            "resolution": "Test"
+        });
+
+        store.graph_changelog_append(
+            "session_one",
+            "inst1",
+            "node",
+            1,
+            "conflict",
+            &vc_json,
+            Some(&conflict_payload.to_string()),
+        )?;
+
+        let second_payload = json!({
+            "graph_name": "g2",
+            "local_version": { "id": 3 },
+            "remote_version": { "id": 4 }
+        });
+
+        store.graph_changelog_append(
+            "session_two",
+            "inst1",
+            "edge",
+            2,
+            "conflict",
+            &vc_json,
+            Some(&second_payload.to_string()),
+        )?;
+
+        let all_conflicts = store.graph_list_conflicts(None, 10)?;
+        assert_eq!(all_conflicts.len(), 2);
+
+        let session_filtered = store.graph_list_conflicts(Some("session_one"), 10)?;
+        assert_eq!(session_filtered.len(), 1);
+        assert_eq!(session_filtered[0].session_id, "session_one");
+        assert_eq!(session_filtered[0].entity_id, 1);
 
         Ok(())
     }

@@ -417,9 +417,10 @@ impl Tool for FileExtractTool {
             if args.xml_output {
                 extractor = extractor.set_xml_output(true);
             }
-            extractor
+            let (content, metadata) = extractor
                 .extract_file_to_string(&display_path)
-                .map_err(|err| anyhow!("Failed to extract {}: {}", display_path, err))?
+                .map_err(|err| anyhow!("Failed to extract {}: {}", display_path, err))?;
+            (content, Some(metadata))
         };
 
         let metadata = if args.include_metadata {

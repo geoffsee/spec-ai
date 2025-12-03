@@ -1,12 +1,372 @@
 //! Demo application state and defaults.
 
 use crate::models::{AgentProcess, ChatMessage, Session, ToolExecution, ToolStatus};
+use std::collections::BTreeMap;
 use spec_ai_tui::widget::builtin::{EditorState, SlashCommand, SlashMenuState};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Panel {
     Input,
     Agent,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum OnboardingStep {
+    Provider,
+    Model,
+    Confirm,
+}
+
+#[derive(Debug, Clone)]
+pub struct ProviderOption {
+    pub name: String,
+    pub detected: bool,
+    pub latency_ms: u32,
+    pub region: String,
+    pub note: String,
+}
+
+impl ProviderOption {
+    pub fn new(name: &str, detected: bool, latency_ms: u32, region: &str, note: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            detected,
+            latency_ms,
+            region: region.to_string(),
+            note: note.to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ModelOption {
+    pub provider: String,
+    pub name: String,
+    pub kind: ModelKind,
+    pub context_window: String,
+    pub modalities: String,
+    pub pricing: String,
+    pub latency: String,
+    pub highlights: String,
+}
+
+impl ModelOption {
+    pub fn new(
+        provider: &str,
+        name: &str,
+        kind: ModelKind,
+        context_window: &str,
+        modalities: &str,
+        pricing: &str,
+        latency: &str,
+        highlights: &str,
+    ) -> Self {
+        Self {
+            provider: provider.to_string(),
+            name: name.to_string(),
+            kind,
+            context_window: context_window.to_string(),
+            modalities: modalities.to_string(),
+            pricing: pricing.to_string(),
+            latency: latency.to_string(),
+            highlights: highlights.to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ModelKind {
+    Chat,
+    FastChat,
+    Embeddings,
+    Audio,
+}
+
+impl ModelKind {
+    pub fn label(&self) -> &'static str {
+        match self {
+            ModelKind::Chat => "chat",
+            ModelKind::FastChat => "fast chat",
+            ModelKind::Embeddings => "embeddings",
+            ModelKind::Audio => "audio",
+        }
+    }
+
+    pub fn detail(&self) -> &'static str {
+        match self {
+            ModelKind::Chat => "Primary model for responses",
+            ModelKind::FastChat => "Fast model for routing/light tasks",
+            ModelKind::Embeddings => "Vector model for search/recall",
+            ModelKind::Audio => "Transcription/voice model",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PolicyMode {
+    Standard,
+    Expanded,
+}
+
+impl PolicyMode {
+    pub fn label(&self) -> &'static str {
+        match self {
+            PolicyMode::Standard => "standard policy",
+            PolicyMode::Expanded => "expanded policy",
+        }
+    }
+
+    pub fn description(&self) -> &'static str {
+        match self {
+            PolicyMode::Standard => "Safe defaults, read-only tools",
+            PolicyMode::Expanded => "Broader tools, more autonomy",
+        }
+    }
+
+    pub fn next(self) -> Self {
+        match self {
+            PolicyMode::Standard => PolicyMode::Expanded,
+            PolicyMode::Expanded => PolicyMode::Standard,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Onboarding {
+    pub active: bool,
+    pub step: OnboardingStep,
+    pub providers: Vec<ProviderOption>,
+    pub selected_provider: usize,
+    pub model_catalog: Vec<ModelOption>,
+    pub selected_kind: usize,
+    pub selected_models: BTreeMap<ModelKind, usize>,
+    pub voice_enabled: bool,
+    pub selected_tools: Vec<String>,
+    pub policy_mode: PolicyMode,
+    pub confirm_cursor: usize,
+    pub show_policy_modal: bool,
+}
+
+impl Onboarding {
+    pub fn new() -> Self {
+        Self {
+            active: true,
+            step: OnboardingStep::Provider,
+            providers: vec![
+                ProviderOption::new(
+                    "OpenAI",
+                    true,
+                    180,
+                    "global",
+                    "Detected from config",
+                ),
+                ProviderOption::new(
+                    "Anthropic",
+                    true,
+                    210,
+                    "us-east-1",
+                    "API key in env",
+                ),
+                ProviderOption::new(
+                    "Local",
+                    false,
+                    40,
+                    "localhost",
+                    "Start a local server to use",
+                ),
+            ],
+            selected_provider: 0,
+            model_catalog: vec![
+                ModelOption::new(
+                    "OpenAI",
+                    "gpt-4.1",
+                    ModelKind::Chat,
+                    "128k ctx",
+                    "text+vision",
+                    "$5/$15 per 1M",
+                    "~250ms first token",
+                    "Strong reasoning + tools",
+                ),
+                ModelOption::new(
+                    "OpenAI",
+                    "gpt-4.1-mini",
+                    ModelKind::FastChat,
+                    "128k ctx",
+                    "text+vision",
+                    "$0.15/$0.60 per 1M",
+                    "~90ms first token",
+                    "Fast + cheap",
+                ),
+                ModelOption::new(
+                    "OpenAI",
+                    "text-embedding-3-small",
+                    ModelKind::Embeddings,
+                    "8k ctx",
+                    "embeddings",
+                    "$0.02 per 1M",
+                    "n/a",
+                    "Vectors for semantic search",
+                ),
+                ModelOption::new(
+                    "vttrs",
+                    "whisper-1",
+                    ModelKind::Audio,
+                    "n/a",
+                    "audio",
+                    "$0.01 per min",
+                    "~500ms chunk",
+                    "Streaming transcription",
+                ),
+                ModelOption::new(
+                    "Anthropic",
+                    "claude-3.5-sonnet",
+                    ModelKind::Chat,
+                    "200k ctx",
+                    "text+vision",
+                    "$3/$15 per 1M",
+                    "~300ms first token",
+                    "Good at tool use",
+                ),
+                ModelOption::new(
+                    "Anthropic",
+                    "claude-3-haiku",
+                    ModelKind::FastChat,
+                    "200k ctx",
+                    "text",
+                    "$0.25/$1.25 per 1M",
+                    "~120ms first token",
+                    "Budget friendly",
+                ),
+                ModelOption::new(
+                    "Local",
+                    "llama-3.1-8b",
+                    ModelKind::Chat,
+                    "16k ctx",
+                    "text",
+                    "n/a",
+                    "~40ms first token",
+                    "Runs on your box",
+                ),
+                ModelOption::new(
+                    "Local",
+                    "all-minilm-l6",
+                    ModelKind::Embeddings,
+                    "4k ctx",
+                    "embeddings",
+                    "n/a",
+                    "n/a",
+                    "Local embeddings",
+                ),
+                ModelOption::new(
+                    "Local",
+                    "faster-whisper",
+                    ModelKind::Audio,
+                    "n/a",
+                    "audio",
+                    "n/a",
+                    "~400ms chunk",
+                    "Offline transcription",
+                ),
+            ],
+            selected_kind: 0,
+            selected_models: BTreeMap::new(),
+            voice_enabled: false,
+            selected_tools: vec![
+                "code_search".to_string(),
+                "file_read".to_string(),
+                "bash".to_string(),
+            ],
+            policy_mode: PolicyMode::Standard,
+            confirm_cursor: 0,
+            show_policy_modal: false,
+        }
+    }
+
+    pub fn current_provider(&self) -> Option<&ProviderOption> {
+        self.providers.get(self.selected_provider)
+    }
+
+    pub fn model_count_for_provider(&self) -> usize {
+        self.models_for_provider().len()
+    }
+
+    pub fn provider_kinds(&self) -> Vec<ModelKind> {
+        let provider = match self.current_provider() {
+            Some(p) => p.name.as_str(),
+            None => return Vec::new(),
+        };
+        let mut kinds: Vec<ModelKind> = self
+            .model_catalog
+            .iter()
+            .filter(|m| m.provider == provider)
+            .map(|m| m.kind)
+            .collect();
+        kinds.sort();
+        kinds.dedup();
+        kinds
+    }
+
+    pub fn current_kind(&self) -> Option<ModelKind> {
+        self.provider_kinds().get(self.selected_kind).copied()
+    }
+
+    pub fn models_for_provider(&self) -> Vec<&ModelOption> {
+        let provider = match self.current_provider() {
+            Some(p) => p.name.as_str(),
+            None => return Vec::new(),
+        };
+        self.model_catalog
+            .iter()
+            .filter(|m| m.provider == provider)
+            .collect()
+    }
+
+    pub fn models_for_current(&self) -> Vec<&ModelOption> {
+        let provider = match self.current_provider() {
+            Some(p) => p.name.as_str(),
+            None => return Vec::new(),
+        };
+        let kind = match self.current_kind() {
+            Some(k) => k,
+            None => return Vec::new(),
+        };
+        self.model_catalog
+            .iter()
+            .filter(|m| m.provider == provider && m.kind == kind)
+            .collect()
+    }
+
+    pub fn current_model(&self) -> Option<&ModelOption> {
+        let kind = self.current_kind()?;
+        let models = self.models_for_current();
+        let idx = self.selected_models.get(&kind).copied().unwrap_or(0);
+        models.get(idx).copied()
+    }
+
+    pub fn model_for_kind(&self, kind: ModelKind) -> Option<&ModelOption> {
+        let provider = self.current_provider()?.name.clone();
+        let idx = self.selected_models.get(&kind).copied().unwrap_or(0);
+        self.model_catalog
+            .iter()
+            .filter(|m| m.provider == provider && m.kind == kind)
+            .nth(idx)
+    }
+
+    pub fn reset_model_cursor(&mut self) {
+        self.selected_kind = 0;
+        self.selected_models.clear();
+    }
+
+    pub fn current_kind_label(&self) -> String {
+        self.current_kind()
+            .map(|k| k.label().to_string())
+            .unwrap_or_else(|| "model".to_string())
+    }
+
+    pub fn confirm_options_len(&self) -> usize {
+        // Voice toggle, tool toggle, policy switch, finalize
+        4
+    }
 }
 
 /// Demo application state
@@ -66,10 +426,22 @@ pub struct DemoState {
     pub selected_session: usize,
     /// Pending quit (first Ctrl+C pressed)
     pub pending_quit: bool,
+    /// Onboarding flow
+    pub onboarding: Onboarding,
+    /// Voice output enabled after onboarding
+    pub voice_enabled: bool,
+    /// Active policy mode
+    pub policy_mode: PolicyMode,
+    /// Tools allowed after onboarding
+    pub allowed_tools: Vec<String>,
 }
 
 impl Default for DemoState {
     fn default() -> Self {
+        let onboarding = Onboarding::new();
+        let default_tools = onboarding.selected_tools.clone();
+        let policy_mode = onboarding.policy_mode;
+        let voice_enabled = onboarding.voice_enabled;
         Self {
             editor: EditorState::new(),
             slash_menu: SlashMenuState::new(),
@@ -143,16 +515,16 @@ impl Default for DemoState {
             ],
             streaming: None,
             scroll_offset: 0,
-            status: "Ready".to_string(),
+            status: "Setup: pick a provider to start (↑/↓, Enter)".to_string(),
             tools: vec![
                 ToolExecution { name: "code_search".to_string(), status: ToolStatus::Success, duration_ms: Some(45) },
                 ToolExecution { name: "file_read".to_string(), status: ToolStatus::Success, duration_ms: Some(12) },
                 ToolExecution { name: "grep".to_string(), status: ToolStatus::Success, duration_ms: Some(89) },
             ],
             reasoning: vec![
-                "◆ Analyzing user query...".to_string(),
-                "◆ Searching codebase for entry points".to_string(),
-                "◆ Context: 3 tools used, 847 tokens".to_string(),
+                "◆ Setup required: select a provider".to_string(),
+                "  Step 1/3 (provider → model → confirm)".to_string(),
+                "  ↑/↓ to move, Enter to confirm".to_string(),
             ],
             quit: false,
             focus: Panel::Input,
@@ -354,6 +726,10 @@ impl Default for DemoState {
             show_history: false,
             selected_session: 0,
             pending_quit: false,
+            onboarding,
+            voice_enabled,
+            policy_mode,
+            allowed_tools: default_tools,
         }
     }
 }

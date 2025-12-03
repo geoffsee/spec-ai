@@ -1,7 +1,7 @@
 //! Rendering routines for the demo application.
 
 use crate::models::ProcessStatus;
-use crate::state::{DemoState, Panel};
+use crate::state::{DemoState, OnboardingStep, Panel};
 use spec_ai_tui::{
     buffer::Buffer,
     geometry::Rect,
@@ -36,6 +36,14 @@ pub fn render(state: &DemoState, area: Rect, buf: &mut Buffer) {
     render_reasoning(state, main_chunks[1], buf);
     render_status(state, main_chunks[2], buf);
     render_listen_overlay(state, content_chunks[0], buf);
+
+    if state.onboarding.active {
+        render_onboarding(state, area, buf);
+        if state.onboarding.show_policy_modal {
+            render_policy_modal(state, area, buf);
+        }
+        return;
+    }
 
     if state.show_process_panel {
         render_process_overlay(state, area, buf);
@@ -424,6 +432,659 @@ fn render_listen_overlay(state: &DemoState, area: Rect, buf: &mut Buffer) {
         }
         let truncated = truncate(line, inner.width as usize);
         buf.set_string(inner.x, y_pos, &truncated, Style::new().fg(Color::White));
+    }
+}
+
+fn render_onboarding(state: &DemoState, area: Rect, buf: &mut Buffer) {
+    let (title, help_text) = match state.onboarding.step {
+        OnboardingStep::Provider => (
+            "Setup • Step 1/3 • Pick a detected provider",
+            "↑/↓ select • Enter continue",
+        ),
+        OnboardingStep::Model => (
+            "Setup • Step 2/3 • Select chat/fast/embeddings/audio",
+            "←/→ type • ↑/↓ model • Enter confirm • Esc back",
+        ),
+        OnboardingStep::Confirm => (
+            "Setup • Step 3/3 • Confirm voice + tools + policy",
+            "↑/↓ select • Space/Enter toggle • p: policy editor • Esc back",
+        ),
+    };
+
+    let overlay = Overlay::new()
+        .title(title)
+        .border_color(Color::Cyan)
+        .bg_color(Color::Rgb(10, 12, 18))
+        .help_text(help_text)
+        .dimensions(0.9, 0.82);
+
+    let inner = overlay.render_frame(area, buf);
+    if inner.is_empty() {
+        return;
+    }
+
+    let chunks = Layout::vertical()
+        .constraints([
+            Constraint::Fixed(3),
+            Constraint::Fill(1),
+            Constraint::Fixed(2),
+        ])
+        .split(inner);
+
+    render_onboarding_stepper(state, chunks[0], buf);
+
+    match state.onboarding.step {
+        OnboardingStep::Provider => render_provider_step(state, chunks[1], buf),
+        OnboardingStep::Model => render_model_step(state, chunks[1], buf),
+        OnboardingStep::Confirm => render_confirm_step(state, chunks[1], buf),
+    }
+
+    render_onboarding_footer(state, chunks[2], buf);
+}
+
+fn render_onboarding_stepper(state: &DemoState, area: Rect, buf: &mut Buffer) {
+    let steps = [
+        ("1", "Provider", OnboardingStep::Provider),
+        ("2", "Model", OnboardingStep::Model),
+        ("3", "Confirm", OnboardingStep::Confirm),
+    ];
+    let current_idx = match state.onboarding.step {
+        OnboardingStep::Provider => 0,
+        OnboardingStep::Model => 1,
+        OnboardingStep::Confirm => 2,
+    };
+    let columns = Layout::horizontal()
+        .constraints([
+            Constraint::Percentage(33),
+            Constraint::Percentage(33),
+            Constraint::Percentage(34),
+        ])
+        .split(area);
+
+    for (i, (num, label, step)) in steps.iter().enumerate() {
+        let seg = columns.get(i).copied().unwrap_or(area);
+        let is_active = i == current_idx;
+        let is_complete = i < current_idx;
+        let marker = if is_complete { "✓" } else if is_active { "●" } else { "○" };
+        let style = if is_active {
+            Style::new().fg(Color::Cyan).bold()
+        } else if is_complete {
+            Style::new().fg(Color::Green)
+        } else {
+            Style::new().fg(Color::DarkGrey)
+        };
+
+        buf.set_string(seg.x + 2, seg.y + 1, marker, style);
+        buf.set_string(
+            seg.x + 5,
+            seg.y + 1,
+            &format!("{}. {}", num, label),
+            style,
+        );
+
+        if *step == OnboardingStep::Confirm {
+            let summary_list: Vec<String> = state
+                .onboarding
+                .provider_kinds()
+                .into_iter()
+                .filter_map(|k| {
+                    state
+                        .onboarding
+                        .model_for_kind(k)
+                        .map(|m| format!("{}: {}", k.label(), m.name))
+                })
+                .collect();
+            let summary = if summary_list.is_empty() {
+                "select a model type".to_string()
+            } else {
+                summary_list.join(" | ")
+            };
+            buf.set_string(
+                seg.right().saturating_sub(summary.len() as u16 + 2),
+                seg.y + 1,
+                &truncate(&summary, seg.width.saturating_sub(6) as usize),
+                Style::new().fg(Color::DarkGrey),
+            );
+        }
+    }
+}
+
+fn render_provider_step(state: &DemoState, area: Rect, buf: &mut Buffer) {
+    let mut y = area.y;
+    for (i, provider) in state.onboarding.providers.iter().enumerate() {
+        if y >= area.bottom() {
+            break;
+        }
+        let selected = i == state.onboarding.selected_provider;
+        let bg = if selected {
+            Color::Rgb(32, 44, 64)
+        } else {
+            Color::Rgb(16, 18, 26)
+        };
+        for x in area.x..area.right() {
+            if let Some(cell) = buf.get_mut(x, y) {
+                cell.bg = bg;
+                cell.symbol = " ".to_string();
+            }
+        }
+
+        let detected = if provider.detected { "●" } else { "○" };
+        buf.set_string(
+            area.x + 1,
+            y,
+            detected,
+            if provider.detected {
+                Style::new().fg(Color::Green)
+            } else {
+                Style::new().fg(Color::DarkGrey)
+            },
+        );
+        buf.set_string(
+            area.x + 4,
+            y,
+            &truncate(
+                &format!("{} ({})", provider.name, provider.region),
+                area.width.saturating_sub(14) as usize,
+            ),
+            if selected {
+                Style::new().fg(Color::White).bold()
+            } else {
+                Style::new().fg(Color::Cyan)
+            },
+        );
+        let latency = format!("~{}ms", provider.latency_ms);
+        buf.set_string(
+            area.right().saturating_sub(latency.len() as u16 + 1),
+            y,
+            &latency,
+            Style::new().fg(Color::DarkGrey),
+        );
+        y += 1;
+
+        if y >= area.bottom() {
+            break;
+        }
+        for x in area.x..area.right() {
+            if let Some(cell) = buf.get_mut(x, y) {
+                cell.bg = bg;
+                cell.symbol = " ".to_string();
+            }
+        }
+        let note = format!(
+            "{} • {}",
+            provider.note,
+            if provider.detected {
+                "ready"
+            } else {
+                "not yet verified"
+            }
+        );
+        buf.set_string(
+            area.x + 4,
+            y,
+            &truncate(&note, area.width.saturating_sub(6) as usize),
+            Style::new().fg(Color::DarkGrey),
+        );
+        y = y.saturating_add(2);
+    }
+}
+
+fn render_model_step(state: &DemoState, area: Rect, buf: &mut Buffer) {
+    let columns = Layout::horizontal()
+        .constraints([
+            Constraint::Percentage(22),
+            Constraint::Percentage(45),
+            Constraint::Percentage(33),
+        ])
+        .split(area);
+
+    render_kind_column(state, columns[0], buf);
+    render_model_list(state, columns[1], buf);
+    render_model_metadata(state, columns[2], buf);
+}
+
+fn render_kind_column(state: &DemoState, area: Rect, buf: &mut Buffer) {
+    let block = Block::bordered()
+        .title("Model types")
+        .border_style(Style::new().fg(Color::Cyan));
+    let inner = block.inner(area);
+    Widget::render(&block, area, buf);
+
+    if inner.is_empty() {
+        return;
+    }
+
+    let kinds = state.onboarding.provider_kinds();
+    if kinds.is_empty() {
+        buf.set_string(
+            inner.x + 1,
+            inner.y,
+            "No model types detected",
+            Style::new().fg(Color::Red),
+        );
+        return;
+    }
+
+    for (i, kind) in kinds.iter().enumerate() {
+        let y = inner.y + i as u16;
+        if y >= inner.bottom() {
+            break;
+        }
+        let selected = i == state.onboarding.selected_kind;
+        let bg = if selected {
+            Color::Rgb(32, 44, 64)
+        } else {
+            Color::Rgb(16, 18, 26)
+        };
+
+        for x in inner.x..inner.right() {
+            if let Some(cell) = buf.get_mut(x, y) {
+                cell.bg = bg;
+                cell.symbol = " ".to_string();
+            }
+        }
+
+        buf.set_string(
+            inner.x + 1,
+            y,
+            if selected { "►" } else { " " },
+            Style::new().fg(Color::Cyan),
+        );
+        buf.set_string(
+            inner.x + 4,
+            y,
+            &truncate(kind.label(), inner.width.saturating_sub(6) as usize),
+            if selected {
+                Style::new().fg(Color::White).bold()
+            } else {
+                Style::new().fg(Color::White)
+            },
+        );
+    }
+
+    if let Some(kind) = state.onboarding.current_kind() {
+        let detail_y = inner.y + kinds.len() as u16 + 1;
+        if detail_y < inner.bottom() {
+            buf.set_string(
+                inner.x + 1,
+                detail_y,
+                &truncate(kind.detail(), inner.width.saturating_sub(2) as usize),
+                Style::new().fg(Color::DarkGrey),
+            );
+        }
+    }
+}
+
+fn render_model_list(state: &DemoState, area: Rect, buf: &mut Buffer) {
+    let models = state.onboarding.models_for_current();
+    let block = Block::bordered()
+        .title(format!(
+            "Models ({})",
+            state.onboarding.current_kind_label()
+        ))
+        .border_style(Style::new().fg(Color::Cyan));
+    let inner = block.inner(area);
+    Widget::render(&block, area, buf);
+
+    if inner.is_empty() {
+        return;
+    }
+
+    if models.is_empty() {
+        buf.set_string(
+            inner.x + 1,
+            inner.y,
+            "No models detected for this type",
+            Style::new().fg(Color::Red),
+        );
+        return;
+    }
+
+    let mut y = inner.y;
+    let kind = state.onboarding.current_kind();
+    let selected_idx = kind
+        .and_then(|k| state.onboarding.selected_models.get(&k).copied())
+        .unwrap_or(0);
+
+    for (idx, model) in models.iter().enumerate() {
+        if y >= inner.bottom() {
+            break;
+        }
+        let selected = idx == selected_idx;
+        let bg = if selected {
+            Color::Rgb(32, 44, 64)
+        } else {
+            Color::Rgb(16, 18, 26)
+        };
+        for x in inner.x..inner.right() {
+            if let Some(cell) = buf.get_mut(x, y) {
+                cell.bg = bg;
+                cell.symbol = " ".to_string();
+            }
+        }
+        buf.set_string(
+            inner.x + 1,
+            y,
+            if selected { "►" } else { " " },
+            Style::new().fg(Color::Cyan),
+        );
+        buf.set_string(
+            inner.x + 4,
+            y,
+            &truncate(&model.name, inner.width.saturating_sub(6) as usize),
+            if selected {
+                Style::new().fg(Color::White).bold()
+            } else {
+                Style::new().fg(Color::White)
+            },
+        );
+        y += 1;
+
+        if y >= inner.bottom() {
+            break;
+        }
+        for x in inner.x..inner.right() {
+            if let Some(cell) = buf.get_mut(x, y) {
+                cell.bg = bg;
+                cell.symbol = " ".to_string();
+            }
+        }
+        let meta = format!("{} • {}", model.context_window, model.modalities);
+        buf.set_string(
+            inner.x + 4,
+            y,
+            &truncate(&meta, inner.width.saturating_sub(6) as usize),
+            Style::new().fg(Color::DarkGrey),
+        );
+        y = y.saturating_add(2);
+    }
+}
+
+fn render_model_metadata(state: &DemoState, area: Rect, buf: &mut Buffer) {
+    let block = Block::bordered()
+        .title("Model details")
+        .border_style(Style::new().fg(Color::Cyan));
+    let inner = block.inner(area);
+    Widget::render(&block, area, buf);
+
+    if inner.is_empty() {
+        return;
+    }
+
+    if let Some(model) = state.onboarding.current_model() {
+        let lines = [
+            format!("Provider: {}", model.provider),
+            format!("Type: {}", model.kind.label()),
+            format!("Context: {}", model.context_window),
+            format!("Modalities: {}", model.modalities),
+            format!("Pricing: {}", model.pricing),
+            format!("Latency: {}", model.latency),
+            format!("Highlights: {}", model.highlights),
+        ];
+        for (i, line) in lines.iter().enumerate() {
+            let y = inner.y + i as u16;
+            if y >= inner.bottom() {
+                break;
+            }
+            buf.set_string(
+                inner.x + 1,
+                y,
+                &truncate(line, inner.width.saturating_sub(2) as usize),
+                if i == 0 {
+                    Style::new().fg(Color::Cyan)
+                } else {
+                    Style::new().fg(Color::White)
+                },
+            );
+        }
+
+        let summary_list: Vec<String> = state
+            .onboarding
+            .provider_kinds()
+            .into_iter()
+            .filter_map(|k| {
+                state
+                    .onboarding
+                    .model_for_kind(k)
+                    .map(|m| format!("{}: {}", k.label(), m.name))
+            })
+            .collect();
+        let summary = if summary_list.is_empty() {
+            "Select chat + embeddings + rerank".to_string()
+        } else {
+            summary_list.join(" | ")
+        };
+        let summary_y = inner.y + lines.len() as u16 + 1;
+        if summary_y < inner.bottom() {
+            buf.set_string(
+                inner.x + 1,
+                summary_y,
+                &truncate(&format!("Selections: {}", summary), inner.width.saturating_sub(2) as usize),
+                Style::new().fg(Color::DarkGrey),
+            );
+        }
+    } else {
+        buf.set_string(
+            inner.x + 1,
+            inner.y,
+            "No model selected",
+            Style::new().fg(Color::DarkGrey),
+        );
+    }
+}
+
+fn render_confirm_step(state: &DemoState, area: Rect, buf: &mut Buffer) {
+    let sections = Layout::vertical()
+        .constraints([Constraint::Fixed(3), Constraint::Fill(1)])
+        .split(area);
+
+    let provider = state
+        .onboarding
+        .current_provider()
+        .map(|p| p.name.as_str())
+        .unwrap_or("provider");
+    let selections: Vec<String> = state
+        .onboarding
+        .provider_kinds()
+        .into_iter()
+        .filter_map(|k| {
+            state
+                .onboarding
+                .model_for_kind(k)
+                .map(|m| format!("{}: {}", k.label(), m.name))
+        })
+        .collect();
+    let model_summary = if selections.is_empty() {
+        "no models selected".to_string()
+    } else {
+        selections.join(" | ")
+    };
+
+    buf.set_string(
+        sections[0].x,
+        sections[0].y,
+        &truncate(
+            &format!("Provider: {}  •  Models: {}", provider, model_summary),
+            sections[0].width as usize,
+        ),
+        Style::new().fg(Color::Cyan),
+    );
+    buf.set_string(
+        sections[0].x,
+        sections[0].y + 1,
+        &truncate(
+            "Toggle voice and tool policy before starting. ←/→ changes type.",
+            sections[0].width as usize,
+        ),
+        Style::new().fg(Color::DarkGrey),
+    );
+
+    let mut y = sections[1].y;
+
+    let policy_editor_message = format!(
+        "{} (press p to open editor)",
+        state.onboarding.policy_mode.description()
+    );
+
+    let confirm_rows = vec![
+        (
+            0,
+            format!(
+                "Voice responses: {}",
+                if state.onboarding.voice_enabled { "on" } else { "off" }
+            ),
+            "Space to toggle voice playback",
+        ),
+        (
+            1,
+            format!(
+                "Tools: {}",
+                truncate(
+                    &state.onboarding.selected_tools.join(", "),
+                    sections[1].width.saturating_sub(12) as usize
+                )
+            ),
+            "Toggle file_write in the allowed list",
+        ),
+        (
+            2,
+            format!("Policy: {}", state.onboarding.policy_mode.label()),
+            &policy_editor_message,
+        ),
+        (3, "Start session".to_string(), "Enter to begin chatting"),
+    ];
+
+    for (idx, label, help) in confirm_rows {
+        if y >= sections[1].bottom() {
+            break;
+        }
+        let selected = idx == state.onboarding.confirm_cursor;
+        let bg = if selected {
+            Color::Rgb(32, 44, 64)
+        } else {
+            Color::Rgb(16, 18, 26)
+        };
+        for x in sections[1].x..sections[1].right() {
+            if let Some(cell) = buf.get_mut(x, y) {
+                cell.bg = bg;
+                cell.symbol = " ".to_string();
+            }
+        }
+        buf.set_string(
+            sections[1].x + 1,
+            y,
+            if selected { "●" } else { "○" },
+            if selected {
+                Style::new().fg(Color::Cyan)
+            } else {
+                Style::new().fg(Color::DarkGrey)
+            },
+        );
+        buf.set_string(
+            sections[1].x + 4,
+            y,
+            &truncate(&label, sections[1].width.saturating_sub(6) as usize),
+            if selected {
+                Style::new().fg(Color::White).bold()
+            } else {
+                Style::new().fg(Color::White)
+            },
+        );
+        y += 1;
+
+        if y >= sections[1].bottom() {
+            break;
+        }
+        for x in sections[1].x..sections[1].right() {
+            if let Some(cell) = buf.get_mut(x, y) {
+                cell.bg = bg;
+                cell.symbol = " ".to_string();
+            }
+        }
+        buf.set_string(
+            sections[1].x + 4,
+            y,
+            &truncate(help, sections[1].width.saturating_sub(6) as usize),
+            Style::new().fg(Color::DarkGrey),
+        );
+        y = y.saturating_add(1);
+    }
+}
+
+fn render_onboarding_footer(state: &DemoState, area: Rect, buf: &mut Buffer) {
+    let provider_count = state.onboarding.providers.len();
+    let model_count = state.onboarding.model_count_for_provider();
+    let summary = match state.onboarding.step {
+        OnboardingStep::Provider => format!("Detected {} provider(s) in config", provider_count),
+        OnboardingStep::Model => format!(
+            "{} model(s) across chat/fast/embeddings/audio",
+            model_count
+        ),
+        OnboardingStep::Confirm => "Press Enter to lock settings and start".to_string(),
+    };
+
+    buf.set_string(
+        area.x,
+        area.y,
+        &truncate(&summary, area.width as usize),
+        Style::new().fg(Color::DarkGrey),
+    );
+    buf.set_string(
+        area.x,
+        area.y + 1,
+        match state.onboarding.step {
+            OnboardingStep::Provider => "Tip: providers marked ● were auto-detected",
+            OnboardingStep::Model => "Tip: ←/→ switches type; highlight to inspect latency",
+            OnboardingStep::Confirm => "Tip: space toggles the selected row",
+        },
+        Style::new().fg(Color::DarkGrey),
+    );
+}
+
+fn render_policy_modal(state: &DemoState, area: Rect, buf: &mut Buffer) {
+    let overlay = Overlay::new()
+        .title("Policy editor")
+        .border_color(Color::Magenta)
+        .bg_color(Color::Rgb(12, 10, 16))
+        .help_text("←/→ or space: switch policy • t: toggle file_write • Enter/Esc: close")
+        .dimensions(0.55, 0.40);
+
+    let inner = overlay.render_frame(area, buf);
+    if inner.is_empty() {
+        return;
+    }
+
+    let rows = [
+        format!("Mode: {}", state.onboarding.policy_mode.label()),
+        format!(
+            "Description: {}",
+            truncate(state.onboarding.policy_mode.description(), inner.width as usize - 4)
+        ),
+        format!(
+            "Tools: {}",
+            truncate(
+                &state.onboarding.selected_tools.join(", "),
+                inner.width.saturating_sub(8) as usize
+            )
+        ),
+    ];
+
+    for (i, row) in rows.iter().enumerate() {
+        let y = inner.y + i as u16;
+        if y >= inner.bottom() {
+            break;
+        }
+        buf.set_string(inner.x + 2, y, row, Style::new().fg(Color::White));
+    }
+
+    let hint_y = inner.y + rows.len() as u16 + 1;
+    if hint_y < inner.bottom() {
+        buf.set_string(
+            inner.x + 2,
+            hint_y,
+            "Use policy editor to tweak allowances before starting.",
+            Style::new().fg(Color::DarkGrey),
+        );
     }
 }
 

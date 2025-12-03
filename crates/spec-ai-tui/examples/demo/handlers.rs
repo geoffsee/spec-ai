@@ -1,7 +1,7 @@
 //! Event handling and tick logic for the demo app.
 
 use crate::models::{ChatMessage, ProcessStatus, ToolExecution, ToolStatus};
-use crate::state::{DemoState, Panel};
+use crate::state::{DemoState, OnboardingStep, Panel};
 use spec_ai_tui::{
     event::{Event, KeyCode, KeyModifiers},
     style::truncate,
@@ -29,6 +29,10 @@ pub fn handle_event(event: Event, state: &mut DemoState) -> bool {
             state.pending_quit = false;
             state.status = "Ready".to_string();
         }
+    }
+
+    if state.onboarding.active {
+        return handle_onboarding_event(event, state);
     }
 
     match event {
@@ -449,12 +453,293 @@ pub fn handle_event(event: Event, state: &mut DemoState) -> bool {
     true
 }
 
+fn handle_onboarding_event(event: Event, state: &mut DemoState) -> bool {
+    if state.onboarding.show_policy_modal {
+        return handle_policy_modal_event(event, state);
+    }
+
+    match event {
+        Event::Key(key) => match state.onboarding.step {
+            OnboardingStep::Provider => match key.code {
+                KeyCode::Up | KeyCode::Char('k') => {
+                    state.onboarding.selected_provider =
+                        state.onboarding.selected_provider.saturating_sub(1);
+                    state.onboarding.reset_model_cursor();
+                }
+                KeyCode::Down | KeyCode::Char('j') => {
+                    let max = state.onboarding.providers.len().saturating_sub(1);
+                    state.onboarding.selected_provider =
+                        (state.onboarding.selected_provider + 1).min(max);
+                    state.onboarding.reset_model_cursor();
+                }
+                KeyCode::Enter => {
+                    state.onboarding.step = OnboardingStep::Model;
+                    state.onboarding.reset_model_cursor();
+                    state.onboarding.confirm_cursor = 0;
+                    if let Some(provider) = state.onboarding.current_provider() {
+                        let models = state.onboarding.model_count_for_provider();
+                        state.status = format!(
+                            "Pulled {} models for {} (step 2/3)",
+                            models, provider.name
+                        );
+                    }
+                }
+                _ => {}
+            },
+            OnboardingStep::Model => match key.code {
+                KeyCode::Up | KeyCode::Char('k') => {
+                    if let Some(kind) = state.onboarding.current_kind() {
+                        let current = state
+                            .onboarding
+                            .selected_models
+                            .get(&kind)
+                            .copied()
+                            .unwrap_or(0);
+                        let new_idx = current.saturating_sub(1);
+                        state.onboarding.selected_models.insert(kind, new_idx);
+                    }
+                }
+                KeyCode::Left => {
+                    state.onboarding.selected_kind =
+                        state.onboarding.selected_kind.saturating_sub(1);
+                }
+                KeyCode::Right => {
+                    let max = state
+                        .onboarding
+                        .provider_kinds()
+                        .len()
+                        .saturating_sub(1);
+                    state.onboarding.selected_kind =
+                        (state.onboarding.selected_kind + 1).min(max);
+                }
+                KeyCode::Down | KeyCode::Char('j') => {
+                    if let Some(kind) = state.onboarding.current_kind() {
+                        let models = state.onboarding.models_for_current();
+                        if models.is_empty() {
+                            state.status =
+                                format!("No {} models for this provider", kind.label());
+                        } else {
+                            let max = models.len().saturating_sub(1);
+                            let current = state
+                                .onboarding
+                                .selected_models
+                                .get(&kind)
+                                .copied()
+                                .unwrap_or(0);
+                            state
+                                .onboarding
+                                .selected_models
+                                .insert(kind, (current + 1).min(max));
+                        }
+                    }
+                }
+                KeyCode::Enter => {
+                    let model_name = state.onboarding.current_model().map(|m| m.name.clone());
+                    if let Some(model_name) = model_name {
+                        state.onboarding.step = OnboardingStep::Confirm;
+                        state.onboarding.confirm_cursor = 0;
+                        let kind_label = state.onboarding.current_kind_label();
+                        state.status = format!(
+                            "Selected {} ({}) • confirm tools/voice (step 3/3)",
+                            model_name, kind_label
+                        );
+                    } else {
+                        state.status = "No models detected for this provider".to_string();
+                    }
+                }
+                KeyCode::Esc | KeyCode::Left => {
+                    state.onboarding.step = OnboardingStep::Provider;
+                    state.onboarding.reset_model_cursor();
+                    state.status = "Back to provider selection (step 1/3)".to_string();
+                }
+                _ => {}
+            },
+            OnboardingStep::Confirm => match key.code {
+                KeyCode::Up | KeyCode::Char('k') => {
+                    state.onboarding.confirm_cursor =
+                        state.onboarding.confirm_cursor.saturating_sub(1);
+                }
+                KeyCode::Down | KeyCode::Char('j') => {
+                    let max = state.onboarding.confirm_options_len().saturating_sub(1);
+                    state.onboarding.confirm_cursor =
+                        (state.onboarding.confirm_cursor + 1).min(max);
+                }
+                KeyCode::Esc | KeyCode::Left => {
+                    state.onboarding.step = OnboardingStep::Model;
+                    state.status = "Back to model selection (step 2/3)".to_string();
+                }
+                KeyCode::Char('p') => {
+                    state.onboarding.show_policy_modal = true;
+                    state.status =
+                        "Policy editor open (←/→ policy, t toggle file_write, Enter to close)"
+                            .to_string();
+                }
+                KeyCode::Enter | KeyCode::Char(' ') => match state.onboarding.confirm_cursor {
+                    0 => {
+                        state.onboarding.voice_enabled = !state.onboarding.voice_enabled;
+                        state.status = format!(
+                            "Voice {}",
+                            if state.onboarding.voice_enabled {
+                                "enabled"
+                            } else {
+                                "disabled"
+                            }
+                        );
+                    }
+                    1 => {
+                        let enabled = toggle_file_write(&mut state.onboarding.selected_tools);
+                        state.status = if enabled {
+                            "Enabled file_write tool (demo)".to_string()
+                        } else {
+                            "Removed file_write tool (demo)".to_string()
+                        };
+                    }
+                    2 => {
+                        state.onboarding.policy_mode = state.onboarding.policy_mode.next();
+                        state.status = format!("Policy: {}", state.onboarding.policy_mode.label());
+                    }
+                    _ => finalize_onboarding(state),
+                },
+                _ => {}
+            },
+        },
+        _ => {}
+    }
+
+    true
+}
+
+fn toggle_file_write(tools: &mut Vec<String>) -> bool {
+    if tools.iter().any(|t| t == "file_write") {
+        tools.retain(|t| t != "file_write");
+        false
+    } else {
+        tools.push("file_write".to_string());
+        true
+    }
+}
+
+fn handle_policy_modal_event(event: Event, state: &mut DemoState) -> bool {
+    match event {
+        Event::Key(key) => match key.code {
+            KeyCode::Left | KeyCode::Right | KeyCode::Char(' ') => {
+                state.onboarding.policy_mode = state.onboarding.policy_mode.next();
+                state.status = format!(
+                    "Policy set to {}",
+                    state.onboarding.policy_mode.label()
+                );
+            }
+            KeyCode::Char('t') => {
+                let enabled = toggle_file_write(&mut state.onboarding.selected_tools);
+                state.status = if enabled {
+                    "Enabled file_write tool (policy editor)".to_string()
+                } else {
+                    "Removed file_write tool (policy editor)".to_string()
+                };
+            }
+            KeyCode::Enter | KeyCode::Esc => {
+                state.onboarding.show_policy_modal = false;
+                state.status = "Policy editor closed".to_string();
+            }
+            _ => {}
+        },
+        _ => {}
+    }
+
+    true
+}
+
+fn finalize_onboarding(state: &mut DemoState) {
+    state.voice_enabled = state.onboarding.voice_enabled;
+    state.policy_mode = state.onboarding.policy_mode;
+    state.allowed_tools = state.onboarding.selected_tools.clone();
+    state.onboarding.active = false;
+    state.focus = Panel::Input;
+    state.editor.focused = true;
+
+    let provider = state
+        .onboarding
+        .current_provider()
+        .map(|p| p.name.clone())
+        .unwrap_or_else(|| "unknown-provider".to_string());
+    let selections: Vec<String> = state
+        .onboarding
+        .provider_kinds()
+        .into_iter()
+        .filter_map(|k| {
+            state
+                .onboarding
+                .model_for_kind(k)
+                .map(|m| format!("{}: {}", k.label(), m.name))
+        })
+        .collect();
+    let model_summary = if selections.is_empty() {
+        "default models".to_string()
+    } else {
+        selections.join(" | ")
+    };
+
+    let voice_label = if state.voice_enabled { "on" } else { "off" };
+    let tools_summary = if state.allowed_tools.is_empty() {
+        "no tools".to_string()
+    } else {
+        state.allowed_tools.join(", ")
+    };
+
+    state.status = format!(
+        "Setup complete • {} • {} • voice {} • {}",
+        provider,
+        model_summary,
+        voice_label,
+        state.policy_mode.label()
+    );
+
+    state.reasoning[0] = format!("✓ Provider ready: {}", provider);
+    state.reasoning[1] = format!("  Models: {} | Voice: {}", model_summary, voice_label);
+    state.reasoning[2] = format!(
+        "  Tools: {} | Policy: {}",
+        tools_summary,
+        state.policy_mode.label()
+    );
+
+    let timestamp = format!(
+        "{}:{:02}",
+        10 + state.messages.len() / 60,
+        state.messages.len() % 60
+    );
+    state.messages.push(ChatMessage::new(
+        "system",
+        &format!(
+            "Connected to {provider} using [{model_summary}]. Voice: {voice_label}. Policy: {}. Tools: {tools_summary}.",
+            state.policy_mode.label()
+        ),
+        &timestamp,
+    ));
+}
+
 pub fn on_tick(state: &mut DemoState) {
     state.tick += 1;
 
     // Spinner frames for animation
     let spinner = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
     let spin_char = spinner[(state.tick / 2) as usize % spinner.len()];
+
+    if state.onboarding.active {
+        let step_label = match state.onboarding.step {
+            OnboardingStep::Provider => "Select a provider",
+            OnboardingStep::Model => "Choose chat + fast + embeddings + audio",
+            OnboardingStep::Confirm => "Confirm tools & voice",
+        };
+
+        state.reasoning[0] = format!("{} Setup: {}", spin_char, step_label);
+        state.reasoning[1] = "  ↑/↓ to move, Enter to confirm".to_string();
+        state.reasoning[2] = match state.onboarding.step {
+            OnboardingStep::Provider => "  Detected providers from config".to_string(),
+            OnboardingStep::Model => "  ←/→ type • ↑/↓ model".to_string(),
+            OnboardingStep::Confirm => "  Space toggles, Enter to start".to_string(),
+        };
+        return;
+    }
 
     // Simulate streaming
     if let Some(ref mut streaming) = state.streaming {

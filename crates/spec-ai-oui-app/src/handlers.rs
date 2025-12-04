@@ -1,355 +1,100 @@
-//! Event handlers for the OUI demo - practical assistant
+//! Super OUI Event Handlers
 
 use crossterm::event::{KeyCode, KeyModifiers};
-
-use spec_ai_oui::{
-    OpticalEvent,
-    input::{GestureType, SwipeDirection},
-};
-
+use spec_ai_oui::{OpticalEvent, input::{GestureType, SwipeDirection}};
 use crate::state::{DemoState, PanelFocus};
 
-/// Handle an optical event
 pub fn handle_event(event: OpticalEvent, state: &mut DemoState) -> bool {
     match event {
-        OpticalEvent::Key(key) => {
-            handle_key_event(key, state)
-        }
-
-        OpticalEvent::GazeMove { screen_pos, .. } => {
-            state.gaze_pos = screen_pos;
-            true
-        }
-
-        OpticalEvent::GazeDwell { target_id, .. } => {
-            // Dwell on a POI to select it
-            if target_id.starts_with("nav-") || target_id.starts_with("person-") || target_id.starts_with("place-") {
-                state.select_poi(&target_id);
-            }
-            true
-        }
-
-        OpticalEvent::Gesture(gesture) => {
-            match gesture.gesture {
-                GestureType::AirTap { .. } => {
-                    handle_select(state)
-                }
-                GestureType::Swipe { direction, .. } => {
-                    handle_swipe(direction, state)
-                }
-                GestureType::Pinch { strength } if strength > 0.8 => {
-                    handle_select(state)
-                }
-                GestureType::OpenPalm => {
-                    // Close menu or dismiss notification
-                    if state.show_menu {
-                        state.show_menu = false;
-                    }
-                    true
-                }
-                GestureType::Fist => {
-                    // Toggle menu
-                    state.show_menu = !state.show_menu;
-                    if state.show_menu {
-                        state.menu_selection = Some(0);
-                    }
-                    true
-                }
-                _ => true,
-            }
-        }
-
-        OpticalEvent::Voice { command, .. } => {
-            handle_voice_command(&command, state)
-        }
-
-        OpticalEvent::HeadGesture(gesture) => {
+        OpticalEvent::Key(key) => handle_key(key, state),
+        OpticalEvent::GazeMove { screen_pos, .. } => { state.gaze_pos = screen_pos; true }
+        OpticalEvent::GazeDwell { target_id, .. } => { if target_id.starts_with("person-") { state.select_person(&target_id); } true }
+        OpticalEvent::Gesture(g) => match g.gesture {
+            GestureType::AirTap { .. } => handle_select(state),
+            GestureType::Swipe { direction, .. } => handle_swipe(direction, state),
+            GestureType::Pinch { strength } if strength > 0.8 => { if let Some(id) = state.first_active_notification_id() { state.dismiss_notification(&id); state.status_message = Some("Dismissed".to_string()); } true }
+            GestureType::Fist => { state.toggle_private(); true }
+            GestureType::OpenPalm => { state.show_menu = false; state.show_research = false; state.show_calendar = false; true }
+            _ => true,
+        },
+        OpticalEvent::Voice { command, .. } => handle_voice(&command, state),
+        OpticalEvent::HeadGesture(g) => {
             use spec_ai_oui::input::HeadGestureType;
-            match gesture {
-                HeadGestureType::Nod => {
-                    // Confirm action
-                    handle_select(state)
-                }
-                HeadGestureType::Shake => {
-                    // Cancel/dismiss
-                    if state.show_menu {
-                        state.show_menu = false;
-                    } else if state.show_calendar {
-                        state.show_calendar = false;
-                    }
-                    true
-                }
+            match g {
+                HeadGestureType::Nod => { if let Some(id) = state.first_active_notification_id() { state.dismiss_notification(&id); } true }
+                HeadGestureType::Shake => { state.show_menu = false; state.show_research = false; state.show_calendar = false; true }
                 _ => true,
             }
         }
-
-        OpticalEvent::HeadPose { transform } => {
-            // Update heading based on head rotation
-            let forward = transform.forward();
-            state.heading = forward.x.atan2(forward.z).to_degrees();
-            if state.heading < 0.0 {
-                state.heading += 360.0;
-            }
-            true
-        }
-
-        OpticalEvent::Tick => true,
-
-        OpticalEvent::Resize { .. } => true,
-
+        OpticalEvent::HeadPose { transform } => { let f = transform.forward(); state.heading = f.x.atan2(f.z).to_degrees(); if state.heading < 0.0 { state.heading += 360.0; } true }
         _ => true,
     }
 }
 
-/// Handle keyboard events
-fn handle_key_event(key: crossterm::event::KeyEvent, state: &mut DemoState) -> bool {
-    // Check for quit
-    if key.code == KeyCode::Char('q') && key.modifiers.contains(KeyModifiers::CONTROL) {
-        return false;
-    }
+fn handle_key(key: crossterm::event::KeyEvent, state: &mut DemoState) -> bool {
+    if key.code == KeyCode::Char('q') && key.modifiers.contains(KeyModifiers::CONTROL) { return false; }
     if key.code == KeyCode::Esc {
-        if state.show_menu {
-            state.show_menu = false;
-            return true;
-        }
-        if state.show_calendar {
-            state.show_calendar = false;
-            return true;
-        }
+        if state.show_menu || state.show_research || state.show_calendar { state.show_menu = false; state.show_research = false; state.show_calendar = false; return true; }
+        if state.recording.active { state.toggle_recording(); return true; }
         return false;
     }
-
     match key.code {
-        // Tab: cycle focus
-        KeyCode::Tab => {
-            state.focus = match state.focus {
-                PanelFocus::None => PanelFocus::Calendar,
-                PanelFocus::Calendar => PanelFocus::Notifications,
-                PanelFocus::Notifications => PanelFocus::Navigation,
-                PanelFocus::Navigation => PanelFocus::None,
-                PanelFocus::Menu => PanelFocus::None,
-            };
-        }
-
-        // Enter: select/confirm
-        KeyCode::Enter => {
-            return handle_select(state);
-        }
-
-        // M: toggle menu
-        KeyCode::Char('m') | KeyCode::Char('M') => {
-            state.show_menu = !state.show_menu;
-            if state.show_menu {
-                state.focus = PanelFocus::Menu;
-                state.menu_selection = Some(0);
-            } else {
-                state.focus = PanelFocus::None;
-            }
-        }
-
-        // C: toggle calendar
-        KeyCode::Char('c') | KeyCode::Char('C') => {
-            state.toggle_calendar();
-        }
-
-        // N: mark notification read / cycle notifications
-        KeyCode::Char('n') | KeyCode::Char('N') => {
-            if let Some(notif) = state.notifications.iter().find(|n| !n.read) {
-                let id = notif.id.clone();
-                state.mark_read(&id);
-            }
-        }
-
-        // 1-4: quick actions
-        KeyCode::Char('1') => state.trigger_action(0),
-        KeyCode::Char('2') => state.trigger_action(1),
-        KeyCode::Char('3') => state.trigger_action(2),
-        KeyCode::Char('4') => state.trigger_action(3),
-
-        // P: select next POI
-        KeyCode::Char('p') | KeyCode::Char('P') => {
-            let current = state.points_of_interest.iter().position(|p| p.selected);
-            let next = match current {
-                Some(i) => (i + 1) % state.points_of_interest.len(),
-                None => 0,
-            };
-            if let Some(poi) = state.points_of_interest.get(next) {
-                let id = poi.id.clone();
-                state.select_poi(&id);
-            }
-        }
-
-        // +/-: adjust density
-        KeyCode::Char('+') | KeyCode::Char('=') => {
-            state.density = match state.density {
-                spec_ai_oui::InformationDensity::Minimal => spec_ai_oui::InformationDensity::Low,
-                spec_ai_oui::InformationDensity::Low => spec_ai_oui::InformationDensity::Normal,
-                spec_ai_oui::InformationDensity::Normal => spec_ai_oui::InformationDensity::High,
-                spec_ai_oui::InformationDensity::High => spec_ai_oui::InformationDensity::Maximum,
-                spec_ai_oui::InformationDensity::Maximum => spec_ai_oui::InformationDensity::Maximum,
-            };
-        }
-        KeyCode::Char('-') => {
-            state.density = match state.density {
-                spec_ai_oui::InformationDensity::Minimal => spec_ai_oui::InformationDensity::Minimal,
-                spec_ai_oui::InformationDensity::Low => spec_ai_oui::InformationDensity::Minimal,
-                spec_ai_oui::InformationDensity::Normal => spec_ai_oui::InformationDensity::Low,
-                spec_ai_oui::InformationDensity::High => spec_ai_oui::InformationDensity::Normal,
-                spec_ai_oui::InformationDensity::Maximum => spec_ai_oui::InformationDensity::High,
-            };
-        }
-
-        // F: toggle focus mode
-        KeyCode::Char('f') | KeyCode::Char('F') => {
-            state.mode = if state.mode == spec_ai_oui::DisplayMode::Focus {
-                spec_ai_oui::DisplayMode::Navigate
-            } else {
-                spec_ai_oui::DisplayMode::Focus
-            };
-        }
-
+        KeyCode::Tab => { state.focus = match state.focus { PanelFocus::None => PanelFocus::Person, PanelFocus::Person => PanelFocus::Cues, PanelFocus::Cues => PanelFocus::Facts, PanelFocus::Facts => PanelFocus::Calendar, PanelFocus::Calendar => PanelFocus::Notifications, _ => PanelFocus::None }; }
+        KeyCode::Enter => { return handle_select(state); }
+        KeyCode::Char('s') | KeyCode::Char('S') => { let cur = state.people.iter().position(|p| p.selected); let next = cur.map(|i| (i + 1) % state.people.len()).unwrap_or(0); if let Some(p) = state.people.get(next) { let id = p.id.clone(); state.select_person(&id); } }
+        KeyCode::Char('d') | KeyCode::Char('D') => { if let Some(id) = state.first_active_notification_id() { state.dismiss_notification(&id); state.status_message = Some("Dismissed".to_string()); } }
+        KeyCode::Char('r') | KeyCode::Char('R') => { state.toggle_recording(); }
+        KeyCode::Char('f') | KeyCode::Char('F') => { state.status_message = Some("Photo captured".to_string()); }
+        KeyCode::Char('n') | KeyCode::Char('N') => { state.status_message = Some("Note saved".to_string()); }
+        KeyCode::Char('v') | KeyCode::Char('V') => { state.status_message = Some("Fact-check queued".to_string()); }
+        KeyCode::Char('p') | KeyCode::Char('P') => { state.toggle_private(); }
+        KeyCode::Char('c') | KeyCode::Char('C') => { state.show_calendar = !state.show_calendar; }
+        KeyCode::Char('i') | KeyCode::Char('I') => { state.show_research = !state.show_research; }
+        KeyCode::Char('m') | KeyCode::Char('M') => { state.show_menu = !state.show_menu; if state.show_menu { state.menu_selection = Some(0); } }
+        KeyCode::Char(' ') => { state.cycle_mode(); state.status_message = Some(format!("{} mode", state.mode.name())); }
+        KeyCode::Char('+') | KeyCode::Char('=') => { state.density = match state.density { spec_ai_oui::InformationDensity::Minimal => spec_ai_oui::InformationDensity::Low, spec_ai_oui::InformationDensity::Low => spec_ai_oui::InformationDensity::Normal, spec_ai_oui::InformationDensity::Normal => spec_ai_oui::InformationDensity::High, _ => spec_ai_oui::InformationDensity::Maximum }; }
+        KeyCode::Char('-') => { state.density = match state.density { spec_ai_oui::InformationDensity::Maximum => spec_ai_oui::InformationDensity::High, spec_ai_oui::InformationDensity::High => spec_ai_oui::InformationDensity::Normal, spec_ai_oui::InformationDensity::Normal => spec_ai_oui::InformationDensity::Low, _ => spec_ai_oui::InformationDensity::Minimal }; }
+        KeyCode::Up if state.show_menu => { state.menu_selection = Some(state.menu_selection.map(|s| if s == 0 { 5 } else { s - 1 }).unwrap_or(0)); }
+        KeyCode::Down if state.show_menu => { state.menu_selection = Some(state.menu_selection.map(|s| (s + 1) % 6).unwrap_or(0)); }
         _ => {}
     }
-
     true
 }
 
-/// Handle select/confirm action
 fn handle_select(state: &mut DemoState) -> bool {
-    // Calendar overlay - dismiss
-    if state.show_calendar {
-        state.show_calendar = false;
-        return true;
-    }
-
-    // Menu selection
+    if state.show_calendar { state.show_calendar = false; return true; }
+    if state.show_research { state.show_research = false; return true; }
     if state.show_menu {
-        if let Some(selection) = state.menu_selection {
-            match selection {
-                0 => {
-                    state.status_message = Some("Calendar opened".to_string());
-                    state.show_calendar = true;
-                }
-                1 => {
-                    state.status_message = Some("Messages opened".to_string());
-                }
-                2 => {
-                    state.status_message = Some("Navigation started".to_string());
-                }
-                3 => {
-                    state.status_message = Some("Settings opened".to_string());
-                }
-                _ => {}
-            }
+        if let Some(sel) = state.menu_selection {
+            match sel { 0 => state.show_research = true, 1 => state.show_calendar = true, 2 => state.toggle_recording(), 3 => state.toggle_private(), 4 => state.status_message = Some("People nearby".to_string()), 5 => state.status_message = Some("Settings".to_string()), _ => {} }
             state.show_menu = false;
         }
         return true;
     }
-
-    // If a POI is selected, navigate to it
-    if let Some(poi) = state.points_of_interest.iter().find(|p| p.selected) {
-        state.status_message = Some(format!("Navigating to {}", poi.name));
-    }
-
+    if let Some(p) = state.selected_person() { state.status_message = Some(format!("{}: {}", p.name, p.emotional_state.label())); }
     true
 }
 
-/// Handle swipe gestures
-fn handle_swipe(direction: SwipeDirection, state: &mut DemoState) -> bool {
-    if state.show_menu {
-        // Navigate menu
-        let menu_items = 4;
-        match direction {
-            SwipeDirection::Up => {
-                state.menu_selection = Some(
-                    state.menu_selection.map(|s| if s == 0 { menu_items - 1 } else { s - 1 }).unwrap_or(0)
-                );
-            }
-            SwipeDirection::Down => {
-                state.menu_selection = Some(
-                    state.menu_selection.map(|s| (s + 1) % menu_items).unwrap_or(0)
-                );
-            }
-            SwipeDirection::Left => {
-                state.show_menu = false;
-            }
-            SwipeDirection::Right => {
-                return handle_select(state);
-            }
-        }
-    } else {
-        // Navigation / look around
-        match direction {
-            SwipeDirection::Left => {
-                state.heading = (state.heading - 15.0 + 360.0) % 360.0;
-            }
-            SwipeDirection::Right => {
-                state.heading = (state.heading + 15.0) % 360.0;
-            }
-            SwipeDirection::Up => {
-                // Dismiss notification
-                if let Some(notif) = state.notifications.iter().find(|n| !n.read) {
-                    let id = notif.id.clone();
-                    state.mark_read(&id);
-                }
-            }
-            SwipeDirection::Down => {
-                // Show quick glance
-                state.status_message = Some(format!("{} unread", state.unread_count()));
-            }
-        }
-    }
-
+fn handle_swipe(dir: SwipeDirection, state: &mut DemoState) -> bool {
+    if state.show_menu { match dir { SwipeDirection::Up => { state.menu_selection = Some(state.menu_selection.map(|s| if s == 0 { 5 } else { s - 1 }).unwrap_or(0)); } SwipeDirection::Down => { state.menu_selection = Some(state.menu_selection.map(|s| (s + 1) % 6).unwrap_or(0)); } SwipeDirection::Left => state.show_menu = false, SwipeDirection::Right => return handle_select(state), } }
+    else { match dir {
+        SwipeDirection::Left | SwipeDirection::Right => { let cur = state.people.iter().position(|p| p.selected); let next = match (cur, dir) { (Some(i), SwipeDirection::Right) => (i + 1) % state.people.len(), (Some(i), SwipeDirection::Left) => if i == 0 { state.people.len() - 1 } else { i - 1 }, _ => 0 }; if let Some(p) = state.people.get(next) { let id = p.id.clone(); state.select_person(&id); } }
+        SwipeDirection::Up => { if let Some(id) = state.first_active_notification_id() { state.dismiss_notification(&id); } }
+        SwipeDirection::Down => { state.status_message = Some(format!("{} notifications", state.active_notification_count())); }
+    } }
     true
 }
 
-/// Handle voice commands
-fn handle_voice_command(command: &str, state: &mut DemoState) -> bool {
-    let cmd = command.to_lowercase();
-
-    if cmd.contains("select") || cmd.contains("confirm") || cmd.contains("ok") {
-        return handle_select(state);
-    }
-    if cmd.contains("menu") {
-        state.show_menu = !state.show_menu;
-        return true;
-    }
-    if cmd.contains("back") || cmd.contains("cancel") || cmd.contains("dismiss") {
-        if state.show_menu {
-            state.show_menu = false;
-        } else if state.show_calendar {
-            state.show_calendar = false;
-        }
-        return true;
-    }
-    if cmd.contains("calendar") || cmd.contains("schedule") {
-        state.toggle_calendar();
-        return true;
-    }
-    if cmd.contains("navigate") || cmd.contains("directions") {
-        state.status_message = Some("Navigation mode".to_string());
-        return true;
-    }
-    if cmd.contains("call") {
-        state.trigger_action(0);
-        return true;
-    }
-    if cmd.contains("message") || cmd.contains("text") {
-        state.trigger_action(1);
-        return true;
-    }
-    if cmd.contains("focus") || cmd.contains("do not disturb") {
-        state.mode = spec_ai_oui::DisplayMode::Focus;
-        state.status_message = Some("Focus mode enabled".to_string());
-        return true;
-    }
-    if cmd.contains("read") && cmd.contains("notification") {
-        if let Some(notif) = state.notifications.iter().find(|n| !n.read) {
-            state.status_message = Some(format!("{}: {}", notif.title, notif.preview));
-        }
-        return true;
-    }
-
-    state.status_message = Some(format!("\"{}\"", command));
-    true
+fn handle_voice(cmd: &str, state: &mut DemoState) -> bool {
+    let c = cmd.to_lowercase();
+    if c.contains("record") { state.toggle_recording(); return true; }
+    if c.contains("stop") && state.recording.active { state.toggle_recording(); return true; }
+    if c.contains("private") { state.toggle_private(); return true; }
+    if c.contains("dismiss") { if let Some(id) = state.first_active_notification_id() { state.dismiss_notification(&id); } return true; }
+    if c.contains("note") { state.status_message = Some("Note saved".to_string()); return true; }
+    if c.contains("verify") || c.contains("fact") { state.status_message = Some("Fact-check queued".to_string()); return true; }
+    if c.contains("calendar") || c.contains("schedule") { state.show_calendar = !state.show_calendar; return true; }
+    if c.contains("research") || c.contains("docs") { state.show_research = !state.show_research; return true; }
+    if c.contains("who") { if let Some(p) = state.selected_person() { state.status_message = Some(format!("{}, {}", p.name, p.relationship.label())); } return true; }
+    state.status_message = Some(format!("\"{}\"", cmd)); true
 }

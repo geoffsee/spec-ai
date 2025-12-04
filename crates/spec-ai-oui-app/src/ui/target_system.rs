@@ -1,145 +1,70 @@
-//! Contextual information and point-of-interest display
-//!
-//! Ergonomic design principles:
-//! - Information appears in natural peripheral zones
-//! - Selected items get focus, others fade to reduce distraction
-//! - Gaze indicator is subtle to avoid attention competition
-//! - Distance/direction info uses natural eye movement patterns
+//! Conversation cues, fact-checks, context alerts
 
 use spec_ai_oui::renderer::{RenderBackend, Color};
-use crate::state::DemoState;
+use crate::state::{DemoState, CueType};
 
-/// Render contextual information panel (right side - peripheral zone)
-pub fn render_contextual_info(state: &DemoState, backend: &mut dyn RenderBackend) {
-    let x = 0.75;
-    let y = 0.15;
-
-    // Show selected POI details
-    if let Some(poi) = state.points_of_interest.iter().find(|p| p.selected) {
-        // POI name with category indicator
-        let header = format!("{} {}", poi.category.icon(), poi.name);
-        backend.draw_hud_text(x, y, &header, poi.category.color());
-
-        // Distance - formatted naturally
-        let dist_text = if poi.distance_meters >= 1000.0 {
-            format!("{:.1} km away", poi.distance_meters / 1000.0)
-        } else {
-            format!("{:.0} m away", poi.distance_meters)
-        };
-        backend.draw_hud_text(x, y + 0.025, &dist_text, Color::Grey);
-
-        // Details (at higher density)
-        if state.density >= spec_ai_oui::InformationDensity::Normal {
-            for (i, detail) in poi.details.iter().take(2).enumerate() {
-                let dy = y + 0.05 + (i as f32 * 0.025);
-                backend.draw_hud_text(x, dy, detail, Color::DarkGrey);
+pub fn render_cues(state: &DemoState, backend: &mut dyn RenderBackend) {
+    if state.selected_person().is_none() || state.density < spec_ai_oui::InformationDensity::Low { return; }
+    let x = 0.01; let y = 0.05;
+    backend.draw_hud_text(x, y, "Cues", Color::Grey);
+    for (i, cue) in state.cues.iter().take(5).enumerate() {
+        let cy = y + 0.035 + (i as f32 * 0.05);
+        backend.draw_hud_text(x, cy, &cue.cue_type.icon().to_string(), cue.cue_type.color());
+        let col = if cue.cue_type == CueType::Avoid { Color::Rgb(120, 80, 80) } else { Color::White };
+        let content = if cue.content.len() > 30 { format!("{}...", &cue.content[..27]) } else { cue.content.clone() };
+        backend.draw_hud_text(x + 0.02, cy, &content, col);
+    }
+    // Hooks
+    if let Some(p) = state.selected_person() {
+        if !p.hooks.is_empty() && state.density >= spec_ai_oui::InformationDensity::Normal {
+            let hy = y + 0.30;
+            backend.draw_hud_text(x, hy, "Hooks:", Color::STATUS_GREEN);
+            for (i, hook) in p.hooks.iter().take(2).enumerate() {
+                backend.draw_hud_text(x, hy + 0.025 + (i as f32 * 0.025), &format!("→ {}", if hook.len() > 30 { &hook[..27] } else { hook }), Color::DarkGrey);
             }
         }
-
-        // Action hint
-        backend.draw_hud_text(x, y + 0.12, "↵ Navigate", Color::Rgb(60, 70, 80));
-    } else {
-        // No selection - show hint
-        backend.draw_hud_text(x, y, "No selection", Color::DarkGrey);
-        backend.draw_hud_text(x, y + 0.025, "P to select nearby", Color::Rgb(50, 55, 60));
     }
 }
 
-/// Render notifications panel (left peripheral zone)
-pub fn render_notifications(state: &DemoState, backend: &mut dyn RenderBackend) {
-    // Only show at Normal density or higher
-    if state.density < spec_ai_oui::InformationDensity::Normal {
-        return;
-    }
-
-    let x = 0.01;
-    let base_y = 0.75;
-
-    // Show unread count if any
-    let unread = state.unread_count();
-    if unread == 0 {
-        return;
-    }
-
-    // Notification header
-    let header = if unread == 1 {
-        "1 notification".to_string()
-    } else {
-        format!("{} notifications", unread)
-    };
-    backend.draw_hud_text(x, base_y, &header, Color::Grey);
-
-    // Show most recent unread notification
-    if let Some(notif) = state.notifications.iter().find(|n| !n.read) {
-        let y = base_y + 0.025;
-
-        // Priority indicator + source
-        let indicator = notif.priority.icon();
-        let source_text = format!("{} {}", indicator, notif.source);
-        backend.draw_hud_text(x, y, &source_text, notif.priority.color());
-
-        // Title
-        backend.draw_hud_text(x, y + 0.025, &notif.title, Color::White);
-
-        // Preview (truncated for ergonomics)
-        let preview = if notif.preview.len() > 30 {
-            format!("{}...", &notif.preview[..27])
-        } else {
-            notif.preview.clone()
-        };
-        backend.draw_hud_text(x, y + 0.05, &preview, Color::Grey);
-
-        // Action hint
-        backend.draw_hud_text(x, y + 0.08, "N dismiss", Color::Rgb(50, 55, 60));
+pub fn render_fact_checks(state: &DemoState, backend: &mut dyn RenderBackend) {
+    if state.fact_checks.is_empty() || state.density < spec_ai_oui::InformationDensity::Normal { return; }
+    let x = 0.01; let y = 0.42;
+    backend.draw_hud_text(x, y, "Fact Check", Color::Grey);
+    for (i, fc) in state.fact_checks.iter().take(2).enumerate() {
+        let fy = y + 0.03 + (i as f32 * 0.08);
+        backend.draw_hud_text(x, fy, &format!("{} {}", fc.verdict.icon(), fc.verdict.label()), fc.verdict.color());
+        let claim = if fc.claim.len() > 35 { format!("\"{}...\"", &fc.claim[..32]) } else { format!("\"{}\"", fc.claim) };
+        backend.draw_hud_text(x, fy + 0.025, &claim, Color::White);
+        backend.draw_hud_text(x + 0.30, fy, &fc.timestamp, Color::Rgb(60, 65, 70));
     }
 }
 
-/// Render center reticle - minimal, ergonomic design
+pub fn render_context_alert(state: &DemoState, backend: &mut dyn RenderBackend) {
+    if let Some(alert) = state.context_alert() {
+        let cx = 0.22; let y = 0.46;
+        backend.draw_hud_rect(cx - 0.01, y - 0.01, 0.56, 0.07, Color::Rgb(20, 30, 25));
+        backend.draw_hud_text(cx, y, "◆", Color::STATUS_GREEN);
+        backend.draw_hud_text(cx + 0.02, y, &alert.title, Color::STATUS_GREEN);
+        backend.draw_hud_text(cx + 0.02, y + 0.025, &alert.preview, Color::White);
+        backend.draw_hud_text(cx + 0.40, y + 0.04, "D dismiss", Color::Rgb(50, 55, 60));
+    }
+}
+
 pub fn render_reticle(state: &DemoState, backend: &mut dyn RenderBackend) {
-    let cx = 0.5;
-    let cy = 0.5;
-
-    // In Focus mode, no reticle (reduce visual noise)
-    if state.mode == spec_ai_oui::DisplayMode::Focus {
-        return;
-    }
-
-    // Very subtle center indicator - just a small dot
-    // Only visible enough to confirm gaze tracking is working
-    let selected = state.points_of_interest.iter().any(|p| p.selected);
-
-    if selected {
-        // Slightly more visible when something is selected
-        backend.draw_hud_text(cx, cy, "·", Color::HUD_CYAN);
-    } else {
-        // Nearly invisible - just a hint
-        backend.draw_hud_text(cx, cy, "·", Color::Rgb(40, 45, 50));
-    }
-
-    // Gaze position indicator (when gaze is away from center)
+    let cx = 0.5; let cy = 0.5;
+    if state.system.private_mode { backend.draw_hud_text(cx, cy, "◈", Color::Rgb(128, 0, 128)); return; }
+    if state.recording.active { backend.draw_hud_text(cx, cy, "●", Color::ALERT_RED); return; }
+    let col = if state.selected_person().is_some() { Color::HUD_CYAN } else { Color::Rgb(40, 45, 50) };
+    backend.draw_hud_text(cx, cy, "·", col);
     let (gx, gy) = state.gaze_pos;
-    let distance = ((gx - cx).powi(2) + (gy - cy).powi(2)).sqrt();
-
-    // Only show gaze indicator if significantly off-center
-    if distance > 0.1 {
-        // Very subtle - just confirms where system thinks you're looking
-        backend.draw_hud_text(gx, gy, "○", Color::Rgb(35, 40, 45));
-    }
+    if ((gx - cx).powi(2) + (gy - cy).powi(2)).sqrt() > 0.1 { backend.draw_hud_text(gx, gy, "○", Color::Rgb(35, 40, 45)); }
 }
 
-/// Render status toast message (center-bottom, temporary)
-pub fn render_status_toast(state: &DemoState, backend: &mut dyn RenderBackend) {
+pub fn render_toast(state: &DemoState, backend: &mut dyn RenderBackend) {
     if let Some(msg) = &state.status_message {
-        let cx = 0.5;
-        let y = 0.92;
-
-        // Center the message approximately
+        let cx = 0.5; let y = 0.92;
         let offset = (msg.len() as f32 * 0.005).min(0.15);
-
-        // Subtle background
         backend.draw_hud_rect(cx - offset - 0.02, y - 0.01, offset * 2.0 + 0.04, 0.04, Color::Rgb(25, 30, 35));
-
-        // Message text
         backend.draw_hud_text(cx - offset, y, msg, Color::White);
     }
 }

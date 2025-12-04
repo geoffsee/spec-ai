@@ -1,11 +1,26 @@
-//! spec-ai-oui-app: Demo application for optical user interface
+//! spec-ai-oui-app: Super OUI - Combined Intelligence Assistant
 //!
-//! Practical AI assistant for smart eyewear featuring:
-//! - Calendar and meeting reminders
-//! - Notification management
-//! - Points of interest and navigation
-//! - Context-aware information display
-//! - Ergonomic design based on clinical optometry principles
+//! Features combined from three domains:
+//!
+//! Social Intelligence:
+//! - Person recognition with relationship context
+//! - Emotional state detection and engagement tracking
+//! - Rapport indicators (eye contact, mirroring, turn-taking)
+//! - Conversation cues and topic suggestions
+//!
+//! Journalist Superpowers:
+//! - Real-time fact-checking with verdict display
+//! - Source reliability tracking
+//! - Recording and capture modes
+//! - Research documents with relevance scoring
+//!
+//! Practical Assistant:
+//! - Calendar integration with countdown
+//! - Smart notification triage
+//! - Context-aware alerts
+//! - Private mode for sensitive situations
+//!
+//! 8 Display Modes: Ambient, Social, Meeting, Research, Recording, Navigation, Private, Focus
 
 mod state;
 mod handlers;
@@ -24,7 +39,7 @@ use state::DemoState;
 use handlers::handle_event;
 use ui::render_demo;
 
-/// The demo application
+/// The social intelligence demo application
 pub struct OuiDemo;
 
 impl OpticalApp for OuiDemo {

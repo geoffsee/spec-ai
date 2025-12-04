@@ -5950,6 +5950,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "spec-ai-oui"
+version = "0.6.0-prerelease.2"
+dependencies = [
+ "crossterm 0.28.1",
+ "futures",
+ "tempfile",
+ "tokio",
+ "unicode-width 0.2.2",
+]
+
+[[package]]
+name = "spec-ai-oui-app"
+version = "0.6.0-prerelease.2"
+dependencies = [
+ "anyhow",
+ "crossterm 0.28.1",
+ "spec-ai-oui",
+ "tokio",
+]
+
+[[package]]
 name = "spec-ai-plugin"
 version = "0.6.0-prerelease.2"
 dependencies = [

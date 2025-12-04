@@ -370,6 +370,7 @@ impl Onboarding {
 }
 
 /// Demo application state
+#[derive(Clone)]
 pub struct DemoState {
     /// Editor field state
     pub editor: EditorState,

@@ -1,10 +1,11 @@
 //! spec-ai-oui-app: Demo application for optical user interface
 //!
-//! Showcases the Agent 007 style optical interface with:
-//! - Mission briefing panels
-//! - Tactical HUD
-//! - Target acquisition system
-//! - Simulated spatial input
+//! Practical AI assistant for smart eyewear featuring:
+//! - Calendar and meeting reminders
+//! - Notification management
+//! - Points of interest and navigation
+//! - Context-aware information display
+//! - Ergonomic design based on clinical optometry principles
 
 mod state;
 mod handlers;

@@ -37,7 +37,7 @@ pub struct DisplayContext {
 impl Default for DisplayContext {
     fn default() -> Self {
         Self {
-            mode: DisplayMode::Exploration,
+            mode: DisplayMode::Navigate,
             attention: AttentionState::default(),
             density: InformationDensity::Normal,
             time: Duration::ZERO,

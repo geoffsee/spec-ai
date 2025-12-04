@@ -1,4 +1,4 @@
-//! Event handlers for the OUI demo
+//! Event handlers for the OUI demo - practical assistant
 
 use crossterm::event::{KeyCode, KeyModifiers};
 
@@ -7,7 +7,7 @@ use spec_ai_oui::{
     input::{GestureType, SwipeDirection},
 };
 
-use crate::state::{DemoState, PanelFocus, MissionStatus};
+use crate::state::{DemoState, PanelFocus};
 
 /// Handle an optical event
 pub fn handle_event(event: OpticalEvent, state: &mut DemoState) -> bool {
@@ -22,9 +22,9 @@ pub fn handle_event(event: OpticalEvent, state: &mut DemoState) -> bool {
         }
 
         OpticalEvent::GazeDwell { target_id, .. } => {
-            // Dwell on a target to start locking
-            if target_id.starts_with("target-") || target_id.starts_with("hostile-") {
-                state.lock_target(&target_id);
+            // Dwell on a POI to select it
+            if target_id.starts_with("nav-") || target_id.starts_with("person-") || target_id.starts_with("place-") {
+                state.select_poi(&target_id);
             }
             true
         }
@@ -41,7 +41,7 @@ pub fn handle_event(event: OpticalEvent, state: &mut DemoState) -> bool {
                     handle_select(state)
                 }
                 GestureType::OpenPalm => {
-                    // Close menu
+                    // Close menu or dismiss notification
                     if state.show_menu {
                         state.show_menu = false;
                     }
@@ -71,11 +71,11 @@ pub fn handle_event(event: OpticalEvent, state: &mut DemoState) -> bool {
                     handle_select(state)
                 }
                 HeadGestureType::Shake => {
-                    // Cancel/back
+                    // Cancel/dismiss
                     if state.show_menu {
                         state.show_menu = false;
-                    } else if state.show_briefing {
-                        // Do nothing - can't cancel briefing with shake
+                    } else if state.show_calendar {
+                        state.show_calendar = false;
                     }
                     true
                 }
@@ -112,8 +112,9 @@ fn handle_key_event(key: crossterm::event::KeyEvent, state: &mut DemoState) -> b
             state.show_menu = false;
             return true;
         }
-        if state.show_briefing && state.mission.status == MissionStatus::Briefing {
-            return true; // Can't dismiss briefing with Esc during briefing
+        if state.show_calendar {
+            state.show_calendar = false;
+            return true;
         }
         return false;
     }
@@ -122,10 +123,10 @@ fn handle_key_event(key: crossterm::event::KeyEvent, state: &mut DemoState) -> b
         // Tab: cycle focus
         KeyCode::Tab => {
             state.focus = match state.focus {
-                PanelFocus::None => PanelFocus::Mission,
-                PanelFocus::Mission => PanelFocus::Status,
-                PanelFocus::Status => PanelFocus::Targets,
-                PanelFocus::Targets => PanelFocus::None,
+                PanelFocus::None => PanelFocus::Calendar,
+                PanelFocus::Calendar => PanelFocus::Notifications,
+                PanelFocus::Notifications => PanelFocus::Navigation,
+                PanelFocus::Navigation => PanelFocus::None,
                 PanelFocus::Menu => PanelFocus::None,
             };
         }
@@ -146,28 +147,35 @@ fn handle_key_event(key: crossterm::event::KeyEvent, state: &mut DemoState) -> b
             }
         }
 
-        // B: toggle briefing
-        KeyCode::Char('b') | KeyCode::Char('B') => {
-            if state.mission.status != MissionStatus::Briefing {
-                state.show_briefing = !state.show_briefing;
+        // C: toggle calendar
+        KeyCode::Char('c') | KeyCode::Char('C') => {
+            state.toggle_calendar();
+        }
+
+        // N: mark notification read / cycle notifications
+        KeyCode::Char('n') | KeyCode::Char('N') => {
+            if let Some(notif) = state.notifications.iter().find(|n| !n.read) {
+                let id = notif.id.clone();
+                state.mark_read(&id);
             }
         }
 
-        // 1-3: gadgets
-        KeyCode::Char('1') => state.use_gadget(0),
-        KeyCode::Char('2') => state.use_gadget(1),
-        KeyCode::Char('3') => state.use_gadget(2),
+        // 1-4: quick actions
+        KeyCode::Char('1') => state.trigger_action(0),
+        KeyCode::Char('2') => state.trigger_action(1),
+        KeyCode::Char('3') => state.trigger_action(2),
+        KeyCode::Char('4') => state.trigger_action(3),
 
-        // T: lock next target
-        KeyCode::Char('t') | KeyCode::Char('T') => {
-            let current_locked = state.mission.targets.iter().position(|t| t.locked);
-            let next = match current_locked {
-                Some(i) => (i + 1) % state.mission.targets.len(),
+        // P: select next POI
+        KeyCode::Char('p') | KeyCode::Char('P') => {
+            let current = state.points_of_interest.iter().position(|p| p.selected);
+            let next = match current {
+                Some(i) => (i + 1) % state.points_of_interest.len(),
                 None => 0,
             };
-            if let Some(target) = state.mission.targets.get(next) {
-                let id = target.id.clone();
-                state.lock_target(&id);
+            if let Some(poi) = state.points_of_interest.get(next) {
+                let id = poi.id.clone();
+                state.select_poi(&id);
             }
         }
 
@@ -191,6 +199,15 @@ fn handle_key_event(key: crossterm::event::KeyEvent, state: &mut DemoState) -> b
             };
         }
 
+        // F: toggle focus mode
+        KeyCode::Char('f') | KeyCode::Char('F') => {
+            state.mode = if state.mode == spec_ai_oui::DisplayMode::Focus {
+                spec_ai_oui::DisplayMode::Navigate
+            } else {
+                spec_ai_oui::DisplayMode::Focus
+            };
+        }
+
         _ => {}
     }
 
@@ -199,33 +216,39 @@ fn handle_key_event(key: crossterm::event::KeyEvent, state: &mut DemoState) -> b
 
 /// Handle select/confirm action
 fn handle_select(state: &mut DemoState) -> bool {
-    // In briefing mode, start mission
-    if state.show_briefing && state.mission.status == MissionStatus::Briefing {
-        state.start_mission();
+    // Calendar overlay - dismiss
+    if state.show_calendar {
+        state.show_calendar = false;
         return true;
     }
 
-    // In menu mode, select item
+    // Menu selection
     if state.show_menu {
         if let Some(selection) = state.menu_selection {
             match selection {
                 0 => {
-                    state.status_message = Some("Map view".to_string());
+                    state.status_message = Some("Calendar opened".to_string());
+                    state.show_calendar = true;
                 }
                 1 => {
-                    state.status_message = Some("Comms".to_string());
+                    state.status_message = Some("Messages opened".to_string());
                 }
                 2 => {
-                    state.status_message = Some("Inventory".to_string());
+                    state.status_message = Some("Navigation started".to_string());
                 }
                 3 => {
-                    state.status_message = Some("Settings".to_string());
+                    state.status_message = Some("Settings opened".to_string());
                 }
                 _ => {}
             }
             state.show_menu = false;
         }
         return true;
+    }
+
+    // If a POI is selected, navigate to it
+    if let Some(poi) = state.points_of_interest.iter().find(|p| p.selected) {
+        state.status_message = Some(format!("Navigating to {}", poi.name));
     }
 
     true
@@ -255,7 +278,7 @@ fn handle_swipe(direction: SwipeDirection, state: &mut DemoState) -> bool {
             }
         }
     } else {
-        // Navigation
+        // Navigation / look around
         match direction {
             SwipeDirection::Left => {
                 state.heading = (state.heading - 15.0 + 360.0) % 360.0;
@@ -263,7 +286,17 @@ fn handle_swipe(direction: SwipeDirection, state: &mut DemoState) -> bool {
             SwipeDirection::Right => {
                 state.heading = (state.heading + 15.0) % 360.0;
             }
-            _ => {}
+            SwipeDirection::Up => {
+                // Dismiss notification
+                if let Some(notif) = state.notifications.iter().find(|n| !n.read) {
+                    let id = notif.id.clone();
+                    state.mark_read(&id);
+                }
+            }
+            SwipeDirection::Down => {
+                // Show quick glance
+                state.status_message = Some(format!("{} unread", state.unread_count()));
+            }
         }
     }
 
@@ -274,37 +307,49 @@ fn handle_swipe(direction: SwipeDirection, state: &mut DemoState) -> bool {
 fn handle_voice_command(command: &str, state: &mut DemoState) -> bool {
     let cmd = command.to_lowercase();
 
-    if cmd.contains("select") || cmd.contains("confirm") {
+    if cmd.contains("select") || cmd.contains("confirm") || cmd.contains("ok") {
         return handle_select(state);
     }
     if cmd.contains("menu") {
         state.show_menu = !state.show_menu;
         return true;
     }
-    if cmd.contains("back") || cmd.contains("cancel") {
+    if cmd.contains("back") || cmd.contains("cancel") || cmd.contains("dismiss") {
         if state.show_menu {
             state.show_menu = false;
+        } else if state.show_calendar {
+            state.show_calendar = false;
         }
         return true;
     }
-    if cmd.contains("target") {
-        // Lock next target
-        let current = state.mission.targets.iter().position(|t| t.locked);
-        let next = match current {
-            Some(i) => (i + 1) % state.mission.targets.len(),
-            None => 0,
-        };
-        if let Some(target) = state.mission.targets.get(next) {
-            let id = target.id.clone();
-            state.lock_target(&id);
-        }
+    if cmd.contains("calendar") || cmd.contains("schedule") {
+        state.toggle_calendar();
         return true;
     }
-    if cmd.contains("gadget") || cmd.contains("emp") {
-        state.use_gadget(0);
+    if cmd.contains("navigate") || cmd.contains("directions") {
+        state.status_message = Some("Navigation mode".to_string());
+        return true;
+    }
+    if cmd.contains("call") {
+        state.trigger_action(0);
+        return true;
+    }
+    if cmd.contains("message") || cmd.contains("text") {
+        state.trigger_action(1);
+        return true;
+    }
+    if cmd.contains("focus") || cmd.contains("do not disturb") {
+        state.mode = spec_ai_oui::DisplayMode::Focus;
+        state.status_message = Some("Focus mode enabled".to_string());
+        return true;
+    }
+    if cmd.contains("read") && cmd.contains("notification") {
+        if let Some(notif) = state.notifications.iter().find(|n| !n.read) {
+            state.status_message = Some(format!("{}: {}", notif.title, notif.preview));
+        }
         return true;
     }
 
-    state.status_message = Some(format!("Command: {}", command));
+    state.status_message = Some(format!("\"{}\"", command));
     true
 }

@@ -191,3 +191,269 @@ fn status_message_for_command(command: &Command) -> String {
         Command::Refresh(_) => "Status: refreshing internal knowledge graph".to_string(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn status_message_empty_command() {
+        let status = status_message_for_command(&Command::Empty);
+        assert!(status.contains("awaiting input"));
+    }
+
+    #[test]
+    fn status_message_help_command() {
+        let status = status_message_for_command(&Command::Help);
+        assert!(status.contains("help"));
+    }
+
+    #[test]
+    fn status_message_quit_command() {
+        let status = status_message_for_command(&Command::Quit);
+        assert!(status.contains("exiting"));
+    }
+
+    #[test]
+    fn status_message_config_reload() {
+        let status = status_message_for_command(&Command::ConfigReload);
+        assert!(status.contains("reloading configuration"));
+    }
+
+    #[test]
+    fn status_message_config_show() {
+        let status = status_message_for_command(&Command::ConfigShow);
+        assert!(status.contains("displaying configuration"));
+    }
+
+    #[test]
+    fn status_message_policy_reload() {
+        let status = status_message_for_command(&Command::PolicyReload);
+        assert!(status.contains("reloading policies"));
+    }
+
+    #[test]
+    fn status_message_switch_agent() {
+        let status = status_message_for_command(&Command::SwitchAgent("test-agent".to_string()));
+        assert!(status.contains("switching"));
+        assert!(status.contains("test-agent"));
+    }
+
+    #[test]
+    fn status_message_list_agents() {
+        let status = status_message_for_command(&Command::ListAgents);
+        assert!(status.contains("listing agents"));
+    }
+
+    #[test]
+    fn status_message_memory_show_with_limit() {
+        let status = status_message_for_command(&Command::MemoryShow(Some(10)));
+        assert!(status.contains("10"));
+        assert!(status.contains("messages"));
+    }
+
+    #[test]
+    fn status_message_memory_show_no_limit() {
+        let status = status_message_for_command(&Command::MemoryShow(None));
+        assert!(status.contains("recent messages"));
+    }
+
+    #[test]
+    fn status_message_session_new_with_id() {
+        let status = status_message_for_command(&Command::SessionNew(Some("my-session".to_string())));
+        assert!(status.contains("my-session"));
+    }
+
+    #[test]
+    fn status_message_session_new_no_id() {
+        let status = status_message_for_command(&Command::SessionNew(None));
+        assert!(status.contains("new session"));
+    }
+
+    #[test]
+    fn status_message_session_list() {
+        let status = status_message_for_command(&Command::SessionList);
+        assert!(status.contains("listing sessions"));
+    }
+
+    #[test]
+    fn status_message_session_switch() {
+        let status = status_message_for_command(&Command::SessionSwitch("sess-1".to_string()));
+        assert!(status.contains("switching"));
+        assert!(status.contains("sess-1"));
+    }
+
+    #[test]
+    fn status_message_graph_enable() {
+        let status = status_message_for_command(&Command::GraphEnable);
+        assert!(status.contains("graph enable"));
+    }
+
+    #[test]
+    fn status_message_graph_disable() {
+        let status = status_message_for_command(&Command::GraphDisable);
+        assert!(status.contains("graph disable"));
+    }
+
+    #[test]
+    fn status_message_graph_status() {
+        let status = status_message_for_command(&Command::GraphStatus);
+        assert!(status.contains("graph status"));
+    }
+
+    #[test]
+    fn status_message_graph_show_with_limit() {
+        let status = status_message_for_command(&Command::GraphShow(Some(50)));
+        assert!(status.contains("inspecting graph"));
+        assert!(status.contains("50"));
+    }
+
+    #[test]
+    fn status_message_graph_show_no_limit() {
+        let status = status_message_for_command(&Command::GraphShow(None));
+        assert!(status.contains("inspecting graph"));
+    }
+
+    #[test]
+    fn status_message_graph_clear() {
+        let status = status_message_for_command(&Command::GraphClear);
+        assert!(status.contains("clearing"));
+    }
+
+    #[test]
+    fn status_message_sync_list() {
+        let status = status_message_for_command(&Command::SyncList);
+        assert!(status.contains("sync"));
+    }
+
+    #[test]
+    fn status_message_init() {
+        let status = status_message_for_command(&Command::Init(None));
+        assert!(status.contains("bootstrapping"));
+    }
+
+    #[test]
+    fn status_message_listen_start_no_duration() {
+        let status = status_message_for_command(&Command::ListenStart(None));
+        assert!(status.contains("transcription"));
+    }
+
+    #[test]
+    fn status_message_listen_start_with_duration() {
+        let status = status_message_for_command(&Command::ListenStart(Some(30)));
+        assert!(status.contains("transcription"));
+        assert!(status.contains("30"));
+    }
+
+    #[test]
+    fn status_message_listen_stop() {
+        let status = status_message_for_command(&Command::ListenStop);
+        assert!(status.contains("stopping"));
+    }
+
+    #[test]
+    fn status_message_listen_status() {
+        let status = status_message_for_command(&Command::ListenStatus);
+        assert!(status.contains("checking"));
+    }
+
+    #[test]
+    fn status_message_listen_with_scenario() {
+        let status = status_message_for_command(&Command::Listen(Some("meeting".to_string()), None));
+        assert!(status.contains("meeting"));
+    }
+
+    #[test]
+    fn status_message_listen_with_duration() {
+        let status = status_message_for_command(&Command::Listen(None, Some(60)));
+        assert!(status.contains("60"));
+    }
+
+    #[test]
+    fn status_message_run_spec() {
+        let status = status_message_for_command(&Command::RunSpec(PathBuf::from("specs/test.spec")));
+        assert!(status.contains("executing"));
+        assert!(status.contains("test.spec"));
+    }
+
+    #[test]
+    fn status_message_paste_start() {
+        let status = status_message_for_command(&Command::PasteStart);
+        assert!(status.contains("paste mode"));
+    }
+
+    #[test]
+    fn status_message_speech_toggle_enable() {
+        let status = status_message_for_command(&Command::SpeechToggle(Some(true)));
+        assert!(status.contains("enabling"));
+    }
+
+    #[test]
+    fn status_message_speech_toggle_disable() {
+        let status = status_message_for_command(&Command::SpeechToggle(Some(false)));
+        assert!(status.contains("disabling"));
+    }
+
+    #[test]
+    fn status_message_speech_toggle_none() {
+        let status = status_message_for_command(&Command::SpeechToggle(None));
+        assert!(status.contains("toggling"));
+    }
+
+    #[test]
+    fn status_message_message_command() {
+        let status = status_message_for_command(&Command::Message("hello".to_string()));
+        assert!(status.contains("agent step"));
+    }
+
+    #[test]
+    fn status_message_refresh() {
+        let status = status_message_for_command(&Command::Refresh(None));
+        assert!(status.contains("refreshing"));
+    }
+
+    #[test]
+    fn backend_event_initialized_fields() {
+        let event = BackendEvent::Initialized {
+            agent: Some("test".to_string()),
+            messages: vec![],
+            reasoning: vec!["reasoning".to_string()],
+            status: "ready".to_string(),
+        };
+        match event {
+            BackendEvent::Initialized { agent, messages, reasoning, status } => {
+                assert_eq!(agent, Some("test".to_string()));
+                assert!(messages.is_empty());
+                assert_eq!(reasoning.len(), 1);
+                assert_eq!(status, "ready");
+            }
+            _ => panic!("Wrong event type"),
+        }
+    }
+
+    #[test]
+    fn backend_event_error_fields() {
+        let event = BackendEvent::Error {
+            context: "ctx".to_string(),
+            message: "msg".to_string(),
+        };
+        match event {
+            BackendEvent::Error { context, message } => {
+                assert_eq!(context, "ctx");
+                assert_eq!(message, "msg");
+            }
+            _ => panic!("Wrong event type"),
+        }
+    }
+
+    #[test]
+    fn backend_request_submit_contains_text() {
+        let request = BackendRequest::Submit("test input".to_string());
+        match request {
+            BackendRequest::Submit(text) => {
+                assert_eq!(text, "test input");
+            }
+        }
+    }
+}

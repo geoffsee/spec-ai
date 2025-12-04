@@ -221,3 +221,265 @@ pub fn complete_slash_command(state: &mut AppState) -> bool {
         false
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_state() -> AppState {
+        let (_tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        AppState::new(rx)
+    }
+
+    fn create_backend_channel() -> UnboundedSender<BackendRequest> {
+        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+        tx
+    }
+
+    #[test]
+    fn on_tick_increments_tick_counter() {
+        let mut state = create_test_state();
+        assert_eq!(state.tick, 0);
+        on_tick(&mut state);
+        assert_eq!(state.tick, 1);
+        on_tick(&mut state);
+        assert_eq!(state.tick, 2);
+    }
+
+    #[test]
+    fn on_tick_saturates_at_max() {
+        let mut state = create_test_state();
+        state.tick = u64::MAX;
+        on_tick(&mut state);
+        assert_eq!(state.tick, u64::MAX);
+    }
+
+    #[test]
+    fn filtered_command_count_returns_all_when_empty_query() {
+        let state = create_test_state();
+        let total_commands = state.slash_commands.len();
+        let count = filtered_command_count(&state);
+        assert_eq!(count, total_commands);
+    }
+
+    #[test]
+    fn filtered_command_count_filters_by_query() {
+        let mut state = create_test_state();
+        state.editor.slash_query = "help".to_string();
+        let count = filtered_command_count(&state);
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn filtered_command_count_returns_zero_for_no_match() {
+        let mut state = create_test_state();
+        state.editor.slash_query = "zzzznonexistent".to_string();
+        let count = filtered_command_count(&state);
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn selected_slash_command_returns_first_when_index_zero() {
+        let mut state = create_test_state();
+        state.slash_menu.show();
+        let cmd = selected_slash_command(&state);
+        assert!(cmd.is_some());
+        // First command should be "help" based on default_slash_commands()
+        assert_eq!(cmd.unwrap().name, "help");
+    }
+
+    #[test]
+    fn selected_slash_command_returns_none_for_empty_filter() {
+        let mut state = create_test_state();
+        state.editor.slash_query = "zzzznonexistent".to_string();
+        let cmd = selected_slash_command(&state);
+        assert!(cmd.is_none());
+    }
+
+    #[test]
+    fn selected_slash_command_respects_filter() {
+        let mut state = create_test_state();
+        state.editor.slash_query = "conf".to_string();
+        let cmd = selected_slash_command(&state);
+        assert!(cmd.is_some());
+        assert_eq!(cmd.unwrap().name, "config");
+    }
+
+    #[test]
+    fn complete_slash_command_returns_false_when_no_match() {
+        let mut state = create_test_state();
+        state.editor.slash_query = "zzzznonexistent".to_string();
+        let result = complete_slash_command(&mut state);
+        assert!(!result);
+    }
+
+    #[test]
+    fn complete_slash_command_sets_editor_text() {
+        let mut state = create_test_state();
+        state.editor.slash_query = "help".to_string();
+        let result = complete_slash_command(&mut state);
+        assert!(result);
+        assert_eq!(state.editor.text, "/help");
+    }
+
+    #[test]
+    fn complete_slash_command_hides_menu() {
+        let mut state = create_test_state();
+        state.editor.show_slash_menu = true;
+        state.slash_menu.show();
+        state.editor.slash_query = "help".to_string();
+        complete_slash_command(&mut state);
+        assert!(!state.editor.show_slash_menu);
+    }
+
+    #[test]
+    fn complete_slash_command_clears_query() {
+        let mut state = create_test_state();
+        state.editor.slash_query = "help".to_string();
+        complete_slash_command(&mut state);
+        assert!(state.editor.slash_query.is_empty());
+    }
+
+    #[test]
+    fn complete_slash_command_updates_status() {
+        let mut state = create_test_state();
+        state.editor.slash_query = "help".to_string();
+        complete_slash_command(&mut state);
+        assert!(state.status.contains("Prepared /help"));
+    }
+
+    #[test]
+    fn sync_slash_menu_visibility_shows_menu() {
+        let mut state = create_test_state();
+        state.editor.show_slash_menu = true;
+        sync_slash_menu_visibility(&mut state, false);
+        assert!(state.slash_menu.visible);
+    }
+
+    #[test]
+    fn sync_slash_menu_visibility_hides_menu() {
+        let mut state = create_test_state();
+        state.slash_menu.show();
+        state.editor.show_slash_menu = false;
+        sync_slash_menu_visibility(&mut state, true);
+        assert!(!state.slash_menu.visible);
+    }
+
+    #[test]
+    fn sync_slash_menu_visibility_no_change_when_same() {
+        let mut state = create_test_state();
+        state.editor.show_slash_menu = true;
+        sync_slash_menu_visibility(&mut state, true);
+        // State should remain unchanged (neither show() nor hide() called)
+    }
+
+    #[test]
+    fn handle_chat_key_down_decrements_scroll() {
+        let mut state = create_test_state();
+        state.focus = PanelFocus::Chat;
+        state.scroll_offset = 5;
+        let key = KeyEvent::new(KeyCode::Down, KeyModifiers::NONE);
+        handle_chat_key(&key, &mut state);
+        assert_eq!(state.scroll_offset, 4);
+    }
+
+    #[test]
+    fn handle_chat_key_down_switches_to_input_when_at_bottom() {
+        let mut state = create_test_state();
+        state.focus = PanelFocus::Chat;
+        state.scroll_offset = 0;
+        let key = KeyEvent::new(KeyCode::Down, KeyModifiers::NONE);
+        handle_chat_key(&key, &mut state);
+        assert_eq!(state.focus, PanelFocus::Input);
+        assert!(state.editor.focused);
+    }
+
+    #[test]
+    fn handle_chat_key_up_increments_scroll() {
+        let mut state = create_test_state();
+        state.focus = PanelFocus::Chat;
+        state.scroll_offset = 5;
+        let key = KeyEvent::new(KeyCode::Up, KeyModifiers::NONE);
+        handle_chat_key(&key, &mut state);
+        assert_eq!(state.scroll_offset, 6);
+    }
+
+    #[test]
+    fn handle_chat_key_j_acts_like_down() {
+        let mut state = create_test_state();
+        state.focus = PanelFocus::Chat;
+        state.scroll_offset = 5;
+        let key = KeyEvent::new(KeyCode::Char('j'), KeyModifiers::NONE);
+        handle_chat_key(&key, &mut state);
+        assert_eq!(state.scroll_offset, 4);
+    }
+
+    #[test]
+    fn handle_chat_key_k_acts_like_up() {
+        let mut state = create_test_state();
+        state.focus = PanelFocus::Chat;
+        state.scroll_offset = 5;
+        let key = KeyEvent::new(KeyCode::Char('k'), KeyModifiers::NONE);
+        handle_chat_key(&key, &mut state);
+        assert_eq!(state.scroll_offset, 6);
+    }
+
+    #[test]
+    fn handle_chat_key_page_up_scrolls_by_8() {
+        let mut state = create_test_state();
+        state.focus = PanelFocus::Chat;
+        state.scroll_offset = 5;
+        let key = KeyEvent::new(KeyCode::PageUp, KeyModifiers::NONE);
+        handle_chat_key(&key, &mut state);
+        assert_eq!(state.scroll_offset, 13);
+    }
+
+    #[test]
+    fn handle_chat_key_page_down_scrolls_by_8() {
+        let mut state = create_test_state();
+        state.focus = PanelFocus::Chat;
+        state.scroll_offset = 10;
+        let key = KeyEvent::new(KeyCode::PageDown, KeyModifiers::NONE);
+        handle_chat_key(&key, &mut state);
+        assert_eq!(state.scroll_offset, 2);
+    }
+
+    #[test]
+    fn handle_chat_key_tab_switches_to_input() {
+        let mut state = create_test_state();
+        state.focus = PanelFocus::Chat;
+        state.editor.focused = false;
+        let key = KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE);
+        handle_chat_key(&key, &mut state);
+        assert_eq!(state.focus, PanelFocus::Input);
+        assert!(state.editor.focused);
+    }
+
+    #[test]
+    fn handle_chat_key_scroll_saturates_at_zero() {
+        let mut state = create_test_state();
+        state.focus = PanelFocus::Chat;
+        state.scroll_offset = 2;
+        let key = KeyEvent::new(KeyCode::PageDown, KeyModifiers::NONE);
+        handle_chat_key(&key, &mut state);
+        assert_eq!(state.scroll_offset, 0);
+    }
+
+    #[test]
+    fn handle_event_returns_false_on_quit() {
+        let mut state = create_test_state();
+        state.quit = true;
+        let backend_tx = create_backend_channel();
+        let result = handle_event(Event::Tick, &mut state, &backend_tx);
+        assert!(!result);
+    }
+
+    #[test]
+    fn handle_event_tick_increments_counter() {
+        let mut state = create_test_state();
+        let backend_tx = create_backend_channel();
+        assert_eq!(state.tick, 0);
+        handle_event(Event::Tick, &mut state, &backend_tx);
+        assert_eq!(state.tick, 1);
+    }
+}

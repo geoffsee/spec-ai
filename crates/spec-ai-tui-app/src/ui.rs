@@ -253,3 +253,55 @@ fn role_style(role: &ChatRole) -> (Style, String) {
         ChatRole::Agent(_) => (Style::new().fg(Color::Magenta).bold(), role.label()),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use spec_ai_tui::style::Modifier;
+
+    #[test]
+    fn role_style_user_returns_green() {
+        let (style, label) = role_style(&ChatRole::User);
+        assert_eq!(style.fg, Color::Green);
+        assert_eq!(label, "User");
+    }
+
+    #[test]
+    fn role_style_assistant_returns_cyan() {
+        let (style, label) = role_style(&ChatRole::Assistant);
+        assert_eq!(style.fg, Color::Cyan);
+        assert_eq!(label, "Assistant");
+    }
+
+    #[test]
+    fn role_style_system_returns_yellow() {
+        let (style, label) = role_style(&ChatRole::System);
+        assert_eq!(style.fg, Color::Yellow);
+        assert_eq!(label, "System");
+    }
+
+    #[test]
+    fn role_style_agent_returns_magenta() {
+        let (style, label) = role_style(&ChatRole::Agent("test".to_string()));
+        assert_eq!(style.fg, Color::Magenta);
+        assert_eq!(label, "Agent test");
+    }
+
+    #[test]
+    fn role_style_all_are_bold() {
+        let roles = [
+            ChatRole::User,
+            ChatRole::Assistant,
+            ChatRole::System,
+            ChatRole::Agent("x".to_string()),
+        ];
+        for role in &roles {
+            let (style, _) = role_style(role);
+            assert!(
+                style.modifier.contains(Modifier::BOLD),
+                "Style for {:?} should be bold",
+                role
+            );
+        }
+    }
+}

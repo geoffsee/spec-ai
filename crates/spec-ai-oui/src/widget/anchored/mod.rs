@@ -2,10 +2,10 @@
 //!
 //! Widgets that are fixed in 3D space (markers, waypoints, labels).
 
+mod label;
 mod marker;
 mod waypoint;
-mod label;
 
-pub use marker::{PoiMarker, MarkerCategory};
-pub use waypoint::Waypoint;
 pub use label::WorldLabel;
+pub use marker::{MarkerCategory, PoiMarker};
+pub use waypoint::Waypoint;

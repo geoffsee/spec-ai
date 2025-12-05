@@ -2,10 +2,10 @@
 
 use std::time::Duration;
 
-use crate::spatial::{Bounds, Point3D, SpatialAnchor, Transform};
-use crate::renderer::{RenderBackend, Color};
-use crate::input::OpticalEvent;
 use crate::context::{DisplayContext, Priority};
+use crate::input::OpticalEvent;
+use crate::renderer::{Color, RenderBackend};
+use crate::spatial::{Bounds, Point3D, SpatialAnchor, Transform};
 use crate::widget::OpticalWidget;
 
 /// Alert severity levels
@@ -38,11 +38,7 @@ impl AlertSeverity {
 #[derive(Debug, Clone)]
 pub enum IndicatorType {
     /// Circular gauge (0-100%)
-    Gauge {
-        value: f32,
-        max: f32,
-        color: Color,
-    },
+    Gauge { value: f32, max: f32, color: Color },
     /// Progress bar
     Bar {
         value: f32,
@@ -50,10 +46,7 @@ pub enum IndicatorType {
         horizontal: bool,
     },
     /// Icon with status
-    Icon {
-        icon: char,
-        active: bool,
-    },
+    Icon { icon: char, active: bool },
     /// Numeric display
     Numeric {
         value: f32,
@@ -98,7 +91,14 @@ impl StatusIndicator {
 
     /// Create a bar indicator
     pub fn bar(id: impl Into<String>, value: f32, max: f32, horizontal: bool) -> Self {
-        Self::new(id, IndicatorType::Bar { value, max, horizontal })
+        Self::new(
+            id,
+            IndicatorType::Bar {
+                value,
+                max,
+                horizontal,
+            },
+        )
     }
 
     /// Create an icon indicator
@@ -108,19 +108,29 @@ impl StatusIndicator {
 
     /// Create a numeric indicator
     pub fn numeric(id: impl Into<String>, value: f32, label: impl Into<String>) -> Self {
-        Self::new(id, IndicatorType::Numeric {
-            value,
-            label: label.into(),
-            precision: 0,
-        })
+        Self::new(
+            id,
+            IndicatorType::Numeric {
+                value,
+                label: label.into(),
+                precision: 0,
+            },
+        )
     }
 
     /// Create an alert indicator
-    pub fn alert(id: impl Into<String>, message: impl Into<String>, severity: AlertSeverity) -> Self {
-        Self::new(id, IndicatorType::Alert {
-            message: message.into(),
-            severity,
-        })
+    pub fn alert(
+        id: impl Into<String>,
+        message: impl Into<String>,
+        severity: AlertSeverity,
+    ) -> Self {
+        Self::new(
+            id,
+            IndicatorType::Alert {
+                message: message.into(),
+                severity,
+            },
+        )
     }
 
     /// Set screen position
@@ -186,7 +196,11 @@ impl OpticalWidget for StatusIndicator {
                 let text = format!("{}%", pct);
                 backend.draw_hud_text(x, y, &text, *color);
             }
-            IndicatorType::Bar { value, max, horizontal: _ } => {
+            IndicatorType::Bar {
+                value,
+                max,
+                horizontal: _,
+            } => {
                 let pct = value / max;
                 let bar_width = 0.1;
                 let filled = (pct * 10.0) as usize;
@@ -194,10 +208,18 @@ impl OpticalWidget for StatusIndicator {
                 backend.draw_hud_text(x, y, &bar, Color::STATUS_GREEN);
             }
             IndicatorType::Icon { icon, active } => {
-                let color = if *active { Color::STATUS_GREEN } else { Color::Grey };
+                let color = if *active {
+                    Color::STATUS_GREEN
+                } else {
+                    Color::Grey
+                };
                 backend.draw_hud_text(x, y, &icon.to_string(), color);
             }
-            IndicatorType::Numeric { value, label, precision } => {
+            IndicatorType::Numeric {
+                value,
+                label,
+                precision,
+            } => {
                 let text = format!("{}: {:.*}", label, *precision as usize, value);
                 backend.draw_hud_text(x, y, &text, Color::White);
             }

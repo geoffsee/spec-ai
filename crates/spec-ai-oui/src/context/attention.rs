@@ -1,8 +1,8 @@
 //! Attention tracking for context-aware display
 
-use std::time::{Duration, Instant};
-use std::collections::VecDeque;
 use crate::spatial::Point3D;
+use std::collections::VecDeque;
+use std::time::{Duration, Instant};
 
 /// Current attention state based on gaze tracking
 #[derive(Debug, Clone)]

@@ -1,10 +1,10 @@
 //! Unified optical input events
 
-use std::time::Duration;
 use crossterm::event::KeyEvent;
+use std::time::Duration;
 
-use crate::spatial::{Point3D, Transform};
 use super::{GestureEvent, HeadGestureType};
+use crate::spatial::{Point3D, Transform};
 
 /// Unified input event for optical UI
 #[derive(Debug, Clone)]
@@ -64,10 +64,7 @@ pub enum OpticalEvent {
     Tick,
 
     /// Terminal/window resized
-    Resize {
-        width: u32,
-        height: u32,
-    },
+    Resize { width: u32, height: u32 },
 }
 
 impl OpticalEvent {

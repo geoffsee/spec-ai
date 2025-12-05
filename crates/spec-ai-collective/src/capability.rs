@@ -273,7 +273,10 @@ impl CapabilityTracker {
     }
 
     /// Get the best agent for a task requiring specific capabilities.
-    pub fn get_best_agent(&self, required_capabilities: &[String]) -> Option<RoutingRecommendation> {
+    pub fn get_best_agent(
+        &self,
+        required_capabilities: &[String],
+    ) -> Option<RoutingRecommendation> {
         let mut best: Option<(String, f32)> = None;
 
         // Check self
@@ -335,7 +338,11 @@ impl CapabilityTracker {
         }
 
         // Sort by score descending
-        agents.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        agents.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         agents
     }

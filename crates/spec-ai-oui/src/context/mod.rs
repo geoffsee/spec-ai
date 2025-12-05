@@ -7,13 +7,13 @@
 
 mod attention;
 mod density;
-mod priority;
 mod mode;
+mod priority;
 
 pub use attention::AttentionState;
 pub use density::{DensityManager, InformationDensity};
-pub use priority::Priority;
 pub use mode::DisplayMode;
+pub use priority::Priority;
 
 use std::time::Duration;
 

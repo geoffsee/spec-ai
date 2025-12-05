@@ -2,10 +2,10 @@
 
 use std::time::Duration;
 
-use crate::spatial::{Bounds, SpatialAnchor, Transform};
-use crate::renderer::RenderBackend;
-use crate::input::OpticalEvent;
 use crate::context::DisplayContext;
+use crate::input::OpticalEvent;
+use crate::renderer::RenderBackend;
+use crate::spatial::{Bounds, SpatialAnchor, Transform};
 
 /// Core trait for optical widgets
 pub trait OpticalWidget: Send + Sync {

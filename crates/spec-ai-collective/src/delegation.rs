@@ -278,7 +278,8 @@ impl DelegationManager {
         task: &DelegatedTask,
         tracker: &CapabilityTracker,
     ) -> Result<RoutingDecision> {
-        let agents = tracker.get_capable_agents(&task.required_capabilities, self.min_capability_score);
+        let agents =
+            tracker.get_capable_agents(&task.required_capabilities, self.min_capability_score);
 
         if agents.is_empty() {
             return Err(CollectiveError::NoCapableAgent(task.task_type.clone()));
@@ -294,10 +295,7 @@ impl DelegationManager {
             .collect();
 
         let reasoning = if primary.is_self {
-            format!(
-                "Self is best candidate with score {:.2}",
-                primary.score
-            )
+            format!("Self is best candidate with score {:.2}", primary.score)
         } else {
             format!(
                 "Agent {} has best capability score {:.2}",
@@ -449,11 +447,7 @@ mod tests {
     fn test_delegation_manager() {
         let mut manager = DelegationManager::new("agent-1".to_string());
 
-        let task = DelegatedTask::new(
-            "data_analysis",
-            "Analyze sales data",
-            serde_json::json!({}),
-        );
+        let task = DelegatedTask::new("data_analysis", "Analyze sales data", serde_json::json!({}));
 
         let task_id = task.task_id.clone();
         manager.add_task(task);

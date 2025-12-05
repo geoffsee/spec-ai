@@ -1,8 +1,8 @@
 //! Gaze tracking abstraction
 
-use std::time::{Duration, Instant};
-use std::collections::VecDeque;
 use crate::spatial::Point3D;
+use std::collections::VecDeque;
+use std::time::{Duration, Instant};
 
 /// Current gaze state
 #[derive(Debug, Clone)]
@@ -48,7 +48,7 @@ impl Default for GazeState {
     fn default() -> Self {
         Self {
             point: Point3D::new(0.0, 0.0, 1.0), // Looking forward
-            screen_pos: (0.5, 0.5), // Center of screen
+            screen_pos: (0.5, 0.5),             // Center of screen
             target: None,
             velocity: Point3D::ORIGIN,
             history: VecDeque::with_capacity(60), // ~1 second at 60fps

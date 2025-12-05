@@ -5,16 +5,16 @@
 //! - Y: Up (+) / Down (-)
 //! - Z: Forward (+) / Backward (-)
 
-mod point3d;
-mod vector3d;
-mod quaternion;
-mod transform;
 mod anchor;
 mod bounds;
+mod point3d;
+mod quaternion;
+mod transform;
+mod vector3d;
 
+pub use anchor::{AnchorType, SpatialAnchor};
+pub use bounds::Bounds;
 pub use point3d::Point3D;
-pub use vector3d::Vector3D;
 pub use quaternion::Quaternion;
 pub use transform::Transform;
-pub use anchor::{SpatialAnchor, AnchorType};
-pub use bounds::Bounds;
+pub use vector3d::Vector3D;

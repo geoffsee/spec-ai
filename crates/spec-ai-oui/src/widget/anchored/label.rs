@@ -1,11 +1,11 @@
 //! World-anchored text label
 
-use std::time::Duration;
-use crate::spatial::{Bounds, Point3D, SpatialAnchor, Transform};
-use crate::renderer::{RenderBackend, Color};
-use crate::input::OpticalEvent;
 use crate::context::{DisplayContext, Priority};
+use crate::input::OpticalEvent;
+use crate::renderer::{Color, RenderBackend};
+use crate::spatial::{Bounds, Point3D, SpatialAnchor, Transform};
 use crate::widget::OpticalWidget;
+use std::time::Duration;
 
 /// A text label anchored to a world position
 pub struct WorldLabel {
@@ -20,8 +20,7 @@ impl WorldLabel {
     pub fn new(id: impl Into<String>, position: Point3D, text: impl Into<String>) -> Self {
         let id_str = id.into();
         Self {
-            anchor: SpatialAnchor::world_space(&id_str, position)
-                .with_visibility_distance(50.0),
+            anchor: SpatialAnchor::world_space(&id_str, position).with_visibility_distance(50.0),
             id: id_str,
             text: text.into(),
             color: Color::White,

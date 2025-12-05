@@ -2,12 +2,12 @@
 //!
 //! Fixed screen-space elements for persistent information display.
 
-mod panel;
-mod indicator;
 mod compass;
+mod indicator;
+mod panel;
 mod reticle;
 
-pub use panel::HudPanel;
-pub use indicator::{StatusIndicator, IndicatorType, AlertSeverity};
 pub use compass::{Compass, CompassWaypoint};
+pub use indicator::{AlertSeverity, IndicatorType, StatusIndicator};
+pub use panel::HudPanel;
 pub use reticle::{Reticle, ReticleStyle};

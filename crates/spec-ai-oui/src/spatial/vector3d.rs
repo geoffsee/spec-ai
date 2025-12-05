@@ -1,6 +1,6 @@
 //! 3D vector representation for directions and velocities
 
-use std::ops::{Add, Sub, Mul, Neg};
+use std::ops::{Add, Mul, Neg, Sub};
 
 /// A vector in 3D space
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -12,19 +12,47 @@ pub struct Vector3D {
 
 impl Vector3D {
     /// Zero vector
-    pub const ZERO: Self = Self { x: 0.0, y: 0.0, z: 0.0 };
+    pub const ZERO: Self = Self {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+    };
     /// Unit vector pointing right (+X)
-    pub const RIGHT: Self = Self { x: 1.0, y: 0.0, z: 0.0 };
+    pub const RIGHT: Self = Self {
+        x: 1.0,
+        y: 0.0,
+        z: 0.0,
+    };
     /// Unit vector pointing left (-X)
-    pub const LEFT: Self = Self { x: -1.0, y: 0.0, z: 0.0 };
+    pub const LEFT: Self = Self {
+        x: -1.0,
+        y: 0.0,
+        z: 0.0,
+    };
     /// Unit vector pointing up (+Y)
-    pub const UP: Self = Self { x: 0.0, y: 1.0, z: 0.0 };
+    pub const UP: Self = Self {
+        x: 0.0,
+        y: 1.0,
+        z: 0.0,
+    };
     /// Unit vector pointing down (-Y)
-    pub const DOWN: Self = Self { x: 0.0, y: -1.0, z: 0.0 };
+    pub const DOWN: Self = Self {
+        x: 0.0,
+        y: -1.0,
+        z: 0.0,
+    };
     /// Unit vector pointing forward (+Z)
-    pub const FORWARD: Self = Self { x: 0.0, y: 0.0, z: 1.0 };
+    pub const FORWARD: Self = Self {
+        x: 0.0,
+        y: 0.0,
+        z: 1.0,
+    };
     /// Unit vector pointing backward (-Z)
-    pub const BACK: Self = Self { x: 0.0, y: 0.0, z: -1.0 };
+    pub const BACK: Self = Self {
+        x: 0.0,
+        y: 0.0,
+        z: -1.0,
+    };
 
     /// Create a new 3D vector
     pub fn new(x: f32, y: f32, z: f32) -> Self {

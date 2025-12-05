@@ -5,13 +5,13 @@ use std::time::{Duration, Instant};
 
 use crossterm::{
     event::{self, Event as CrosstermEvent, KeyCode, KeyModifiers},
-    terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
     execute,
+    terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
-use crate::renderer::{RenderBackend, terminal::TerminalBackend};
-use crate::input::{OpticalEvent, InputSimulator};
 use crate::context::DisplayContext;
+use crate::input::{InputSimulator, OpticalEvent};
+use crate::renderer::{terminal::TerminalBackend, RenderBackend};
 use crate::spatial::Transform;
 
 /// Optical application trait
@@ -80,14 +80,17 @@ impl<A: OpticalApp> OpticalAppRunner<A> {
         // Main loop
         while self.running {
             // Poll for events
-            let timeout = self.tick_rate
+            let timeout = self
+                .tick_rate
                 .checked_sub(last_tick.elapsed())
                 .unwrap_or_default();
 
             if event::poll(timeout)? {
                 if let CrosstermEvent::Key(key) = event::read()? {
                     // Check for quit
-                    if key.code == KeyCode::Char('q') && key.modifiers.contains(KeyModifiers::CONTROL) {
+                    if key.code == KeyCode::Char('q')
+                        && key.modifiers.contains(KeyModifiers::CONTROL)
+                    {
                         self.running = false;
                         continue;
                     }
@@ -113,15 +116,18 @@ impl<A: OpticalApp> OpticalAppRunner<A> {
                 self.app.on_tick(&mut state);
 
                 // Update camera from simulator
-                self.backend.set_camera(self.input_simulator.head_transform());
+                self.backend
+                    .set_camera(self.input_simulator.head_transform());
 
                 // Render
-                self.backend.begin_frame()
+                self.backend
+                    .begin_frame()
                     .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
 
                 self.app.render(&state, &mut self.backend);
 
-                self.backend.end_frame()
+                self.backend
+                    .end_frame()
                     .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
 
                 // Send tick event

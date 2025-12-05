@@ -8,22 +8,22 @@
 //! - Optical widgets optimized for AR/glasses displays
 //! - Audio feedback integration
 
-pub mod spatial;
-pub mod renderer;
-pub mod input;
-pub mod widget;
-pub mod layout;
 pub mod animation;
-pub mod context;
-pub mod audio;
 pub mod app;
+pub mod audio;
+pub mod context;
+pub mod input;
+pub mod layout;
+pub mod renderer;
+pub mod spatial;
 pub mod theme;
+pub mod widget;
 
 // Re-export commonly used types
-pub use spatial::{Point3D, Vector3D, Quaternion, Transform, Bounds, SpatialAnchor, AnchorType};
-pub use renderer::{RenderBackend, SurfaceCapabilities, Color, RenderGlyph};
-pub use input::{OpticalEvent, GestureType, GestureEvent};
-pub use widget::OpticalWidget;
-pub use layout::{SpatialConstraint, AttentionZone};
-pub use context::{DisplayContext, DisplayMode, InformationDensity, Priority};
 pub use app::OpticalApp;
+pub use context::{DisplayContext, DisplayMode, InformationDensity, Priority};
+pub use input::{GestureEvent, GestureType, OpticalEvent};
+pub use layout::{AttentionZone, SpatialConstraint};
+pub use renderer::{Color, RenderBackend, RenderGlyph, SurfaceCapabilities};
+pub use spatial::{AnchorType, Bounds, Point3D, Quaternion, SpatialAnchor, Transform, Vector3D};
+pub use widget::OpticalWidget;

@@ -1,11 +1,11 @@
 //! Radial menu widget
 
-use std::time::Duration;
-use crate::spatial::{Bounds, Point3D, SpatialAnchor, Transform, Vector3D};
-use crate::renderer::{RenderBackend, Color};
-use crate::input::{OpticalEvent, GestureType, SwipeDirection};
 use crate::context::{DisplayContext, Priority};
+use crate::input::{GestureType, OpticalEvent, SwipeDirection};
+use crate::renderer::{Color, RenderBackend};
+use crate::spatial::{Bounds, Point3D, SpatialAnchor, Transform, Vector3D};
 use crate::widget::OpticalWidget;
+use std::time::Duration;
 
 /// A menu item
 #[derive(Debug, Clone)]

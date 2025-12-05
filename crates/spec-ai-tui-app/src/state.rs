@@ -233,7 +233,11 @@ mod tests {
     fn default_slash_commands_all_have_descriptions() {
         let commands = default_slash_commands();
         for cmd in commands {
-            assert!(!cmd.description.is_empty(), "Command '{}' has no description", cmd.name);
+            assert!(
+                !cmd.description.is_empty(),
+                "Command '{}' has no description",
+                cmd.name
+            );
         }
     }
 

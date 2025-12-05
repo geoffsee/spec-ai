@@ -77,17 +77,25 @@ impl VoiceCommand {
         if lower.contains("cancel") || lower.contains("stop") {
             return Some(VoiceIntent::Cancel);
         }
-        if lower.contains("confirm") || lower.contains("yes") || lower.contains("okay") || lower.contains("ok") {
+        if lower.contains("confirm")
+            || lower.contains("yes")
+            || lower.contains("okay")
+            || lower.contains("ok")
+        {
             return Some(VoiceIntent::Confirm);
         }
         if lower.contains("menu") || lower.contains("options") {
             return Some(VoiceIntent::Menu);
         }
         if lower.contains("scroll up") || lower.contains("up") {
-            return Some(VoiceIntent::Scroll { direction: ScrollDirection::Up });
+            return Some(VoiceIntent::Scroll {
+                direction: ScrollDirection::Up,
+            });
         }
         if lower.contains("scroll down") || lower.contains("down") {
-            return Some(VoiceIntent::Scroll { direction: ScrollDirection::Down });
+            return Some(VoiceIntent::Scroll {
+                direction: ScrollDirection::Down,
+            });
         }
 
         None

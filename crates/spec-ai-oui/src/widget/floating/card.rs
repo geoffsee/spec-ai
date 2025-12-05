@@ -1,11 +1,11 @@
 //! Information card widget
 
-use std::time::Duration;
-use crate::spatial::{Bounds, Point3D, SpatialAnchor, Transform, Vector3D};
-use crate::renderer::{RenderBackend, Color};
-use crate::input::OpticalEvent;
 use crate::context::{DisplayContext, Priority};
+use crate::input::OpticalEvent;
+use crate::renderer::{Color, RenderBackend};
+use crate::spatial::{Bounds, Point3D, SpatialAnchor, Transform, Vector3D};
 use crate::widget::OpticalWidget;
+use std::time::Duration;
 
 /// Content types for info cards
 #[derive(Debug, Clone)]

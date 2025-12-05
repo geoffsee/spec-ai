@@ -1,15 +1,11 @@
-//! OUI Demo Application - Agent 007 Style Optical Interface
+//! Minimal OUI demo - ring-style navigation
 //!
-//! Controls:
-//! - Arrow keys: Move gaze
-//! - WASD: Head rotation
-//! - Space: Air tap (select)
-//! - G: Grab gesture
-//! - H/J/K/L: Swipe gestures
-//! - 1-9: Simulated voice commands
-//! - Tab: Switch focus
-//! - M: Toggle menu
-//! - Ctrl+Q: Quit
+//! Controls (simulating wearable ring):
+//! - Up/Down or j/k: Scroll within focused panel
+//! - Tab or Left/Right: Switch focus between menu and events
+//! - Enter or Space: Select current item
+//! - Esc or Backspace: Back to events view
+//! - Q: Quit
 
 fn main() {
     if let Err(e) = spec_ai_oui_app::run_demo() {

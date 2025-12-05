@@ -11,12 +11,12 @@ mod event;
 mod gaze;
 mod gesture;
 mod head;
-mod voice;
 mod simulator;
+mod voice;
 
 pub use event::OpticalEvent;
 pub use gaze::{GazeState, GazeTarget};
-pub use gesture::{GestureType, GestureEvent, Hand, SwipeDirection};
+pub use gesture::{GestureEvent, GestureType, Hand, SwipeDirection};
 pub use head::{HeadGestureType, HeadPose};
-pub use voice::VoiceCommand;
 pub use simulator::InputSimulator;
+pub use voice::VoiceCommand;

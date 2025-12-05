@@ -1,7 +1,7 @@
 //! Audio backend trait
 
-use crate::spatial::{Point3D, Transform};
 use super::Notification;
+use crate::spatial::{Point3D, Transform};
 
 /// Audio backend trait for optical UI
 pub trait AudioBackend: Send + Sync {
@@ -25,5 +25,7 @@ impl AudioBackend for NullAudioBackend {
     fn play_notification(&mut self, _notification: Notification) {}
     fn set_listener(&mut self, _transform: Transform) {}
     fn set_volume(&mut self, _volume: f32) {}
-    fn is_available(&self) -> bool { false }
+    fn is_available(&self) -> bool {
+        false
+    }
 }

@@ -66,14 +66,26 @@ impl Easing {
             Easing::EaseInOutSine => -0.5 * ((PI * t).cos() - 1.0),
 
             Easing::EaseInExpo => {
-                if t == 0.0 { 0.0 } else { 2.0_f32.powf(10.0 * (t - 1.0)) }
+                if t == 0.0 {
+                    0.0
+                } else {
+                    2.0_f32.powf(10.0 * (t - 1.0))
+                }
             }
             Easing::EaseOutExpo => {
-                if t == 1.0 { 1.0 } else { 1.0 - 2.0_f32.powf(-10.0 * t) }
+                if t == 1.0 {
+                    1.0
+                } else {
+                    1.0 - 2.0_f32.powf(-10.0 * t)
+                }
             }
             Easing::EaseInOutExpo => {
-                if t == 0.0 { return 0.0; }
-                if t == 1.0 { return 1.0; }
+                if t == 0.0 {
+                    return 0.0;
+                }
+                if t == 1.0 {
+                    return 1.0;
+                }
                 if t < 0.5 {
                     0.5 * 2.0_f32.powf(20.0 * t - 10.0)
                 } else {

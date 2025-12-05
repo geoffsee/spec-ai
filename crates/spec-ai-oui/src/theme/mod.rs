@@ -1,7 +1,7 @@
 //! Theme system for optical UI
 
-mod palette;
 mod glass;
+mod palette;
 
-pub use palette::Palette;
 pub use glass::GlassTheme;
+pub use palette::Palette;

@@ -28,8 +28,17 @@ impl Priority {
     pub fn is_visible_at(&self, density: InformationDensity) -> bool {
         match (self, density) {
             (Priority::Critical, _) => true,
-            (Priority::High, InformationDensity::Low | InformationDensity::Normal | InformationDensity::High | InformationDensity::Maximum) => true,
-            (Priority::Normal, InformationDensity::Normal | InformationDensity::High | InformationDensity::Maximum) => true,
+            (
+                Priority::High,
+                InformationDensity::Low
+                | InformationDensity::Normal
+                | InformationDensity::High
+                | InformationDensity::Maximum,
+            ) => true,
+            (
+                Priority::Normal,
+                InformationDensity::Normal | InformationDensity::High | InformationDensity::Maximum,
+            ) => true,
             (Priority::Low, InformationDensity::High | InformationDensity::Maximum) => true,
             (Priority::Optional, InformationDensity::Maximum) => true,
             _ => false,

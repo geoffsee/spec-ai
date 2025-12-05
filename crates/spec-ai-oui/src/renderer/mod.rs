@@ -9,4 +9,4 @@ mod surface;
 pub mod terminal;
 
 pub use backend::{RenderBackend, RenderError, RenderGlyph};
-pub use surface::{SurfaceCapabilities, Color};
+pub use surface::{Color, SurfaceCapabilities};

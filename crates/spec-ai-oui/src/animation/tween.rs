@@ -1,7 +1,7 @@
 //! Tweening/interpolation
 
-use std::time::Duration;
 use super::Easing;
+use std::time::Duration;
 
 /// A tween animation
 #[derive(Debug, Clone)]

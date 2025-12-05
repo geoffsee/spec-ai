@@ -89,7 +89,11 @@ impl Color {
             Color::White => crossterm::style::Color::White,
             Color::Grey => crossterm::style::Color::Grey,
             Color::AnsiValue(v) => crossterm::style::Color::AnsiValue(*v),
-            Color::Rgb(r, g, b) => crossterm::style::Color::Rgb { r: *r, g: *g, b: *b },
+            Color::Rgb(r, g, b) => crossterm::style::Color::Rgb {
+                r: *r,
+                g: *g,
+                b: *b,
+            },
         }
     }
 
@@ -102,7 +106,13 @@ impl Color {
                 let b = (b1 as f32 * (1.0 - alpha) + b2 as f32 * alpha) as u8;
                 Color::Rgb(r, g, b)
             }
-            _ => if alpha > 0.5 { *other } else { *self },
+            _ => {
+                if alpha > 0.5 {
+                    *other
+                } else {
+                    *self
+                }
+            }
         }
     }
 

@@ -14,7 +14,12 @@ pub struct Quaternion {
 
 impl Quaternion {
     /// Identity quaternion (no rotation)
-    pub const IDENTITY: Self = Self { x: 0.0, y: 0.0, z: 0.0, w: 1.0 };
+    pub const IDENTITY: Self = Self {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+        w: 1.0,
+    };
 
     /// Create a new quaternion
     pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
@@ -114,7 +119,10 @@ impl Quaternion {
 
         // If the dot product is negative, negate one quaternion to take the shorter path
         let (other, dot) = if dot < 0.0 {
-            (Quaternion::new(-other.x, -other.y, -other.z, -other.w), -dot)
+            (
+                Quaternion::new(-other.x, -other.y, -other.z, -other.w),
+                -dot,
+            )
         } else {
             (*other, dot)
         };
@@ -126,7 +134,8 @@ impl Quaternion {
                 self.y + t * (other.y - self.y),
                 self.z + t * (other.z - self.z),
                 self.w + t * (other.w - self.w),
-            ).normalize();
+            )
+            .normalize();
         }
 
         let theta_0 = dot.acos();

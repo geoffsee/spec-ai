@@ -2,10 +2,10 @@
 
 use std::time::Duration;
 
-use crate::spatial::{Bounds, Point3D, SpatialAnchor, Transform};
-use crate::renderer::{RenderBackend, Color};
-use crate::input::OpticalEvent;
 use crate::context::{DisplayContext, Priority};
+use crate::input::OpticalEvent;
+use crate::renderer::{Color, RenderBackend};
+use crate::spatial::{Bounds, Point3D, SpatialAnchor, Transform};
 use crate::widget::OpticalWidget;
 
 /// A waypoint on the compass
@@ -155,7 +155,11 @@ impl OpticalWidget for Compass {
                 if relative.abs() < 60.0 {
                     let offset = (relative / 60.0) * (bar_width / 2.0);
                     let label_x = x + offset;
-                    let color = if label == "N" { Color::ALERT_RED } else { Color::White };
+                    let color = if label == "N" {
+                        Color::ALERT_RED
+                    } else {
+                        Color::White
+                    };
                     backend.draw_hud_text(label_x, y + 0.01, label, color);
                 }
             }
@@ -167,7 +171,12 @@ impl OpticalWidget for Compass {
             if relative.abs() < 60.0 {
                 let offset = (relative / 60.0) * (bar_width / 2.0);
                 let marker_x = x + offset;
-                backend.draw_hud_text(marker_x, y + 0.025, &waypoint.icon.to_string(), waypoint.color);
+                backend.draw_hud_text(
+                    marker_x,
+                    y + 0.025,
+                    &waypoint.icon.to_string(),
+                    waypoint.color,
+                );
 
                 // Draw distance if available
                 if let Some(dist) = waypoint.distance {

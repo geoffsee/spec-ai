@@ -99,7 +99,13 @@ mod tests {
 
     #[test]
     fn test_mode_density() {
-        assert_eq!(DisplayMode::Ambient.default_density(), InformationDensity::Minimal);
-        assert_eq!(DisplayMode::Research.default_density(), InformationDensity::Maximum);
+        assert_eq!(
+            DisplayMode::Ambient.default_density(),
+            InformationDensity::Minimal
+        );
+        assert_eq!(
+            DisplayMode::Research.default_density(),
+            InformationDensity::Maximum
+        );
     }
 }

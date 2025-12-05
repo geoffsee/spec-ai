@@ -7,5 +7,5 @@ mod menu;
 mod tooltip;
 
 pub use card::InfoCard;
-pub use menu::{RadialMenu, MenuItem};
+pub use menu::{MenuItem, RadialMenu};
 pub use tooltip::Tooltip;

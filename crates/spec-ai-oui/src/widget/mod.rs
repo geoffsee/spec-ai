@@ -6,10 +6,10 @@
 //! - World-anchored markers and waypoints
 //! - Visual effects
 
-mod traits;
-pub mod hud;
-pub mod floating;
 pub mod anchored;
 pub mod effects;
+pub mod floating;
+pub mod hud;
+mod traits;
 
 pub use traits::{OpticalWidget, StatefulOpticalWidget};

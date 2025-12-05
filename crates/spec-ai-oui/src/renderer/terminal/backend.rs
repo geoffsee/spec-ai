@@ -1,18 +1,15 @@
 //! Terminal backend implementation
 
-use std::io::{self, Write};
 use crossterm::{
     cursor, execute, queue,
-    style::{self, SetBackgroundColor, SetForegroundColor, Print},
+    style::{self, Print, SetBackgroundColor, SetForegroundColor},
     terminal::{self, ClearType},
 };
+use std::io::{self, Write};
 
-use crate::spatial::{Point3D, Transform};
-use crate::renderer::{
-    RenderBackend, RenderError, RenderGlyph,
-    SurfaceCapabilities, Color,
-};
 use super::Projection;
+use crate::renderer::{Color, RenderBackend, RenderError, RenderGlyph, SurfaceCapabilities};
+use crate::spatial::{Point3D, Transform};
 
 /// Cell in the terminal buffer
 #[derive(Clone)]
@@ -55,8 +52,8 @@ pub struct TerminalBackend {
 impl TerminalBackend {
     /// Create a new terminal backend
     pub fn new() -> Result<Self, RenderError> {
-        let (width, height) = terminal::size()
-            .map_err(|e| RenderError::InitError(e.to_string()))?;
+        let (width, height) =
+            terminal::size().map_err(|e| RenderError::InitError(e.to_string()))?;
 
         let size = (width as usize) * (height as usize);
         let aspect = width as f32 / height as f32;
@@ -74,8 +71,8 @@ impl TerminalBackend {
 
     /// Refresh terminal size
     pub fn refresh_size(&mut self) -> Result<(), RenderError> {
-        let (width, height) = terminal::size()
-            .map_err(|e| RenderError::TerminalError(e.to_string()))?;
+        let (width, height) =
+            terminal::size().map_err(|e| RenderError::TerminalError(e.to_string()))?;
 
         if width as u32 != self.width || height as u32 != self.height {
             self.width = width as u32;
@@ -162,8 +159,7 @@ impl RenderBackend for TerminalBackend {
         let mut stdout = io::stdout();
 
         // Hide cursor during rendering
-        queue!(stdout, cursor::Hide)
-            .map_err(|e| RenderError::FrameError(e.to_string()))?;
+        queue!(stdout, cursor::Hide).map_err(|e| RenderError::FrameError(e.to_string()))?;
 
         // Diff render - only update changed cells
         for y in 0..self.height as u16 {
@@ -180,16 +176,17 @@ impl RenderBackend for TerminalBackend {
                             SetForegroundColor(cell.fg.to_crossterm()),
                             SetBackgroundColor(cell.bg.to_crossterm()),
                             Print(&cell.symbol)
-                        ).map_err(|e| RenderError::FrameError(e.to_string()))?;
+                        )
+                        .map_err(|e| RenderError::FrameError(e.to_string()))?;
                     }
                 }
             }
         }
 
         // Show cursor and flush
-        queue!(stdout, cursor::Show)
-            .map_err(|e| RenderError::FrameError(e.to_string()))?;
-        stdout.flush()
+        queue!(stdout, cursor::Show).map_err(|e| RenderError::FrameError(e.to_string()))?;
+        stdout
+            .flush()
             .map_err(|e| RenderError::FrameError(e.to_string()))?;
 
         Ok(())
@@ -205,12 +202,10 @@ impl RenderBackend for TerminalBackend {
     }
 
     fn draw_glyph(&mut self, glyph: &RenderGlyph, camera: &Transform) {
-        if let Some((x, y, depth)) = self.projection.project_to_screen(
-            glyph.position,
-            camera,
-            self.width,
-            self.height,
-        ) {
+        if let Some((x, y, depth)) =
+            self.projection
+                .project_to_screen(glyph.position, camera, self.width, self.height)
+        {
             // Apply alpha to color (simple threshold for terminal)
             if glyph.alpha > 0.3 {
                 let color = if glyph.alpha < 0.7 {
@@ -232,10 +227,21 @@ impl RenderBackend for TerminalBackend {
         }
     }
 
-    fn draw_line(&mut self, from: Point3D, to: Point3D, color: Color, alpha: f32, camera: &Transform) {
+    fn draw_line(
+        &mut self,
+        from: Point3D,
+        to: Point3D,
+        color: Color,
+        alpha: f32,
+        camera: &Transform,
+    ) {
         // Project both endpoints
-        let from_screen = self.projection.project_to_screen(from, camera, self.width, self.height);
-        let to_screen = self.projection.project_to_screen(to, camera, self.width, self.height);
+        let from_screen = self
+            .projection
+            .project_to_screen(from, camera, self.width, self.height);
+        let to_screen = self
+            .projection
+            .project_to_screen(to, camera, self.width, self.height);
 
         if let (Some((x1, y1, d1)), Some((x2, y2, d2))) = (from_screen, to_screen) {
             // Bresenham's line algorithm
@@ -259,7 +265,13 @@ impl RenderBackend for TerminalBackend {
                 let depth = d1 + (d2 - d1) * t;
 
                 if x >= 0 && x < self.width as i32 && y >= 0 && y < self.height as i32 {
-                    let symbol = if dx > -dy { "─" } else if -dy > dx { "│" } else { "·" };
+                    let symbol = if dx > -dy {
+                        "─"
+                    } else if -dy > dx {
+                        "│"
+                    } else {
+                        "·"
+                    };
                     self.set_cell(x as u16, y as u16, symbol.to_string(), color, depth);
                 }
 
@@ -297,8 +309,19 @@ impl RenderBackend for TerminalBackend {
             for dx in 0..sw {
                 let symbol = if dy == 0 || dy == sh - 1 {
                     if dx == 0 || dx == sw - 1 {
-                        if dy == 0 { if dx == 0 { "┌" } else { "┐" } }
-                        else { if dx == 0 { "└" } else { "┘" } }
+                        if dy == 0 {
+                            if dx == 0 {
+                                "┌"
+                            } else {
+                                "┐"
+                            }
+                        } else {
+                            if dx == 0 {
+                                "└"
+                            } else {
+                                "┘"
+                            }
+                        }
                     } else {
                         "─"
                     }
@@ -326,7 +349,9 @@ impl RenderBackend for TerminalBackend {
     }
 
     fn project(&self, point: Point3D, camera: &Transform) -> Option<(f32, f32)> {
-        self.projection.project(point, camera).map(|(x, y, _)| (x, y))
+        self.projection
+            .project(point, camera)
+            .map(|(x, y, _)| (x, y))
     }
 
     fn is_visible(&self, point: Point3D, camera: &Transform) -> bool {

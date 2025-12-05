@@ -7,8 +7,8 @@ use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::spatial::{Point3D, Transform, Quaternion, Vector3D};
-use super::{OpticalEvent, GestureEvent, GestureType, Hand, SwipeDirection, HeadGestureType};
+use super::{GestureEvent, GestureType, Hand, HeadGestureType, OpticalEvent, SwipeDirection};
+use crate::spatial::{Point3D, Quaternion, Transform, Vector3D};
 
 /// Simulates spatial inputs from keyboard for development
 pub struct InputSimulator {
@@ -263,7 +263,10 @@ mod tests {
         assert!(!events.is_empty());
         assert!(matches!(
             &events[0],
-            OpticalEvent::Gesture(GestureEvent { gesture: GestureType::AirTap { .. }, .. })
+            OpticalEvent::Gesture(GestureEvent {
+                gesture: GestureType::AirTap { .. },
+                ..
+            })
         ));
     }
 

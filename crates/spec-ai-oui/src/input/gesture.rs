@@ -134,7 +134,9 @@ mod tests {
     fn test_gesture_event() {
         let gesture = GestureEvent::new(
             Hand::Right,
-            GestureType::AirTap { position: Point3D::ORIGIN },
+            GestureType::AirTap {
+                position: Point3D::ORIGIN,
+            },
             Point3D::ORIGIN,
         );
         assert!(gesture.is_select());

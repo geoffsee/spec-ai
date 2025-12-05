@@ -1,7 +1,7 @@
 //! Render backend trait definition
 
-use crate::spatial::{Point3D, Transform};
 use super::surface::{Color, SurfaceCapabilities};
+use crate::spatial::{Point3D, Transform};
 
 /// Error type for rendering operations
 #[derive(Debug, Clone)]
@@ -86,7 +86,14 @@ pub trait RenderBackend: Send + Sync {
     fn draw_glyph(&mut self, glyph: &RenderGlyph, camera: &Transform);
 
     /// Render a line between two 3D points
-    fn draw_line(&mut self, from: Point3D, to: Point3D, color: Color, alpha: f32, camera: &Transform);
+    fn draw_line(
+        &mut self,
+        from: Point3D,
+        to: Point3D,
+        color: Color,
+        alpha: f32,
+        camera: &Transform,
+    );
 
     /// Render a 2D HUD element (screen-space)
     fn draw_hud_rect(&mut self, x: f32, y: f32, width: f32, height: f32, color: Color);

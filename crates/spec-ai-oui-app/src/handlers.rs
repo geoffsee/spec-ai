@@ -3,17 +3,17 @@
 //! Controls simulate a wearable ring:
 //! - Scroll/Up/Down: Navigate within focused panel
 //! - Enter/Select: Activate current selection
-//! - Tab: Toggle focus between menu and events
+//! - Tab: Toggle focus between menu and content
 //! - Esc: Back to default view
 
-use crate::state::DemoState;
+use crate::state::AppState;
 use crossterm::event::{KeyCode, KeyModifiers};
 use spec_ai_oui::{
     input::{GestureType, SwipeDirection},
     OpticalEvent,
 };
 
-pub fn handle_event(event: OpticalEvent, state: &mut DemoState) -> bool {
+pub fn handle_event(event: OpticalEvent, state: &mut AppState) -> bool {
     match event {
         OpticalEvent::Key(key) => handle_key(key, state),
         OpticalEvent::Gesture(g) => match g.gesture {
@@ -41,7 +41,7 @@ pub fn handle_event(event: OpticalEvent, state: &mut DemoState) -> bool {
     }
 }
 
-fn handle_key(key: crossterm::event::KeyEvent, state: &mut DemoState) -> bool {
+fn handle_key(key: crossterm::event::KeyEvent, state: &mut AppState) -> bool {
     // Quit on Ctrl+Q
     if key.code == KeyCode::Char('q') && key.modifiers.contains(KeyModifiers::CONTROL) {
         return false;
@@ -79,18 +79,18 @@ fn handle_key(key: crossterm::event::KeyEvent, state: &mut DemoState) -> bool {
     true
 }
 
-fn handle_voice(cmd: &str, state: &mut DemoState) -> bool {
+fn handle_voice(cmd: &str, state: &mut AppState) -> bool {
     let c = cmd.to_lowercase();
-    if c.contains("mode") {
+    if c.contains("trace") {
         state.menu_index = 0;
         state.select();
-    } else if c.contains("alert") {
+    } else if c.contains("span") {
         state.menu_index = 1;
         state.select();
-    } else if c.contains("setting") {
+    } else if c.contains("service") {
         state.menu_index = 2;
         state.select();
-    } else if c.contains("back") || c.contains("home") {
+    } else if c.contains("back") || c.contains("home") || c.contains("feed") {
         state.back();
     } else if c.contains("up") || c.contains("previous") {
         state.scroll_up();

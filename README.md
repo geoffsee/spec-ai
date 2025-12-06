@@ -11,7 +11,7 @@ For detailed documentation, see:
 - [`docs/SETUP.md`](docs/SETUP.md) - Detailed setup instructions
 - [`docs/SELF-INIT.md`](docs/SELF-INIT.md) - Bootstrap self-discovery process
 - [`docs/VERIFY.md`](docs/VERIFY.md) - Testing and verification guide
-- [`docs/COLLECTIVE_INTELLIGENCE.md`](docs/COLLECTIVE.md) - Multi-agent coordination and emergent specialization
+- [`docs/COLLECTIVE.md`](docs/COLLECTIVE.md) - Multi-agent coordination and emergent specialization
 
 Example configurations are available in `examples/configs/`:
 - `config.openai.example.toml` - OpenAI provider setup
@@ -38,6 +38,8 @@ crates/
 ├── spec-ai-api/             # HTTP/mesh server and sync coordinator
 ├── spec-ai-tui/             # Terminal UI framework built on crossterm
 ├── spec-ai-tui-app/         # Interactive terminal application
+├── spec-ai-oui/             # Optical UI framework for AR/glasses displays
+├── spec-ai-oui-app/         # OUI demo application with OpenTelemetry visualization
 └── spec-ai/                 # Public library crate re-exporting the pieces above
 
 docs/, examples/, specs/, etc.

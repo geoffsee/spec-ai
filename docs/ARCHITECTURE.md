@@ -7,6 +7,7 @@ graph TB
     subgraph UI["User Interface"]
         CLI["CLI/REPL<br/>(spec-ai-cli)"]
         TUI["Terminal UI<br/>(spec-ai-tui-app)"]
+        OUI["Optical UI<br/>(spec-ai-oui-app)"]
         Spec["Agent Spec<br/>(TOML)"]
     end
 
@@ -137,6 +138,17 @@ Multi-provider support:
 - **spec-ai-tui**: Low-level TUI framework built from scratch on crossterm, providing geometry primitives, cell-based buffer rendering, constraint-based layout, widget system, and async event loop
 - **spec-ai-tui-app**: Interactive terminal application using the TUI framework, with chat interface, backend integration, and Elm-inspired state management
 
+### Optical UI Framework (OUI)
+- **spec-ai-oui**: Framework for building optical user interfaces for AR/glasses displays, providing:
+  - 3D spatial primitives (Point3D, Vector3D, Quaternion, Transform, SpatialAnchor)
+  - Abstract render backend with terminal simulation for development
+  - Multi-modal input abstraction (gaze, gesture, head tracking, voice)
+  - Context-aware HUD with dynamic information density
+  - Optical widgets optimized for AR (anchored labels, floating cards, HUD panels)
+  - Animation system with easing functions
+  - Glass-morphism theming for optical displays
+- **spec-ai-oui-app**: Demo application showcasing OpenTelemetry data visualization through the OUI framework
+
 ### Distributed Coordination & Sync
 - **Mesh Registry & Messaging**: Agents register, exchange heartbeats, and route inter-agent messages (task delegation, notifications, sync triggers) via the mesh API and tooling (`crates/spec-ai-api/src/api/mesh.rs`, `crates/spec-ai-core/src/tools/builtin/mesh_communication.rs`).
 - **Graph Sync Pipeline** (`spec-ai-graph-sync`): Vector-clock negotiation chooses full vs incremental graph exchange; conflict resolution merges concurrent edits before persisting. Key modules: `engine.rs`, `protocol.rs`, `resolver.rs`.
@@ -152,7 +164,7 @@ Emergent multi-agent coordination enabling agents to learn from each other and d
 - **Workflow Engine**: Multi-agent workflow orchestration with Sequential, Parallel, MapReduce, Consensus, and ConditionalBranch stage types.
 - **Specialization Engine**: Detects emergent specialists, identifies capability gaps, and routes queries to domain experts.
 
-See [`docs/COLLECTIVE_INTELLIGENCE.md`](COLLECTIVE_INTELLIGENCE.md) for detailed documentation.
+See [`COLLECTIVE.md`](COLLECTIVE.md) for detailed documentation.
 
 ### Persistence Layer (DuckDB)
 - **Messages**: Conversation history

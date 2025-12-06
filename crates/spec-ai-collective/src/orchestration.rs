@@ -611,11 +611,8 @@ impl WorkflowEngine {
         let cutoff = Utc::now() - max_age;
         let before = self.executions.len();
 
-        self.executions.retain(|_, e| {
-            e.completed_at
-                .map(|t| t > cutoff)
-                .unwrap_or(true)
-        });
+        self.executions
+            .retain(|_, e| e.completed_at.map(|t| t > cutoff).unwrap_or(true));
 
         before - self.executions.len()
     }
@@ -628,7 +625,11 @@ mod tests {
     #[test]
     fn test_workflow_creation() {
         let workflow = Workflow::new("test-workflow", "A test workflow", "agent-1".to_string())
-            .add_stage(WorkflowStage::sequential("stage-1", "First Stage", "Do first thing"))
+            .add_stage(WorkflowStage::sequential(
+                "stage-1",
+                "First Stage",
+                "Do first thing",
+            ))
             .add_stage(
                 WorkflowStage::parallel("stage-2", "Second Stage", "Do in parallel", 2)
                     .with_dependencies(vec!["stage-1".to_string()]),

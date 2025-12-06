@@ -163,7 +163,7 @@ fn default_slash_commands() -> Vec<SlashCommand> {
         SlashCommand::new("init", "Bootstrap knowledge graph (first command only)"),
         SlashCommand::new("refresh", "Refresh knowledge graph cache"),
         SlashCommand::new("listen", "Start or stop background transcription"),
-        SlashCommand::new("spec", "Run a spec file (/spec run specs/smoke.spec)"),
+        SlashCommand::new("spec", "Run a spec file (/spec run examples/specs/smoke.spec)"),
         SlashCommand::new("speak", "Toggle spoken responses"),
     ]
 }
@@ -233,7 +233,11 @@ mod tests {
     fn default_slash_commands_all_have_descriptions() {
         let commands = default_slash_commands();
         for cmd in commands {
-            assert!(!cmd.description.is_empty(), "Command '{}' has no description", cmd.name);
+            assert!(
+                !cmd.description.is_empty(),
+                "Command '{}' has no description",
+                cmd.name
+            );
         }
     }
 

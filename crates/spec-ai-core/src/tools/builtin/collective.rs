@@ -194,9 +194,7 @@ impl Tool for QueryCapabilitiesTool {
         let args: QueryCapabilitiesArgs = serde_json::from_value(args)?;
 
         let Some(ref mesh_url) = self.mesh_url else {
-            return Ok(ToolResult::failure(
-                "Mesh communication not configured.",
-            ));
+            return Ok(ToolResult::failure("Mesh communication not configured."));
         };
 
         let parts: Vec<&str> = mesh_url.split(':').collect();
@@ -219,7 +217,10 @@ impl Tool for QueryCapabilitiesTool {
 
         for instance in instances.instances {
             result.push_str(&format!("### {}\n", instance.instance_id));
-            result.push_str(&format!("- Host: {}:{}\n", instance.hostname, instance.port));
+            result.push_str(&format!(
+                "- Host: {}:{}\n",
+                instance.hostname, instance.port
+            ));
             result.push_str(&format!("- Leader: {}\n", instance.is_leader));
             result.push_str(&format!("- Capabilities: {:?}\n", instance.capabilities));
             result.push_str(&format!("- Profiles: {:?}\n\n", instance.agent_profiles));
@@ -301,9 +302,7 @@ impl Tool for ShareCapabilitiesTool {
         let args: ShareCapabilitiesArgs = serde_json::from_value(args)?;
 
         let Some(ref mesh_url) = self.mesh_url else {
-            return Ok(ToolResult::failure(
-                "Mesh communication not configured.",
-            ));
+            return Ok(ToolResult::failure("Mesh communication not configured."));
         };
 
         let parts: Vec<&str> = mesh_url.split(':').collect();
@@ -417,9 +416,7 @@ impl Tool for ShareStrategyTool {
         let args: ShareStrategyArgs = serde_json::from_value(args)?;
 
         let Some(ref mesh_url) = self.mesh_url else {
-            return Ok(ToolResult::failure(
-                "Mesh communication not configured.",
-            ));
+            return Ok(ToolResult::failure("Mesh communication not configured."));
         };
 
         let parts: Vec<&str> = mesh_url.split(':').collect();
@@ -552,9 +549,7 @@ impl Tool for SubmitProposalTool {
         let args: SubmitProposalArgs = serde_json::from_value(args)?;
 
         let Some(ref mesh_url) = self.mesh_url else {
-            return Ok(ToolResult::failure(
-                "Mesh communication not configured.",
-            ));
+            return Ok(ToolResult::failure("Mesh communication not configured."));
         };
 
         let parts: Vec<&str> = mesh_url.split(':').collect();
@@ -666,9 +661,7 @@ impl Tool for CastVoteTool {
         let args: CastVoteArgs = serde_json::from_value(args)?;
 
         let Some(ref mesh_url) = self.mesh_url else {
-            return Ok(ToolResult::failure(
-                "Mesh communication not configured.",
-            ));
+            return Ok(ToolResult::failure("Mesh communication not configured."));
         };
 
         let parts: Vec<&str> = mesh_url.split(':').collect();
@@ -820,9 +813,7 @@ impl Tool for CreateWorkflowTool {
         let args: CreateWorkflowArgs = serde_json::from_value(args)?;
 
         let Some(ref mesh_url) = self.mesh_url else {
-            return Ok(ToolResult::failure(
-                "Mesh communication not configured.",
-            ));
+            return Ok(ToolResult::failure("Mesh communication not configured."));
         };
 
         let parts: Vec<&str> = mesh_url.split(':').collect();
@@ -948,9 +939,7 @@ impl Tool for ReportStageResultTool {
         let args: ReportStageResultArgs = serde_json::from_value(args)?;
 
         let Some(ref mesh_url) = self.mesh_url else {
-            return Ok(ToolResult::failure(
-                "Mesh communication not configured.",
-            ));
+            return Ok(ToolResult::failure("Mesh communication not configured."));
         };
 
         let parts: Vec<&str> = mesh_url.split(':').collect();

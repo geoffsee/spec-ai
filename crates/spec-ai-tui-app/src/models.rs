@@ -169,7 +169,8 @@ mod tests {
 
     #[test]
     fn chat_message_from_backend_agent_role() {
-        let backend_msg = make_test_message(MessageRole::Agent("agent-42".to_string()), "Agent output");
+        let backend_msg =
+            make_test_message(MessageRole::Agent("agent-42".to_string()), "Agent output");
         let chat_msg = ChatMessage::from_backend(&backend_msg);
         assert_eq!(chat_msg.role, ChatRole::Agent("agent-42".to_string()));
         assert_eq!(chat_msg.content, "Agent output");

@@ -650,7 +650,7 @@ spec-ai run spec1.spec spec2.spec spec/dir/
 #### `run` - Execute spec files
 
 ```bash
-# Run default spec (spec/smoke.spec)
+# Run default spec (examples/spec/smoke.spec)
 spec-ai run
 
 # Run specific spec file

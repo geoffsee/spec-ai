@@ -193,13 +193,16 @@ impl SpecializationEngine {
     pub fn update_from_profile(&mut self, profile: &ExpertiseProfile) {
         for (domain, capability) in &profile.capabilities {
             if capability.proficiency >= self.specialist_threshold {
-                let entry = self.my_specializations.entry(domain.clone()).or_insert_with(|| {
-                    Specialist::new(
-                        self.instance_id.clone(),
-                        domain.clone(),
-                        capability.proficiency,
-                    )
-                });
+                let entry = self
+                    .my_specializations
+                    .entry(domain.clone())
+                    .or_insert_with(|| {
+                        Specialist::new(
+                            self.instance_id.clone(),
+                            domain.clone(),
+                            capability.proficiency,
+                        )
+                    });
 
                 entry.update(
                     capability.proficiency,
@@ -227,7 +230,11 @@ impl SpecializationEngine {
             .iter_mut()
             .find(|s| s.instance_id == specialist.instance_id)
         {
-            existing.update(specialist.proficiency, specialist.task_count, specialist.success_rate);
+            existing.update(
+                specialist.proficiency,
+                specialist.task_count,
+                specialist.success_rate,
+            );
             existing.mark_active();
         } else {
             domain_specialists.push(specialist);
@@ -248,7 +255,10 @@ impl SpecializationEngine {
     /// Mark a specialist as unavailable.
     pub fn mark_unavailable(&mut self, instance_id: &str, domain: &str) {
         if let Some(specialists) = self.specialists.get_mut(domain) {
-            if let Some(specialist) = specialists.iter_mut().find(|s| s.instance_id == instance_id) {
+            if let Some(specialist) = specialists
+                .iter_mut()
+                .find(|s| s.instance_id == instance_id)
+            {
                 specialist.mark_unavailable();
             }
         }
@@ -259,7 +269,11 @@ impl SpecializationEngine {
         let mut specialists: Vec<_> = self
             .specialists
             .get(domain)
-            .map(|s| s.iter().filter(|s| s.available && !s.is_stale(self.stale_timeout)).collect())
+            .map(|s| {
+                s.iter()
+                    .filter(|s| s.available && !s.is_stale(self.stale_timeout))
+                    .collect()
+            })
             .unwrap_or_default();
 
         // Include self if applicable
@@ -335,7 +349,8 @@ impl SpecializationEngine {
             return None;
         }
 
-        let avg_proficiency = specialists.iter().map(|s| s.proficiency).sum::<f32>() / specialists.len() as f32;
+        let avg_proficiency =
+            specialists.iter().map(|s| s.proficiency).sum::<f32>() / specialists.len() as f32;
         let total_tasks: u64 = specialists.iter().map(|s| s.task_count).sum();
         let expert_count = specialists
             .iter()

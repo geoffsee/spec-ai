@@ -505,7 +505,13 @@ fn render_onboarding_stepper(state: &DemoState, area: Rect, buf: &mut Buffer) {
         let seg = columns.get(i).copied().unwrap_or(area);
         let is_active = i == current_idx;
         let is_complete = i < current_idx;
-        let marker = if is_complete { "✓" } else if is_active { "●" } else { "○" };
+        let marker = if is_complete {
+            "✓"
+        } else if is_active {
+            "●"
+        } else {
+            "○"
+        };
         let style = if is_active {
             Style::new().fg(Color::Cyan).bold()
         } else if is_complete {
@@ -515,12 +521,7 @@ fn render_onboarding_stepper(state: &DemoState, area: Rect, buf: &mut Buffer) {
         };
 
         buf.set_string(seg.x + 2, seg.y + 1, marker, style);
-        buf.set_string(
-            seg.x + 5,
-            seg.y + 1,
-            &format!("{}. {}", num, label),
-            style,
-        );
+        buf.set_string(seg.x + 5, seg.y + 1, &format!("{}. {}", num, label), style);
 
         if *step == OnboardingStep::Confirm {
             let summary_list: Vec<String> = state
@@ -859,7 +860,10 @@ fn render_model_metadata(state: &DemoState, area: Rect, buf: &mut Buffer) {
             buf.set_string(
                 inner.x + 1,
                 summary_y,
-                &truncate(&format!("Selections: {}", summary), inner.width.saturating_sub(2) as usize),
+                &truncate(
+                    &format!("Selections: {}", summary),
+                    inner.width.saturating_sub(2) as usize,
+                ),
                 Style::new().fg(Color::DarkGrey),
             );
         }
@@ -931,7 +935,11 @@ fn render_confirm_step(state: &DemoState, area: Rect, buf: &mut Buffer) {
             0,
             format!(
                 "Voice responses: {}",
-                if state.onboarding.voice_enabled { "on" } else { "off" }
+                if state.onboarding.voice_enabled {
+                    "on"
+                } else {
+                    "off"
+                }
             ),
             "Space to toggle voice playback",
         ),
@@ -1016,10 +1024,9 @@ fn render_onboarding_footer(state: &DemoState, area: Rect, buf: &mut Buffer) {
     let model_count = state.onboarding.model_count_for_provider();
     let summary = match state.onboarding.step {
         OnboardingStep::Provider => format!("Detected {} provider(s) in config", provider_count),
-        OnboardingStep::Model => format!(
-            "{} model(s) across chat/fast/embeddings/audio",
-            model_count
-        ),
+        OnboardingStep::Model => {
+            format!("{} model(s) across chat/fast/embeddings/audio", model_count)
+        }
         OnboardingStep::Confirm => "Press Enter to lock settings and start".to_string(),
     };
 
@@ -1058,7 +1065,10 @@ fn render_policy_modal(state: &DemoState, area: Rect, buf: &mut Buffer) {
         format!("Mode: {}", state.onboarding.policy_mode.label()),
         format!(
             "Description: {}",
-            truncate(state.onboarding.policy_mode.description(), inner.width as usize - 4)
+            truncate(
+                state.onboarding.policy_mode.description(),
+                inner.width as usize - 4
+            )
         ),
         format!(
             "Tools: {}",

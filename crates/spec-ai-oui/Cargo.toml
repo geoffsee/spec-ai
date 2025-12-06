@@ -1,0 +1,16 @@
+[package]
+name = "spec-ai-oui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Optical User Interface framework for AR/glasses displays"
+
+[dependencies]
+crossterm = { workspace = true, features = ["event-stream"] }
+tokio = { workspace = true }
+futures = { workspace = true }
+unicode-width = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

@@ -50,8 +50,16 @@ pub mod types;
 
 // Re-export main types for convenience
 pub use capability::{Capability, CapabilityTracker, ExpertiseProfile, LearningEvent, TaskOutcome};
-pub use consensus::{ConsensusCoordinator, Proposal, ProposalStatus, ProposalType, Vote, VoteDecision};
-pub use delegation::{DelegatedTask, DelegationManager, ExecutionMetrics, RoutingDecision, TaskPriority, TaskResult, TaskStatus};
+pub use consensus::{
+    ConsensusCoordinator, Proposal, ProposalStatus, ProposalType, Vote, VoteDecision,
+};
+pub use delegation::{
+    DelegatedTask, DelegationManager, ExecutionMetrics, RoutingDecision, TaskPriority, TaskResult,
+    TaskStatus,
+};
 pub use learning::{LearningFabric, Strategy, StrategyMatch};
-pub use orchestration::{StageState, StageType, Workflow, WorkflowEngine, WorkflowExecution, WorkflowStage, WorkflowState};
+pub use orchestration::{
+    StageState, StageType, Workflow, WorkflowEngine, WorkflowExecution, WorkflowStage,
+    WorkflowState,
+};
 pub use specialization::{Specialist, SpecializationEngine, SpecializationStatus};

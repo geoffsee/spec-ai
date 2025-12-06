@@ -244,7 +244,11 @@ impl LearningFabric {
     }
 
     /// Query strategies by semantic similarity (requires embeddings).
-    pub fn query_by_embedding(&self, query_embedding: &[f32], threshold: f32) -> Vec<StrategyMatch> {
+    pub fn query_by_embedding(
+        &self,
+        query_embedding: &[f32],
+        threshold: f32,
+    ) -> Vec<StrategyMatch> {
         let mut matches = Vec::new();
 
         for strategy in self.all_strategies() {
@@ -274,13 +278,11 @@ impl LearningFabric {
         let mut matches = Vec::new();
 
         for strategy in self.all_strategies() {
-            let tag_match_count = tags
-                .iter()
-                .filter(|t| strategy.tags.contains(t))
-                .count();
+            let tag_match_count = tags.iter().filter(|t| strategy.tags.contains(t)).count();
 
             if tag_match_count > 0 && strategy.success_rate() >= self.min_success_rate {
-                let relevance = (tag_match_count as f32 / tags.len() as f32) * strategy.success_rate();
+                let relevance =
+                    (tag_match_count as f32 / tags.len() as f32) * strategy.success_rate();
                 matches.push(StrategyMatch {
                     strategy: strategy.clone(),
                     relevance,

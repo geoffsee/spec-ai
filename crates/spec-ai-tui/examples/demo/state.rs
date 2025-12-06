@@ -1,8 +1,8 @@
 //! Demo application state and defaults.
 
 use crate::models::{AgentProcess, ChatMessage, Session, ToolExecution, ToolStatus};
-use std::collections::BTreeMap;
 use spec_ai_tui::widget::builtin::{EditorState, SlashCommand, SlashMenuState};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Panel {
@@ -153,20 +153,8 @@ impl Onboarding {
             active: true,
             step: OnboardingStep::Provider,
             providers: vec![
-                ProviderOption::new(
-                    "OpenAI",
-                    true,
-                    180,
-                    "global",
-                    "Detected from config",
-                ),
-                ProviderOption::new(
-                    "Anthropic",
-                    true,
-                    210,
-                    "us-east-1",
-                    "API key in env",
-                ),
+                ProviderOption::new("OpenAI", true, 180, "global", "Detected from config"),
+                ProviderOption::new("Anthropic", true, 210, "us-east-1", "API key in env"),
                 ProviderOption::new(
                     "Local",
                     false,

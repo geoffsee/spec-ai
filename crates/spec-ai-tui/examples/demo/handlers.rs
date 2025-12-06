@@ -148,7 +148,9 @@ pub fn apply_actions(state: &mut DemoState, actions: Vec<Action>) {
             }
             Action::KillProcess(idx) => {
                 if let Some(proc) = state.processes.get_mut(idx) {
-                    if proc.status == ProcessStatus::Running || proc.status == ProcessStatus::Stopped {
+                    if proc.status == ProcessStatus::Running
+                        || proc.status == ProcessStatus::Stopped
+                    {
                         proc.status = ProcessStatus::Failed;
                         proc.exit_code = Some(-9);
                     }
@@ -157,7 +159,8 @@ pub fn apply_actions(state: &mut DemoState, actions: Vec<Action>) {
             Action::RemoveProcess(idx) => {
                 if idx < state.processes.len() {
                     state.processes.remove(idx);
-                    if state.selected_process > 0 && state.selected_process >= state.processes.len() {
+                    if state.selected_process > 0 && state.selected_process >= state.processes.len()
+                    {
                         state.selected_process -= 1;
                     }
                 }
@@ -191,7 +194,9 @@ pub fn apply_actions(state: &mut DemoState, actions: Vec<Action>) {
                     10 + state.messages.len() / 60,
                     state.messages.len() % 60
                 );
-                state.messages.push(ChatMessage::new("assistant", &response, &timestamp));
+                state
+                    .messages
+                    .push(ChatMessage::new("assistant", &response, &timestamp));
             }
             Action::AddToolExecution(tool) => state.tools.push(tool),
             Action::ProgressTool(idx) => {
@@ -212,7 +217,9 @@ pub fn apply_actions(state: &mut DemoState, actions: Vec<Action>) {
                     state.messages.len() % 60
                 );
                 if let Some(tool) = state.tools.get(idx) {
-                    state.messages.push(ChatMessage::tool(&tool.name, &content, &timestamp));
+                    state
+                        .messages
+                        .push(ChatMessage::tool(&tool.name, &content, &timestamp));
                 }
             }
 
@@ -276,7 +283,9 @@ pub fn apply_actions(state: &mut DemoState, actions: Vec<Action>) {
             Action::ToggleFileWrite => {
                 let _ = toggle_file_write(&mut state.onboarding.selected_tools);
             }
-            Action::CyclePolicy => state.onboarding.policy_mode = state.onboarding.policy_mode.next(),
+            Action::CyclePolicy => {
+                state.onboarding.policy_mode = state.onboarding.policy_mode.next()
+            }
             Action::ShowPolicyModal => state.onboarding.show_policy_modal = true,
             Action::HidePolicyModal => state.onboarding.show_policy_modal = false,
             Action::FinalizeOnboarding => finalize_onboarding(state),
@@ -339,7 +348,8 @@ pub fn handle_event_pure(event: Event, state: &DemoState) -> (Vec<Action>, bool)
 
     if state.onboarding.active {
         // Delegate to onboarding handler
-        let (mut onboarding_actions, onboarding_consumed) = handle_onboarding_event_pure(event, state);
+        let (mut onboarding_actions, onboarding_consumed) =
+            handle_onboarding_event_pure(event, state);
         actions.append(&mut onboarding_actions);
         return (actions, onboarding_consumed);
     }
@@ -394,19 +404,25 @@ pub fn handle_event_pure(event: Event, state: &DemoState) -> (Vec<Action>, bool)
                     }
                     KeyCode::Up | KeyCode::Char('k') => {
                         if state.show_process_panel {
-                            actions.push(Action::SelectProcess(state.selected_process.saturating_sub(1)));
+                            actions.push(Action::SelectProcess(
+                                state.selected_process.saturating_sub(1),
+                            ));
                         } else if state.show_history {
-                            actions.push(Action::SelectSession(state.selected_session.saturating_sub(1)));
+                            actions.push(Action::SelectSession(
+                                state.selected_session.saturating_sub(1),
+                            ));
                         }
                         return (actions, true);
                     }
                     KeyCode::Down | KeyCode::Char('j') => {
                         if state.show_process_panel {
                             let max = state.processes.len().saturating_sub(1);
-                            actions.push(Action::SelectProcess((state.selected_process + 1).min(max)));
+                            actions
+                                .push(Action::SelectProcess((state.selected_process + 1).min(max)));
                         } else if state.show_history {
                             let max = state.sessions.len().saturating_sub(1);
-                            actions.push(Action::SelectSession((state.selected_session + 1).min(max)));
+                            actions
+                                .push(Action::SelectSession((state.selected_session + 1).min(max)));
                         }
                         return (actions, true);
                     }
@@ -445,8 +461,7 @@ pub fn handle_event_pure(event: Event, state: &DemoState) -> (Vec<Action>, bool)
                                 };
                                 actions.push(Action::SetStatus(format!(
                                     "{} PID {}",
-                                    status_str,
-                                    proc.pid
+                                    status_str, proc.pid
                                 )));
                             }
                         }
@@ -456,7 +471,10 @@ pub fn handle_event_pure(event: Event, state: &DemoState) -> (Vec<Action>, bool)
                         if state.selected_process < state.processes.len() {
                             actions.push(Action::KillProcess(state.selected_process));
                             if let Some(proc) = state.processes.get(state.selected_process) {
-                                actions.push(Action::SetStatus(format!("Killed PID {} (SIGKILL)", proc.pid)));
+                                actions.push(Action::SetStatus(format!(
+                                    "Killed PID {} (SIGKILL)",
+                                    proc.pid
+                                )));
                             }
                         }
                         return (actions, true);
@@ -469,7 +487,10 @@ pub fn handle_event_pure(event: Event, state: &DemoState) -> (Vec<Action>, bool)
                                 {
                                     let pid = proc.pid;
                                     actions.push(Action::RemoveProcess(state.selected_process));
-                                    actions.push(Action::SetStatus(format!("Removed PID {} from list", pid)));
+                                    actions.push(Action::SetStatus(format!(
+                                        "Removed PID {} from list",
+                                        pid
+                                    )));
                                 }
                             }
                         }
@@ -1031,10 +1052,8 @@ fn handle_onboarding_event(event: Event, state: &mut DemoState) -> bool {
                     state.onboarding.confirm_cursor = 0;
                     if let Some(provider) = state.onboarding.current_provider() {
                         let models = state.onboarding.model_count_for_provider();
-                        state.status = format!(
-                            "Pulled {} models for {} (step 2/3)",
-                            models, provider.name
-                        );
+                        state.status =
+                            format!("Pulled {} models for {} (step 2/3)", models, provider.name);
                     }
                 }
                 _ => {}
@@ -1057,20 +1076,14 @@ fn handle_onboarding_event(event: Event, state: &mut DemoState) -> bool {
                         state.onboarding.selected_kind.saturating_sub(1);
                 }
                 KeyCode::Right => {
-                    let max = state
-                        .onboarding
-                        .provider_kinds()
-                        .len()
-                        .saturating_sub(1);
-                    state.onboarding.selected_kind =
-                        (state.onboarding.selected_kind + 1).min(max);
+                    let max = state.onboarding.provider_kinds().len().saturating_sub(1);
+                    state.onboarding.selected_kind = (state.onboarding.selected_kind + 1).min(max);
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
                     if let Some(kind) = state.onboarding.current_kind() {
                         let models = state.onboarding.models_for_current();
                         if models.is_empty() {
-                            state.status =
-                                format!("No {} models for this provider", kind.label());
+                            state.status = format!("No {} models for this provider", kind.label());
                         } else {
                             let max = models.len().saturating_sub(1);
                             let current = state
@@ -1177,10 +1190,7 @@ fn handle_policy_modal_event(event: Event, state: &mut DemoState) -> bool {
         Event::Key(key) => match key.code {
             KeyCode::Left | KeyCode::Right | KeyCode::Char(' ') => {
                 state.onboarding.policy_mode = state.onboarding.policy_mode.next();
-                state.status = format!(
-                    "Policy set to {}",
-                    state.onboarding.policy_mode.label()
-                );
+                state.status = format!("Policy set to {}", state.onboarding.policy_mode.label());
             }
             KeyCode::Char('t') => {
                 let enabled = toggle_file_write(&mut state.onboarding.selected_tools);
@@ -1646,7 +1656,9 @@ mod tests {
         // First Ctrl+C - should set pending_quit
         let (actions, consumed) = handle_event_pure(quit_event.clone(), &state);
         assert!(consumed);
-        assert!(actions.iter().any(|a| matches!(a, Action::SetPendingQuit(true))));
+        assert!(actions
+            .iter()
+            .any(|a| matches!(a, Action::SetPendingQuit(true))));
         assert!(actions.iter().any(|a| matches!(a, Action::SetStatus(_))));
 
         // Apply actions to get state for second Ctrl+C
@@ -1667,7 +1679,9 @@ mod tests {
         let key_event = make_key_event(KeyCode::Char('a'));
         let (actions, _) = handle_event_pure(key_event, &state);
 
-        assert!(actions.iter().any(|a| matches!(a, Action::SetPendingQuit(false))));
+        assert!(actions
+            .iter()
+            .any(|a| matches!(a, Action::SetPendingQuit(false))));
         assert!(actions.iter().any(|a| matches!(a, Action::SetStatus(_))));
     }
 
@@ -1737,7 +1751,9 @@ mod tests {
     fn test_clear_messages() {
         let state = make_test_state();
         let mut state2 = state.clone();
-        state2.messages.push(ChatMessage::new("user", "Test", "10:00"));
+        state2
+            .messages
+            .push(ChatMessage::new("user", "Test", "10:00"));
         assert!(!state2.messages.is_empty());
 
         apply_actions(&mut state2, vec![Action::ClearMessages]);
@@ -1768,7 +1784,10 @@ mod tests {
         assert!(state2.streaming.is_some());
         assert_eq!(state2.stream_index, 0);
 
-        apply_actions(&mut state2, vec![Action::ProgressStreaming("hello ".to_string())]);
+        apply_actions(
+            &mut state2,
+            vec![Action::ProgressStreaming("hello ".to_string())],
+        );
         assert_eq!(state2.streaming.as_ref().unwrap(), "hello ");
         assert_eq!(state2.stream_index, 1);
     }

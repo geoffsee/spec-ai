@@ -733,7 +733,15 @@ impl KnowledgeGraphStore {
              VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
         )?;
         let id: i64 = stmt.query_row(
-            params![session_id, instance_id, entity_type, entity_id, operation, vector_clock, data],
+            params![
+                session_id,
+                instance_id,
+                entity_type,
+                entity_id,
+                operation,
+                vector_clock,
+                data
+            ],
             |row| row.get(0),
         )?;
         Ok(id)

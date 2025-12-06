@@ -261,7 +261,8 @@ mod tests {
 
     #[test]
     fn status_message_session_new_with_id() {
-        let status = status_message_for_command(&Command::SessionNew(Some("my-session".to_string())));
+        let status =
+            status_message_for_command(&Command::SessionNew(Some("my-session".to_string())));
         assert!(status.contains("my-session"));
     }
 
@@ -360,7 +361,8 @@ mod tests {
 
     #[test]
     fn status_message_listen_with_scenario() {
-        let status = status_message_for_command(&Command::Listen(Some("meeting".to_string()), None));
+        let status =
+            status_message_for_command(&Command::Listen(Some("meeting".to_string()), None));
         assert!(status.contains("meeting"));
     }
 
@@ -372,7 +374,8 @@ mod tests {
 
     #[test]
     fn status_message_run_spec() {
-        let status = status_message_for_command(&Command::RunSpec(PathBuf::from("specs/test.spec")));
+        let status =
+            status_message_for_command(&Command::RunSpec(PathBuf::from("specs/test.spec")));
         assert!(status.contains("executing"));
         assert!(status.contains("test.spec"));
     }
@@ -422,7 +425,12 @@ mod tests {
             status: "ready".to_string(),
         };
         match event {
-            BackendEvent::Initialized { agent, messages, reasoning, status } => {
+            BackendEvent::Initialized {
+                agent,
+                messages,
+                reasoning,
+                status,
+            } => {
                 assert_eq!(agent, Some("test".to_string()));
                 assert!(messages.is_empty());
                 assert_eq!(reasoning.len(), 1);

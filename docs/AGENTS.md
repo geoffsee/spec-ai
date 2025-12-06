@@ -28,7 +28,7 @@
 ## Testing Guidelines
 - Default test run: `cargo test --all-targets`.
 - Feature-specific suites: `cargo test --features api`, `cargo test --lib plugin`, `cargo test --lib policy`, `cargo test --test policy_integration_tests`.
-- Validate agent plans with `spec-ai run specs/smoke.spec` and include any GraalVM/Tesseract setup steps needed for file extraction.
+- Validate agent plans with `spec-ai run examples/specs/smoke.spec` and include any GraalVM/Tesseract setup steps needed for file extraction.
 - Integration tests in `tests/` follow the `*_tests.rs` pattern and focus on persistence and agent flow behavior.
 
 ## Commit & Pull Request Guidelines
@@ -79,4 +79,4 @@ When `enable_collective = true`, agents gain access to:
 - `create_workflow` - Create multi-agent workflows
 - `report_stage_result` - Report workflow progress
 
-See [`docs/COLLECTIVE_INTELLIGENCE.md`](docs/COLLECTIVE_INTELLIGENCE.md) for detailed documentation.
+See [`docs/COLLECTIVE_INTELLIGENCE.md`](COLLECTIVE.md) for detailed documentation.

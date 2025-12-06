@@ -385,7 +385,11 @@ impl ConsensusCoordinator {
             .get(proposal_id)
             .ok_or_else(|| CollectiveError::ProposalNotFound(proposal_id.to_string()))?;
 
-        let votes = self.votes.get(proposal_id).map(|v| v.as_slice()).unwrap_or(&[]);
+        let votes = self
+            .votes
+            .get(proposal_id)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[]);
 
         let mut weighted_approval = 0.0;
         let mut weighted_rejection = 0.0;

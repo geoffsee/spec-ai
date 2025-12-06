@@ -11,7 +11,7 @@ For detailed documentation, see:
 - [`docs/SETUP.md`](docs/SETUP.md) - Detailed setup instructions
 - [`docs/SELF-INIT.md`](docs/SELF-INIT.md) - Bootstrap self-discovery process
 - [`docs/VERIFY.md`](docs/VERIFY.md) - Testing and verification guide
-- [`docs/COLLECTIVE_INTELLIGENCE.md`](docs/COLLECTIVE_INTELLIGENCE.md) - Multi-agent coordination and emergent specialization
+- [`docs/COLLECTIVE_INTELLIGENCE.md`](docs/COLLECTIVE.md) - Multi-agent coordination and emergent specialization
 
 Example configurations are available in `examples/configs/`:
 - `config.openai.example.toml` - OpenAI provider setup
@@ -144,13 +144,13 @@ Specs must include a `goal` plus at least one entry in `tasks` or `deliverables`
 To run spec files, use the `spec-ai run` command:
 
 ```bash
-spec-ai run                      # runs spec/smoke.spec by default
+spec-ai run                      # runs examples/spec/smoke.spec by default
 spec-ai run spec/               # run all *.spec files inside spec/
 spec-ai run custom.spec          # run a specific spec file
 spec-ai run spec1.spec spec2.spec # run multiple spec files
 ```
 
-The default `specs/smoke.spec` is purposely simple and works against the mock provider so you can verify the CLI still functions after code changes.
+The default `examples/specs/smoke.spec` is purposely simple and works against the mock provider so you can verify the CLI still functions after code changes.
 
 ### Agent Profiles
 

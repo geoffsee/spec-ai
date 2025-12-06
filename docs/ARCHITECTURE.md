@@ -152,7 +152,7 @@ Emergent multi-agent coordination enabling agents to learn from each other and d
 - **Workflow Engine**: Multi-agent workflow orchestration with Sequential, Parallel, MapReduce, Consensus, and ConditionalBranch stage types.
 - **Specialization Engine**: Detects emergent specialists, identifies capability gaps, and routes queries to domain experts.
 
-See [`docs/COLLECTIVE_INTELLIGENCE.md`](COLLECTIVE_INTELLIGENCE.md) for detailed documentation.
+See [`docs/COLLECTIVE_INTELLIGENCE.md`](COLLECTIVE.md) for detailed documentation.
 
 ### Persistence Layer (DuckDB)
 - **Messages**: Conversation history

@@ -4,7 +4,7 @@ use spec_ai_tui::{
     buffer::Buffer,
     geometry::Rect,
     layout::{Constraint, Layout},
-    style::{wrap_text, Color, Line, Span, Style},
+    style::{parse_markdown, Color, Line, MarkdownConfig, Span, Style},
     widget::{
         builtin::{Block, Editor, SlashCommand, SlashMenu, StatusBar, StatusSection},
         StatefulWidget, Widget,
@@ -52,6 +52,10 @@ fn render_chat(state: &AppState, area: Rect, buf: &mut Buffer) {
     let content_width = inner.width.saturating_sub(1) as usize;
     let mut lines: Vec<Line> = Vec::new();
 
+    let md_config = MarkdownConfig::new()
+        .max_width(content_width.saturating_sub(2))
+        .wrap_prefix("  ");
+
     for message in &state.messages {
         let (style, label) = role_style(&message.role);
         lines.push(Line::from_spans([
@@ -62,12 +66,13 @@ fn render_chat(state: &AppState, area: Rect, buf: &mut Buffer) {
             Span::styled(format!("{}:", label), style),
         ]));
 
-        let prefix = "  ";
-        for content_line in message.content.lines() {
-            let wrapped = wrap_text(&format!("{prefix}{content_line}"), content_width, prefix);
-            for wrapped_line in wrapped {
-                lines.push(Line::raw(wrapped_line));
-            }
+        // Parse markdown and add prefix to each line
+        let parsed = parse_markdown(&message.content, &md_config);
+        for md_line in parsed.lines {
+            // Add indent prefix
+            let mut prefixed_spans = vec![Span::raw("  ".to_string())];
+            prefixed_spans.extend(md_line.spans);
+            lines.push(Line::from_spans(prefixed_spans));
         }
 
         lines.push(Line::empty());

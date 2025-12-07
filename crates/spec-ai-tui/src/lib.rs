@@ -24,6 +24,8 @@ pub use buffer::{Buffer, Cell};
 pub use event::Event;
 pub use geometry::{Point, Rect, Size};
 pub use layout::{Constraint, Direction, Layout};
-pub use style::{truncate, wrap_text, Color, Line, Modifier, Span, Style, Text};
+pub use style::{
+    parse_markdown, truncate, wrap_text, Color, Line, MarkdownConfig, Modifier, Span, Style, Text,
+};
 pub use terminal::Terminal;
 pub use widget::Widget;

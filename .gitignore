@@ -19,3 +19,4 @@ test.out
 crates/spec-ai/target/
 embeddings.json
 /todo
+/.spec-ai/code_search_embeddings.json

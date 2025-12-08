@@ -6155,6 +6155,7 @@ version = "0.6.0-prerelease.2"
 dependencies = [
  "anyhow",
  "chrono",
+ "futures",
  "spec-ai-core",
  "spec-ai-tui",
  "strip-ansi-escapes",

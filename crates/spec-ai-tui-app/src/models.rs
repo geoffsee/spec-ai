@@ -44,6 +44,14 @@ impl ChatMessage {
         }
     }
 
+    pub fn assistant(content: impl Into<String>) -> Self {
+        Self {
+            role: ChatRole::Assistant,
+            content: content.into(),
+            timestamp: Local::now().format("%H:%M:%S").to_string(),
+        }
+    }
+
     pub fn from_backend(message: &Message) -> Self {
         let role = match &message.role {
             MessageRole::System => ChatRole::System,

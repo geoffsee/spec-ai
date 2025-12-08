@@ -1,4 +1,5 @@
 use anyhow::Result;
+use futures::StreamExt;
 use spec_ai_core::cli::{formatting, parse_command, CliState, Command};
 use spec_ai_core::types::Message;
 use std::path::PathBuf;
@@ -21,6 +22,18 @@ pub enum BackendEvent {
     },
     CommandResult {
         response: Option<String>,
+        new_messages: Vec<Message>,
+        reasoning: Vec<String>,
+        status: String,
+    },
+    /// Signals the start of a streaming response
+    StreamStart,
+    /// Incremental text chunk from the streaming response
+    StreamDelta {
+        content: String,
+    },
+    /// Signals the end of a streaming response
+    StreamEnd {
         new_messages: Vec<Message>,
         reasoning: Vec<String>,
         status: String,
@@ -87,34 +100,104 @@ async fn run_backend_loop(
                 let command = parse_command(&input);
                 cli_state.status_message = status_message_for_command(&command);
 
-                let start_len = cli_state.agent.conversation_history().len();
-                match cli_state.handle_line(&input).await {
-                    Ok(output) => {
-                        if output.as_deref() == Some("__QUIT__") {
-                            let _ = event_tx.send(BackendEvent::Quit);
-                            break;
+                // Use streaming for Message commands
+                if let Command::Message(text) = command {
+                    let start_len = cli_state.agent.conversation_history().len();
+
+                    // Signal stream start
+                    let _ = event_tx.send(BackendEvent::StreamStart);
+
+                    // Start streaming
+                    match cli_state.agent.run_step_streaming(&text).await {
+                        Ok(mut stream) => {
+                            let mut accumulated_content = String::new();
+
+                            // Stream chunks to the UI
+                            while let Some(chunk_result) = stream.next().await {
+                                match chunk_result {
+                                    Ok(chunk) => {
+                                        accumulated_content.push_str(&chunk);
+                                        let _ = event_tx.send(BackendEvent::StreamDelta {
+                                            content: chunk,
+                                        });
+                                    }
+                                    Err(err) => {
+                                        cli_state.status_message = "Status: error".to_string();
+                                        let _ = event_tx.send(BackendEvent::Error {
+                                            context: text.clone(),
+                                            message: err.to_string(),
+                                        });
+                                        break;
+                                    }
+                                }
+                            }
+
+                            // Finalize the streaming step
+                            if let Err(err) = cli_state
+                                .agent
+                                .finalize_streaming_step(&accumulated_content)
+                                .await
+                            {
+                                cli_state.status_message = "Status: error".to_string();
+                                let _ = event_tx.send(BackendEvent::Error {
+                                    context: text,
+                                    message: err.to_string(),
+                                });
+                                continue;
+                            }
+
+                            // Get new messages from conversation history
+                            let history = cli_state.agent.conversation_history().to_vec();
+                            let new_messages: Vec<Message> =
+                                history.into_iter().skip(start_len).collect();
+
+                            cli_state.status_message = "Status: awaiting input".to_string();
+
+                            let _ = event_tx.send(BackendEvent::StreamEnd {
+                                new_messages,
+                                reasoning: cli_state.reasoning_messages.clone(),
+                                status: cli_state.status_message.clone(),
+                            });
                         }
-
-                        let history = cli_state.agent.conversation_history().to_vec();
-                        let new_messages: Vec<Message> =
-                            history.into_iter().skip(start_len).collect();
-
-                        // Return to idle after handling the command
-                        cli_state.status_message = "Status: awaiting input".to_string();
-
-                        let _ = event_tx.send(BackendEvent::CommandResult {
-                            response: output,
-                            new_messages,
-                            reasoning: cli_state.reasoning_messages.clone(),
-                            status: cli_state.status_message.clone(),
-                        });
+                        Err(err) => {
+                            cli_state.status_message = "Status: error".to_string();
+                            let _ = event_tx.send(BackendEvent::Error {
+                                context: text,
+                                message: err.to_string(),
+                            });
+                        }
                     }
-                    Err(err) => {
-                        cli_state.status_message = "Status: error".to_string();
-                        let _ = event_tx.send(BackendEvent::Error {
-                            context: input,
-                            message: err.to_string(),
-                        });
+                } else {
+                    // Non-message commands use the existing non-streaming path
+                    let start_len = cli_state.agent.conversation_history().len();
+                    match cli_state.handle_line(&input).await {
+                        Ok(output) => {
+                            if output.as_deref() == Some("__QUIT__") {
+                                let _ = event_tx.send(BackendEvent::Quit);
+                                break;
+                            }
+
+                            let history = cli_state.agent.conversation_history().to_vec();
+                            let new_messages: Vec<Message> =
+                                history.into_iter().skip(start_len).collect();
+
+                            // Return to idle after handling the command
+                            cli_state.status_message = "Status: awaiting input".to_string();
+
+                            let _ = event_tx.send(BackendEvent::CommandResult {
+                                response: output,
+                                new_messages,
+                                reasoning: cli_state.reasoning_messages.clone(),
+                                status: cli_state.status_message.clone(),
+                            });
+                        }
+                        Err(err) => {
+                            cli_state.status_message = "Status: error".to_string();
+                            let _ = event_tx.send(BackendEvent::Error {
+                                context: input,
+                                message: err.to_string(),
+                            });
+                        }
                     }
                 }
             }

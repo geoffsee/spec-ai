@@ -40,7 +40,7 @@ base64 = "0.22"
 blake3 = "1.5"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive"] }
-crossterm = "0.28"
+crossterm = "0.29"
 directories = "5"
 duckdb = { version = "1", default-features = false }
 extractous = "0.3.0"

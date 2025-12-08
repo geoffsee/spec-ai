@@ -56,14 +56,22 @@ fn render_chat(state: &AppState, area: Rect, buf: &mut Buffer) {
         .max_width(content_width.saturating_sub(2))
         .wrap_prefix("  ");
 
-    for message in &state.messages {
-        let (style, label) = role_style(&message.role);
+    for (idx, message) in state.messages.iter().enumerate() {
+        // Check if this is a streaming message that hasn't received content yet
+        let is_waiting = state.is_streaming_message(idx) && message.content.is_empty();
+
+        let (style, label) = if is_waiting {
+            (Style::new().fg(Color::Yellow).bold(), "Working".to_string())
+        } else {
+            role_style(&message.role)
+        };
+
         lines.push(Line::from_spans([
             Span::styled(
                 format!("[{}] ", message.timestamp),
                 Style::new().fg(Color::DarkGrey),
             ),
-            Span::styled(format!("{}:", label), style),
+            Span::styled(format!("{}", label), style),
         ]));
 
         // Parse markdown and add prefix to each line

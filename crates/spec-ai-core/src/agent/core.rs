@@ -3,6 +3,8 @@
 //! The heart of the agent system - orchestrates reasoning, memory, and model interaction.
 
 use crate::agent::model::{GenerationConfig, ModelProvider};
+use futures::Stream;
+use std::pin::Pin;
 pub use crate::agent::output::{
     AgentOutput, GraphDebugInfo, GraphDebugNode, MemoryRecallMatch, MemoryRecallStats,
     MemoryRecallStrategy, ToolInvocation,
@@ -584,6 +586,64 @@ impl AgentCore {
         );
         let prompt = spec.to_prompt();
         self.run_step(&prompt).await
+    }
+
+    /// Execute a streaming interaction step.
+    ///
+    /// Returns a stream of text chunks. After consuming the stream, call
+    /// `finalize_streaming_step` with the accumulated content to store the
+    /// assistant message and update conversation history.
+    pub async fn run_step_streaming(
+        &mut self,
+        input: &str,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<String>> + Send>>> {
+        // Step 1: Recall relevant memories
+        let recall_result = self.recall_memories(input).await?;
+        let recalled_messages = recall_result.messages;
+
+        // Step 2: Build prompt with context
+        let prompt = self.build_prompt(input, &recalled_messages).await?;
+
+        // Step 3: Store user message
+        let user_message_id = self.store_message(MessageRole::User, input).await?;
+
+        // Update conversation history with user message
+        self.conversation_history.push(Message {
+            id: user_message_id,
+            session_id: self.session_id.clone(),
+            role: MessageRole::User,
+            content: input.to_string(),
+            created_at: Utc::now(),
+        });
+
+        // Step 4: Start streaming from the provider
+        let generation_config = self.build_generation_config();
+        let stream = self
+            .provider
+            .stream(&prompt, &generation_config)
+            .await
+            .context("Failed to start streaming response from model")?;
+
+        Ok(stream)
+    }
+
+    /// Finalize a streaming step by storing the assistant message.
+    ///
+    /// Call this after consuming the stream from `run_step_streaming`.
+    pub async fn finalize_streaming_step(&mut self, content: &str) -> Result<i64> {
+        // Store the assistant message
+        let message_id = self.store_message(MessageRole::Assistant, content).await?;
+
+        // Update conversation history
+        self.conversation_history.push(Message {
+            id: message_id,
+            session_id: self.session_id.clone(),
+            role: MessageRole::Assistant,
+            content: content.to_string(),
+            created_at: Utc::now(),
+        });
+
+        Ok(message_id)
     }
 
     /// Build generation configuration from profile

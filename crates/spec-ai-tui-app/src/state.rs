@@ -26,6 +26,8 @@ pub struct AppState {
     pub error: Option<String>,
     pub backend_rx: UnboundedReceiver<BackendEvent>,
     pub last_submitted_text: Option<String>,
+    /// Index of the currently streaming assistant message, if any
+    streaming_message_idx: Option<usize>,
 }
 
 impl AppState {
@@ -46,6 +48,7 @@ impl AppState {
             error: None,
             backend_rx,
             last_submitted_text: None,
+            streaming_message_idx: None,
         }
     }
 
@@ -101,7 +104,44 @@ impl AppState {
                 }
                 self.last_submitted_text = None;
             }
+            BackendEvent::StreamStart => {
+                // Create a new streaming assistant message
+                self.streaming_message_idx = Some(self.messages.len());
+                self.messages.push(ChatMessage::assistant(""));
+                self.scroll_offset = 0;
+                self.status = "Status: streaming response...".to_string();
+            }
+            BackendEvent::StreamDelta { content } => {
+                // Append content to the streaming message
+                if let Some(idx) = self.streaming_message_idx {
+                    if let Some(msg) = self.messages.get_mut(idx) {
+                        msg.content.push_str(&content);
+                    }
+                }
+                // Keep scroll at bottom while streaming
+                self.scroll_offset = 0;
+            }
+            BackendEvent::StreamEnd {
+                new_messages: _,
+                reasoning,
+                status,
+            } => {
+                // Streaming complete - replace the streaming message with the final messages
+                self.streaming_message_idx = None;
+                self.busy = false;
+                self.error = None;
+                if !reasoning.is_empty() {
+                    self.reasoning = reasoning;
+                }
+                self.status = status;
+                // The streaming message already contains the final content,
+                // but we may want to skip adding duplicate messages from new_messages
+                // For now, we don't re-add since the streaming message should match
+                self.last_submitted_text = None;
+                self.scroll_offset = 0;
+            }
             BackendEvent::Error { context, message } => {
+                self.streaming_message_idx = None;
                 self.busy = false;
                 self.error = Some(message.clone());
                 self.status = format!("Error while handling '{}'", context);
@@ -138,6 +178,11 @@ impl AppState {
         if !incoming.is_empty() {
             self.scroll_offset = 0;
         }
+    }
+
+    /// Returns true if the message at the given index is currently being streamed
+    pub fn is_streaming_message(&self, index: usize) -> bool {
+        self.streaming_message_idx == Some(index)
     }
 }
 

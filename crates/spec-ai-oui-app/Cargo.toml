@@ -19,7 +19,7 @@ tokio = { workspace = true }
 # OpenTelemetry for receiving telemetry streams
 opentelemetry = { version = "0.27", features = ["trace"] }
 opentelemetry_sdk = { version = "0.31", features = ["rt-tokio"] }
-opentelemetry-proto = { version = "0.27", features = ["gen-tonic", "trace"] }
+opentelemetry-proto = { version = "0.31", features = ["gen-tonic", "trace"] }
 tonic = "0.12"
 prost = "0.13"
 prost-types = "0.13"

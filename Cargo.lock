@@ -6029,6 +6029,7 @@ dependencies = [
  "serde_json",
  "spec-ai-config",
  "spec-ai-core",
+ "spec-ai-knowledge-graph",
  "spec-ai-policy",
  "tempfile",
  "thiserror 1.0.69",

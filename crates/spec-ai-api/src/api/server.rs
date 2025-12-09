@@ -1,4 +1,8 @@
 /// HTTP server implementation
+use crate::api::graph_handlers::{
+    bootstrap_graph, create_edge, create_node, delete_edge, delete_node, get_edge, get_node,
+    list_edges, list_nodes, stream_changelog, update_node,
+};
 use crate::api::handlers::{health_check, list_agents, query, stream_query, AppState};
 use crate::api::mesh::{
     acknowledge_messages, deregister_instance, get_messages, heartbeat, list_instances,
@@ -14,7 +18,7 @@ use crate::sync::{start_sync_coordinator, SyncCoordinatorConfig};
 use crate::tools::ToolRegistry;
 use anyhow::Result;
 use axum::{
-    routing::{delete, get, post},
+    routing::{delete, get, post, put},
     Router,
 };
 use std::sync::Arc;
@@ -142,6 +146,19 @@ impl ApiServer {
                 post(configure_sync),
             )
             .route("/sync/conflicts", get(list_conflicts))
+            // Graph CRUD endpoints
+            .route("/graph/nodes", get(list_nodes))
+            .route("/graph/nodes", post(create_node))
+            .route("/graph/nodes/{node_id}", get(get_node))
+            .route("/graph/nodes/{node_id}", put(update_node))
+            .route("/graph/nodes/{node_id}", delete(delete_node))
+            .route("/graph/edges", get(list_edges))
+            .route("/graph/edges", post(create_edge))
+            .route("/graph/edges/{edge_id}", get(get_edge))
+            .route("/graph/edges/{edge_id}", delete(delete_edge))
+            .route("/graph/stream", get(stream_changelog))
+            // Bootstrap endpoint
+            .route("/bootstrap", post(bootstrap_graph))
             // Add state
             .with_state(self.state.clone());
 

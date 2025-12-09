@@ -25,6 +25,7 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 spec-ai-core = { path = "../spec-ai-core", version = "0.6.0-prerelease.2", features = ["api"] }
 spec-ai-config = { path = "../spec-ai-config", version = "0.6.0-prerelease.2" }
+spec-ai-knowledge-graph = { path = "../spec-ai-knowledge-graph", version = "0.6.0-prerelease.2" }
 spec-ai-policy = { path = "../spec-ai-policy", version = "0.6.0-prerelease.2" }
 
 [dev-dependencies]

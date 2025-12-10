@@ -33,6 +33,13 @@ use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 
+/// Install the rustls crypto provider (call once at startup)
+fn install_crypto_provider() {
+    // Install aws-lc-rs as the default crypto provider for rustls
+    // This is required because rustls 0.23+ doesn't auto-select a provider
+    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+}
+
 /// API server configuration
 #[derive(Debug, Clone)]
 pub struct ApiConfig {
@@ -134,6 +141,9 @@ impl ApiServer {
         tool_registry: Arc<ToolRegistry>,
         app_config: AppConfig,
     ) -> Result<Self> {
+        // Install crypto provider for rustls (idempotent, safe to call multiple times)
+        install_crypto_provider();
+
         let state = AppState::new(persistence, agent_registry, tool_registry, app_config);
 
         // Initialize TLS - either load from files or generate self-signed

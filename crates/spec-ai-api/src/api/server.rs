@@ -4,7 +4,8 @@ use crate::api::graph_handlers::{
     list_edges, list_nodes, stream_changelog, update_node,
 };
 use crate::api::handlers::{
-    generate_token, hash_password, health_check, list_agents, query, stream_query, AppState,
+    generate_token, hash_password, health_check, list_agents, query, search, stream_query,
+    AppState,
 };
 use crate::api::mesh::{
     acknowledge_messages, deregister_instance, get_messages, heartbeat, list_instances,
@@ -233,6 +234,8 @@ impl ApiServer {
             // Query endpoints
             .route("/query", post(query))
             .route("/stream", post(stream_query))
+            // Search endpoint
+            .route("/api/search", post(search))
             // Mesh registry endpoints
             .route("/registry/register", post(register_instance::<AppState>))
             .route("/registry/agents", get(list_instances::<AppState>))

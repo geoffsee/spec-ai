@@ -20,3 +20,13 @@ crates/spec-ai/target/
 embeddings.json
 /todo
 /.spec-ai/code_search_embeddings.json
+
+**/arm64-apple-macosx/debug
+*.db
+/crates/spec-ai-oui-app/visionOS/spec-ai/.build/debug.yaml
+/crates/spec-ai-oui-app/visionOS/spec-ai/.build/plugin-tools.yaml
+/crates/spec-ai-oui-app/.DS_Store
+/crates/spec-ai-oui-app/visionOS/spec-ai/spec-ai.xcodeproj/project.pbxproj
+/crates/spec-ai-oui-app/visionOS/spec-ai/spec-ai.xcodeproj/xcuserdata/
+/crates/spec-ai-oui-app/visionOS/spec-ai/spec-ai.xcodeproj/project.xcworkspace/xcuserdata/
+/.SPEC-AI.md

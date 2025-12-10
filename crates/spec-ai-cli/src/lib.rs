@@ -138,6 +138,18 @@ async fn start_server(
     use spec_ai_core::embeddings::EmbeddingsClient;
     use std::net::TcpListener;
 
+    // Initialize tracing subscriber for HTTP request logging
+    // Always include tower_http=debug for request logging, merge with RUST_LOG if set
+    let base_filter = "tower_http=debug";
+    let filter = match std::env::var("RUST_LOG") {
+        Ok(env_filter) if !env_filter.is_empty() => format!("{},{}", env_filter, base_filter),
+        _ => format!("spec_ai=info,{}", base_filter),
+    };
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_target(true)
+        .init();
+
     // Generate unique instance ID
     let instance_id = MeshClient::generate_instance_id();
     println!("Instance ID: {}", instance_id);
@@ -275,10 +287,14 @@ async fn start_server(
         agent_registry.clone(),
         tool_registry.clone(),
         app_config.clone(),
-    );
+    )?;
 
-    println!("Server running at http://{}", api_config.bind_address());
-    println!("Health check: http://{}/health", api_config.bind_address());
+    println!(
+        "Server running at https://{} (fingerprint: {})",
+        api_config.bind_address(),
+        server.certificate_fingerprint()
+    );
+    println!("Health check: https://{}/health", api_config.bind_address());
     println!("Press Ctrl+C to stop the server");
 
     // Self-register as leader in the mesh registry
@@ -432,9 +448,13 @@ async fn start_mesh_member(
         agent_registry,
         tool_registry,
         app_config.clone(),
-    );
+    )?;
 
-    println!("Server running at http://{}", api_config.bind_address());
+    println!(
+        "Server running at https://{} (fingerprint: {})",
+        api_config.bind_address(),
+        server.certificate_fingerprint()
+    );
 
     // Start background heartbeat to registry
     let heartbeat_instance_id = instance_id.clone();
@@ -587,7 +607,10 @@ async fn run_repl_with_config(config: Option<PathBuf>) -> Result<()> {
 
     // Initialize logging based on config
     let log_level = cli_state.config.logging.level.to_uppercase();
-    let default_directive = format!("spec_ai={}", log_level.to_lowercase());
+    let default_directive = format!(
+        "spec_ai={},tower_http=debug",
+        log_level.to_lowercase()
+    );
     let env_override = std::env::var("RUST_LOG").unwrap_or_default();
     let combined_filter = if env_override.trim().is_empty() {
         default_directive.clone()

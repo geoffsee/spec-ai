@@ -20,7 +20,7 @@ resolver = "2"
 
 [workspace.package]
 edition = "2021"
-version = "0.6.0-prerelease.3"
+version = "0.6.0-prerelease.4"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/geoffsee/spec-ai"
 documentation = "https://docs.rs/spec-ai"
@@ -42,6 +42,7 @@ chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive"] }
 crossterm = "0.29"
 directories = "5"
+dirs-next = "2"
 duckdb = { version = "1", default-features = false }
 extractous = "0.3.0"
 futures = "0.3"
@@ -49,14 +50,20 @@ hostname = "0.4"
 html-escape = "0.2"
 libduckdb-sys = "1"
 rand = "0.8"
+rcgen = "0.13"
 regex = "1.10"
 reqwest = { version = "0.12", features = ["json"] }
+ring = "0.17"
+rustls = "0.23"
+rustls-pemfile = "2"
+tokio-rustls = "0.26"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serial_test = "3"
 spider = "2"
 tempfile = "3"
 terminal_size = "0.4"
+time = { version = "0.3", features = ["formatting"] }
 thiserror = "1.0"
 toak-rs = "4.0.9"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "io-util", "io-std", "sync", "process"] }

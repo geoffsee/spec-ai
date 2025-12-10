@@ -157,6 +157,53 @@ pub struct AgentInfo {
     pub denied_tools: Vec<String>,
 }
 
+/// Semantic code search request
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchRequest {
+    /// Search query text
+    pub query: String,
+    /// Repository root to search (defaults to current dir)
+    pub root: Option<String>,
+    /// Page number (0-indexed, default 0)
+    #[serde(default)]
+    pub page: usize,
+    /// Results per page (default 10, max 25)
+    pub page_size: Option<usize>,
+    /// Force re-generation of embeddings
+    #[serde(default)]
+    pub refresh: bool,
+}
+
+/// Search result item
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchResult {
+    /// File path
+    pub path: String,
+    /// Similarity score
+    pub similarity: f32,
+    /// Code snippet
+    pub snippet: String,
+}
+
+/// Paginated search response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchResponse {
+    /// Search query
+    pub query: String,
+    /// Repository root searched
+    pub root: String,
+    /// Current page (0-indexed)
+    pub page: usize,
+    /// Results per page
+    pub page_size: usize,
+    /// Total results available
+    pub total_results: usize,
+    /// Total pages
+    pub total_pages: usize,
+    /// Results for this page
+    pub results: Vec<SearchResult>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

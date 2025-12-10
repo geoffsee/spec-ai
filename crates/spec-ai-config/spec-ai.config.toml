@@ -31,6 +31,25 @@ prompt = "specai (openai)> "
 # Log level: "trace", "debug", "info", "warn", "error"
 level = "info"
 
+# HTTP API Authentication configuration
+# When enabled, protected endpoints require a Bearer token
+[auth]
+# Enable authentication (default: false)
+enabled = false
+
+# Path to JSON file containing user credentials
+# The file should contain an array of objects with "username" and "password_hash" fields
+# Example: [{"username": "admin", "password_hash": "BASE64_PBKDF2_HASH"}]
+# Use POST /auth/hash with {"password": "your_password"} to generate hashes
+# credentials_file = "~/.spec-ai/credentials.json"
+
+# Token expiration time in seconds (default: 86400 = 24 hours)
+# token_expiry_secs = 86400
+
+# Secret key for signing tokens (if not set, a random key is generated at startup)
+# Set this for token persistence across server restarts
+# token_secret = "your-secret-key-here"
+
 # Audio transcription configuration
 [audio]
 # Transcription provider: "mock" or "vttrs"

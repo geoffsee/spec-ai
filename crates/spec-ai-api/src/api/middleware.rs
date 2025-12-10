@@ -1,12 +1,79 @@
 /// API authentication and middleware
+use crate::api::auth::AuthService;
 use axum::{
-    extract::Request,
-    http::{HeaderMap, StatusCode},
+    extract::{Request, State},
+    http::{header, StatusCode},
     middleware::Next,
-    response::Response,
+    response::{IntoResponse, Response},
+    Json,
 };
+use std::sync::Arc;
 
-/// API key authentication middleware
+/// Extension to store authenticated user info in request
+#[derive(Clone, Debug)]
+pub struct AuthenticatedUser {
+    pub username: String,
+}
+
+/// Axum middleware function for bearer token authentication
+///
+/// This middleware:
+/// 1. Checks if auth is enabled in the AuthService
+/// 2. If disabled, allows all requests through
+/// 3. If enabled, validates the Bearer token from Authorization header
+/// 4. Adds AuthenticatedUser extension to request if valid
+pub async fn auth_middleware(
+    State(auth_service): State<Arc<AuthService>>,
+    mut request: Request,
+    next: Next,
+) -> Response {
+    // If auth is not enabled, allow all requests
+    if !auth_service.is_enabled() {
+        return next.run(request).await;
+    }
+
+    // Extract Authorization header
+    let auth_header = request
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|h| h.to_str().ok());
+
+    let Some(auth_str) = auth_header else {
+        return unauthorized_response("Missing Authorization header");
+    };
+
+    // Must be Bearer token
+    let Some(token) = auth_str.strip_prefix("Bearer ") else {
+        return unauthorized_response("Invalid Authorization header format. Expected: Bearer <token>");
+    };
+
+    // Validate token
+    let Some(username) = auth_service.validate_token(token) else {
+        return unauthorized_response("Invalid or expired token");
+    };
+
+    // Add authenticated user to request extensions
+    request.extensions_mut().insert(AuthenticatedUser { username });
+
+    next.run(request).await
+}
+
+/// Create an unauthorized response with JSON error body
+fn unauthorized_response(message: &str) -> Response {
+    let body = serde_json::json!({
+        "error": message,
+        "code": "unauthorized"
+    });
+
+    (
+        StatusCode::UNAUTHORIZED,
+        [(header::CONTENT_TYPE, "application/json")],
+        Json(body),
+    )
+        .into_response()
+}
+
+/// Legacy API key authentication (kept for backward compatibility)
 pub struct ApiKeyAuth {
     api_key: Option<String>,
 }
@@ -28,37 +95,6 @@ impl ApiKeyAuth {
             None => true, // No auth required if not configured
         }
     }
-}
-
-/// Axum middleware function for API key authentication
-pub async fn auth_middleware(
-    headers: HeaderMap,
-    request: Request,
-    next: Next,
-) -> Result<Response, StatusCode> {
-    // Get API key from state (would be injected via layer)
-    // For now, we'll extract from headers
-
-    if let Some(auth_header) = headers.get("Authorization") {
-        if let Ok(auth_str) = auth_header.to_str() {
-            // Support both "Bearer <key>" and direct key
-            let key = if auth_str.starts_with("Bearer ") {
-                &auth_str[7..]
-            } else {
-                auth_str
-            };
-
-            // In production, validate against configured key
-            // For now, accept any non-empty key
-            if !key.is_empty() {
-                return Ok(next.run(request).await);
-            }
-        }
-    }
-
-    // If no API key required (development mode), allow through
-    // In production, this would reject
-    Ok(next.run(request).await)
 }
 
 #[cfg(test)]

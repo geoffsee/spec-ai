@@ -1,6 +1,7 @@
 /// API request handlers
 use crate::agent::builder::AgentBuilder;
 use crate::agent::core::AgentCore;
+use crate::api::auth::{AuthService, TokenRequest, TokenResponse};
 use crate::api::mesh::{MeshRegistry, MeshState};
 use crate::api::models::*;
 use crate::config::{AgentRegistry, AppConfig};
@@ -31,6 +32,7 @@ pub struct AppState {
     pub config: AppConfig,
     pub start_time: Instant,
     pub mesh_registry: MeshRegistry,
+    pub auth_service: Arc<AuthService>,
 }
 
 impl AppState {
@@ -40,6 +42,18 @@ impl AppState {
         tool_registry: Arc<ToolRegistry>,
         config: AppConfig,
     ) -> Self {
+        // Initialize auth service from config
+        let auth_service = AuthService::new(
+            config.auth.credentials_file.as_deref(),
+            config.auth.token_secret.as_deref(),
+            Some(config.auth.token_expiry_secs),
+            config.auth.enabled,
+        )
+        .unwrap_or_else(|e| {
+            tracing::warn!("Failed to initialize auth service: {}. Auth disabled.", e);
+            AuthService::disabled()
+        });
+
         Self {
             persistence: persistence.clone(),
             agent_registry,
@@ -47,6 +61,7 @@ impl AppState {
             config,
             start_time: Instant::now(),
             mesh_registry: MeshRegistry::with_persistence(persistence),
+            auth_service: Arc::new(auth_service),
         }
     }
 }
@@ -302,6 +317,98 @@ fn current_timestamp() -> String {
     chrono::DateTime::from_timestamp(now as i64, 0)
         .unwrap()
         .to_rfc3339()
+}
+
+/// Token generation endpoint - exchange username/password for bearer token
+pub async fn generate_token(
+    State(state): State<AppState>,
+    Json(request): Json<TokenRequest>,
+) -> Response {
+    // Check if auth is enabled
+    if !state.auth_service.is_enabled() {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(ErrorResponse::new(
+                "auth_disabled",
+                "Authentication is not enabled on this server",
+            )),
+        )
+            .into_response();
+    }
+
+    // Verify credentials
+    if !state.auth_service.verify_password(&request.username, &request.password) {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(ErrorResponse::new(
+                "invalid_credentials",
+                "Invalid username or password",
+            )),
+        )
+            .into_response();
+    }
+
+    // Generate token
+    match state.auth_service.generate_token(&request.username) {
+        Ok(token) => {
+            let response = TokenResponse {
+                token,
+                token_type: "Bearer".to_string(),
+                expires_in: state.config.auth.token_expiry_secs,
+            };
+            Json(response).into_response()
+        }
+        Err(e) => {
+            tracing::error!("Failed to generate token: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("token_error", "Failed to generate token")),
+            )
+                .into_response()
+        }
+    }
+}
+
+/// Password hash generation endpoint - utility for creating password hashes
+/// This endpoint can be used to generate hashes for the credentials file
+pub async fn hash_password(
+    State(state): State<AppState>,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    // Only allow if auth is enabled (to prevent abuse)
+    if !state.auth_service.is_enabled() {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(ErrorResponse::new(
+                "auth_disabled",
+                "Authentication is not enabled on this server",
+            )),
+        )
+            .into_response();
+    }
+
+    let Some(password) = body.get("password").and_then(|v| v.as_str()) else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::new(
+                "invalid_request",
+                "Missing 'password' field in request body",
+            )),
+        )
+            .into_response();
+    };
+
+    match AuthService::hash_password(password) {
+        Ok(hash) => Json(json!({ "password_hash": hash })).into_response(),
+        Err(e) => {
+            tracing::error!("Failed to hash password: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("hash_error", "Failed to hash password")),
+            )
+                .into_response()
+        }
+    }
 }
 
 #[cfg(test)]

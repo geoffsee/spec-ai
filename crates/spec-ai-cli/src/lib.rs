@@ -287,10 +287,14 @@ async fn start_server(
         agent_registry.clone(),
         tool_registry.clone(),
         app_config.clone(),
-    );
+    )?;
 
-    println!("Server running at http://{}", api_config.bind_address());
-    println!("Health check: http://{}/health", api_config.bind_address());
+    println!(
+        "Server running at https://{} (fingerprint: {})",
+        api_config.bind_address(),
+        server.certificate_fingerprint()
+    );
+    println!("Health check: https://{}/health", api_config.bind_address());
     println!("Press Ctrl+C to stop the server");
 
     // Self-register as leader in the mesh registry
@@ -444,9 +448,13 @@ async fn start_mesh_member(
         agent_registry,
         tool_registry,
         app_config.clone(),
-    );
+    )?;
 
-    println!("Server running at http://{}", api_config.bind_address());
+    println!(
+        "Server running at https://{} (fingerprint: {})",
+        api_config.bind_address(),
+        server.certificate_fingerprint()
+    );
 
     // Start background heartbeat to registry
     let heartbeat_instance_id = instance_id.clone();

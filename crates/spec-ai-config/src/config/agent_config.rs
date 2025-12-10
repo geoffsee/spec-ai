@@ -44,6 +44,9 @@ pub struct AppConfig {
     /// Graph synchronization configuration
     #[serde(default)]
     pub sync: SyncConfig,
+    /// HTTP API authentication configuration
+    #[serde(default)]
+    pub auth: AuthConfig,
     /// Available agent profiles
     #[serde(default)]
     pub agents: HashMap<String, AgentProfile>,
@@ -507,6 +510,44 @@ impl Default for PluginConfig {
             custom_tools_dir: default_plugins_dir(),
             continue_on_error: true,
             allow_override_builtin: false,
+        }
+    }
+}
+
+/// HTTP API authentication configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthConfig {
+    /// Enable authentication for the HTTP API
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// Path to JSON file containing user credentials
+    /// The file should contain an array of objects with "username" and "password_hash" fields
+    /// Password hashes should be created using bcrypt
+    #[serde(default)]
+    pub credentials_file: Option<PathBuf>,
+
+    /// Token expiration time in seconds (default: 24 hours)
+    #[serde(default = "default_token_expiry")]
+    pub token_expiry_secs: u64,
+
+    /// Secret key for signing tokens (if not set, a random key is generated at startup)
+    /// Can be set via environment variable for consistency across restarts
+    #[serde(default)]
+    pub token_secret: Option<String>,
+}
+
+fn default_token_expiry() -> u64 {
+    86400 // 24 hours
+}
+
+impl Default for AuthConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            credentials_file: None,
+            token_expiry_secs: default_token_expiry(),
+            token_secret: None,
         }
     }
 }

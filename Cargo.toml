@@ -13,7 +13,7 @@ members = [
     "crates/spec-ai-oui-app",
     "crates/spec-ai-knowledge-graph",
     "crates/spec-ai-graph-sync",
-    "crates/spec-ai-collective",
+    "crates/spec-ai-collective", "crates/spec-ai-desktop",
 ]
 default-members = ["crates/spec-ai"]
 resolver = "2"

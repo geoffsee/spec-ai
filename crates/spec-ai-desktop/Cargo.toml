@@ -1,0 +1,5 @@
+[package]
+name = "spec-ai-desktop"
+version = "0.1.0"
+authors = ["Geoff Seemueller <geoff@seemueller.io>"]
+edition = "2021"

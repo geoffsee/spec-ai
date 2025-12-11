@@ -213,7 +213,25 @@ fn initialize_cli_state(config_path: Option<PathBuf>) -> Result<CliState> {
         .or_else(|| std::env::var("SPEC_AI_TUI_CONFIG").ok().map(PathBuf::from))
         .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("spec-ai.config.toml"));
 
-    CliState::initialize_with_path(Some(chosen))
+    match CliState::initialize_with_path(Some(chosen)) {
+        Ok(state) => Ok(state),
+        Err(e) => {
+            let error_chain = format!("{:#}", e);
+            if error_chain.contains("Could not set lock")
+                || error_chain.contains("Conflicting lock")
+            {
+                anyhow::bail!(
+                    "Another instance of spec-ai is already running.\n\n\
+                     Only one instance can access the database at a time.\n\
+                     Please close the other instance or wait for it to finish.\n\n\
+                     To run multiple instances, configure a different database path\n\
+                     in your config file: [database] path = \"~/.spec-ai/other.db\""
+                );
+            }
+            // Return full error chain for other errors
+            anyhow::bail!("{:#}", e)
+        }
+    }
 }
 
 fn status_message_for_command(command: &Command) -> String {

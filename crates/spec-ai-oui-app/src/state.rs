@@ -106,7 +106,10 @@ impl FeedEvent {
                         format!("avg={:.2}", sum / *count as f64)
                     }
                 };
-                (format!("📊 {}: {}", metric.name, val), metric.service_name.clone())
+                (
+                    format!("📊 {}: {}", metric.name, val),
+                    metric.service_name.clone(),
+                )
             }
         };
 
@@ -316,7 +319,11 @@ impl AppState {
         match self.view {
             View::Feed => self.feed_events.len(),
             View::Traces => self.traces.len(),
-            View::Spans => self.feed_events.iter().filter(|e| matches!(e.source, TelemetryEvent::SpanEnded(_))).count(),
+            View::Spans => self
+                .feed_events
+                .iter()
+                .filter(|e| matches!(e.source, TelemetryEvent::SpanEnded(_)))
+                .count(),
             View::Services => self.services.len(),
         }
     }

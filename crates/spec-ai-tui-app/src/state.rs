@@ -168,7 +168,7 @@ impl AppState {
                     }
                 }
             }
-            self.messages.push(ChatMessage::from_backend(&message));
+            self.messages.push(ChatMessage::from_backend(message));
         }
 
         if skipped_user {
@@ -208,7 +208,10 @@ fn default_slash_commands() -> Vec<SlashCommand> {
         SlashCommand::new("init", "Bootstrap knowledge graph (first command only)"),
         SlashCommand::new("refresh", "Refresh knowledge graph cache"),
         SlashCommand::new("listen", "Start or stop background transcription"),
-        SlashCommand::new("spec", "Run a spec file (/spec run examples/specs/smoke.spec)"),
+        SlashCommand::new(
+            "spec",
+            "Run a spec file (/spec run examples/specs/smoke.spec)",
+        ),
         SlashCommand::new("speak", "Toggle spoken responses"),
     ]
 }

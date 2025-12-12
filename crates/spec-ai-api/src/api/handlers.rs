@@ -343,7 +343,10 @@ pub async fn generate_token(
     }
 
     // Verify credentials
-    if !state.auth_service.verify_password(&request.username, &request.password) {
+    if !state
+        .auth_service
+        .verify_password(&request.username, &request.password)
+    {
         return (
             StatusCode::UNAUTHORIZED,
             Json(ErrorResponse::new(
@@ -368,7 +371,10 @@ pub async fn generate_token(
             tracing::error!("Failed to generate token: {}", e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new("token_error", "Failed to generate token")),
+                Json(ErrorResponse::new(
+                    "token_error",
+                    "Failed to generate token",
+                )),
             )
                 .into_response()
         }
@@ -423,7 +429,10 @@ pub async fn search(Json(request): Json<SearchRequest>) -> Response {
     if request.query.trim().is_empty() {
         return (
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse::new("invalid_request", "Query cannot be empty")),
+            Json(ErrorResponse::new(
+                "invalid_request",
+                "Query cannot be empty",
+            )),
         )
             .into_response();
     }
@@ -494,14 +503,17 @@ pub async fn search(Json(request): Json<SearchRequest>) -> Response {
             tracing::error!("Search failed: {}", e);
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new("search_error", format!("Search failed: {}", e))),
+                Json(ErrorResponse::new(
+                    "search_error",
+                    format!("Search failed: {}", e),
+                )),
             )
                 .into_response();
         }
     };
 
     let total_results = hits.len();
-    let total_pages = (total_results + page_size - 1) / page_size;
+    let total_pages = total_results.div_ceil(page_size);
 
     // Extract current page results
     let page_results: Vec<SearchResult> = hits

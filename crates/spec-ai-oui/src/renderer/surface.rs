@@ -32,8 +32,10 @@ impl Default for SurfaceCapabilities {
 
 /// Color representation supporting multiple formats
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum Color {
     /// Reset to default
+    #[default]
     Reset,
     /// Standard ANSI color
     Black,
@@ -141,8 +143,3 @@ impl Color {
     }
 }
 
-impl Default for Color {
-    fn default() -> Self {
-        Color::Reset
-    }
-}

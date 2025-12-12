@@ -87,19 +87,16 @@ fn handle_input_key(
 ) {
     // Global shortcuts while focused on input
     if key.modifiers.contains(KeyModifiers::CONTROL) {
-        match key.code {
-            KeyCode::Char('l') => {
-                state.messages.clear();
-                state.status = "Chat cleared".to_string();
-                state.scroll_offset = 0;
-                return;
-            }
-            _ => {}
+        if let KeyCode::Char('l') = key.code {
+            state.messages.clear();
+            state.status = "Chat cleared".to_string();
+            state.scroll_offset = 0;
+            return;
         }
     }
 
     let was_showing = state.editor.show_slash_menu;
-    match state.editor.handle_event(&event) {
+    match state.editor.handle_event(event) {
         EditorAction::Handled => {
             sync_slash_menu_visibility(state, was_showing);
         }

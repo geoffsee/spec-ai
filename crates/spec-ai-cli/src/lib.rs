@@ -418,7 +418,7 @@ async fn start_mesh_member(
 
     // Register with the mesh
     let mesh_client = MeshClient::new(
-        &registry_url.split(':').next().unwrap(),
+        registry_url.split(':').next().unwrap(),
         registry_url.split(':').nth(1).unwrap().parse()?,
     );
 
@@ -613,10 +613,7 @@ async fn run_repl_with_config(config: Option<PathBuf>) -> Result<()> {
 
     // Initialize logging based on config
     let log_level = cli_state.config.logging.level.to_uppercase();
-    let default_directive = format!(
-        "spec_ai={},tower_http=debug",
-        log_level.to_lowercase()
-    );
+    let default_directive = format!("spec_ai={},tower_http=debug", log_level.to_lowercase());
     let env_override = std::env::var("RUST_LOG").unwrap_or_default();
     let combined_filter = if env_override.trim().is_empty() {
         default_directive.clone()

@@ -72,13 +72,13 @@ pub async fn run_app(config: AppConfig) -> io::Result<()> {
         };
         let handle = receiver::start_receiver(receiver_config)
             .await
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+            .map_err(|e| io::Error::other(e.to_string()))?;
         handle.events_rx
     };
 
     // Initialize terminal
-    let mut backend = TerminalBackend::new()
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+    let mut backend =
+        TerminalBackend::new().map_err(|e| io::Error::other(e.to_string()))?;
     let mut input_simulator = InputSimulator::new();
     let mut context = DisplayContext::default();
 
@@ -136,13 +136,13 @@ pub async fn run_app(config: AppConfig) -> io::Result<()> {
             // Render
             backend
                 .begin_frame()
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+                .map_err(|e| io::Error::other(e.to_string()))?;
 
             render_app(&state, &mut backend);
 
             backend
                 .end_frame()
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+                .map_err(|e| io::Error::other(e.to_string()))?;
 
             // Send tick event
             handle_event(OpticalEvent::Tick, &mut state);

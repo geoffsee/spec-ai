@@ -41,7 +41,7 @@ fn render_chat(state: &AppState, area: Rect, buf: &mut Buffer) {
 
     let block = Block::bordered()
         .title(title)
-        .border_style(border_style.clone());
+        .border_style(border_style);
     Widget::render(&block, area, buf);
 
     let inner = block.inner(area);
@@ -71,7 +71,7 @@ fn render_chat(state: &AppState, area: Rect, buf: &mut Buffer) {
                 format!("[{}] ", message.timestamp),
                 Style::new().fg(Color::DarkGrey),
             ),
-            Span::styled(format!("{}", label), style),
+            Span::styled(label.to_string(), style),
         ]));
 
         // Parse markdown and add prefix to each line

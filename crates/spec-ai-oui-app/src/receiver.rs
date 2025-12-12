@@ -14,7 +14,7 @@ use opentelemetry_proto::tonic::collector::trace::v1::{
 use opentelemetry_proto::tonic::trace::v1::span::SpanKind as ProtoSpanKind;
 use opentelemetry_proto::tonic::trace::v1::Status as ProtoStatus;
 use tokio::sync::mpsc;
-use tonic::{Request, Response, Status, transport::Server};
+use tonic::{transport::Server, Request, Response, Status};
 
 use crate::telemetry::{SpanData, SpanKind, SpanStatus, TelemetryEvent};
 
@@ -226,11 +226,11 @@ pub fn mock_telemetry_stream() -> mpsc::UnboundedReceiver<TelemetryEvent> {
                 let start = SystemTime::now();
 
                 // Simulate span duration
-                let duration_ms = 10 + (span_counter % 200) as u64;
+                let duration_ms = 10 + (span_counter % 200);
                 let end = start + Duration::from_millis(duration_ms);
 
                 // Random status (mostly OK, occasional error)
-                let status = if span_counter % 10 == 0 {
+                let status = if span_counter.is_multiple_of(10) {
                     SpanStatus::Error
                 } else {
                     SpanStatus::Ok
@@ -241,7 +241,11 @@ pub fn mock_telemetry_stream() -> mpsc::UnboundedReceiver<TelemetryEvent> {
                     span_id: span_id.clone(),
                     parent_span_id: parent_id.clone(),
                     name: op.to_string(),
-                    kind: if i == 0 { SpanKind::Server } else { SpanKind::Internal },
+                    kind: if i == 0 {
+                        SpanKind::Server
+                    } else {
+                        SpanKind::Internal
+                    },
                     start_time: start,
                     end_time: Some(end),
                     status,

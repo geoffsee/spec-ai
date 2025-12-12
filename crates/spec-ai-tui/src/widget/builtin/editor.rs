@@ -557,12 +557,12 @@ impl EditorState {
     pub fn handle_event(&mut self, event: &Event) -> EditorAction {
         match event {
             Event::Paste(text) => {
-                return self.handle_paste(text);
+                self.handle_paste(text)
             }
             Event::Key(key) => {
-                return self.handle_key_inner(key);
+                self.handle_key_inner(key)
             }
-            _ => return EditorAction::Ignored,
+            _ => EditorAction::Ignored,
         }
     }
 
@@ -944,8 +944,8 @@ impl StatefulWidget for Editor {
         }
 
         // Draw cursor at end if needed
-        if state.focused && state.selection.cursor == state.text.len() && !state.has_selection() {
-            if cursor_line >= state.scroll && cursor_line < state.scroll + height {
+        if state.focused && state.selection.cursor == state.text.len() && !state.has_selection()
+            && cursor_line >= state.scroll && cursor_line < state.scroll + height {
                 let screen_line = cursor_line - state.scroll;
                 let y = area.y + screen_line as u16;
                 let x = area.x + cursor_col as u16;
@@ -957,7 +957,6 @@ impl StatefulWidget for Editor {
                     }
                 }
             }
-        }
 
         // Draw scroll indicator if there's more content
         if total_lines > height {

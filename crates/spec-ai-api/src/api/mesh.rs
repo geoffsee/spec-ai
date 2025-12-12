@@ -171,6 +171,12 @@ pub struct MeshRegistry {
     persistence: Option<Persistence>,
 }
 
+impl Default for MeshRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MeshRegistry {
     pub fn new() -> Self {
         Self {

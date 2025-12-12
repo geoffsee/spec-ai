@@ -203,11 +203,10 @@ fn parse_list_item(line: &str) -> Option<(char, &str)> {
         if c.is_ascii_digit() {
             continue;
         }
-        if c == '.' && i > 0 {
-            if line.get(i + 1..i + 2) == Some(" ") {
+        if c == '.' && i > 0
+            && line.get(i + 1..i + 2) == Some(" ") {
                 return Some(('•', &line[i + 2..]));
             }
-        }
         break;
     }
 
@@ -476,7 +475,10 @@ mod tests {
         assert_eq!(text.lines[0].spans.len(), 2);
         assert_eq!(text.lines[0].spans[0].content, "Hello ");
         assert_eq!(text.lines[0].spans[1].content, "world");
-        assert!(text.lines[0].spans[1].style.modifier.contains(Modifier::BOLD));
+        assert!(text.lines[0].spans[1]
+            .style
+            .modifier
+            .contains(Modifier::BOLD));
     }
 
     #[test]
@@ -520,7 +522,10 @@ mod tests {
         let text = parse_markdown("# Header", &config);
         assert_eq!(text.lines.len(), 1);
         assert!(text.lines[0].spans[0].content.contains("Header"));
-        assert!(text.lines[0].spans[0].style.modifier.contains(Modifier::BOLD));
+        assert!(text.lines[0].spans[0]
+            .style
+            .modifier
+            .contains(Modifier::BOLD));
     }
 
     #[test]

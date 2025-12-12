@@ -117,9 +117,8 @@ async fn run_backend_loop(
                                 match chunk_result {
                                     Ok(chunk) => {
                                         accumulated_content.push_str(&chunk);
-                                        let _ = event_tx.send(BackendEvent::StreamDelta {
-                                            content: chunk,
-                                        });
+                                        let _ = event_tx
+                                            .send(BackendEvent::StreamDelta { content: chunk });
                                     }
                                     Err(err) => {
                                         cli_state.status_message = "Status: error".to_string();

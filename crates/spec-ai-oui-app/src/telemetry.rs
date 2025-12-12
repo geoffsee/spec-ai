@@ -137,7 +137,11 @@ pub struct MetricData {
 pub enum MetricValue {
     Gauge(f64),
     Counter(u64),
-    Histogram { sum: f64, count: u64, buckets: Vec<(f64, u64)> },
+    Histogram {
+        sum: f64,
+        count: u64,
+        buckets: Vec<(f64, u64)>,
+    },
 }
 
 /// A telemetry event that can be displayed in the UI
@@ -163,7 +167,9 @@ impl TelemetryEvent {
     /// Get the service name for this event
     pub fn service_name(&self) -> &str {
         match self {
-            TelemetryEvent::SpanStarted(span) | TelemetryEvent::SpanEnded(span) => &span.service_name,
+            TelemetryEvent::SpanStarted(span) | TelemetryEvent::SpanEnded(span) => {
+                &span.service_name
+            }
             TelemetryEvent::Log(log) => &log.service_name,
             TelemetryEvent::Metric(metric) => &metric.service_name,
         }
@@ -174,7 +180,10 @@ impl TelemetryEvent {
         match self {
             TelemetryEvent::SpanStarted(span) => format!("▶ {}", span.name),
             TelemetryEvent::SpanEnded(span) => {
-                let dur = span.duration().map(|d| format!(" ({:.1}ms)", d.as_secs_f64() * 1000.0)).unwrap_or_default();
+                let dur = span
+                    .duration()
+                    .map(|d| format!(" ({:.1}ms)", d.as_secs_f64() * 1000.0))
+                    .unwrap_or_default();
                 let status = match span.status {
                     SpanStatus::Ok => "✓",
                     SpanStatus::Error => "✗",
@@ -194,7 +203,9 @@ impl TelemetryEvent {
                 let val = match &metric.value {
                     MetricValue::Gauge(v) => format!("{:.2}", v),
                     MetricValue::Counter(v) => format!("{}", v),
-                    MetricValue::Histogram { sum, count, .. } => format!("avg={:.2}", sum / *count as f64),
+                    MetricValue::Histogram { sum, count, .. } => {
+                        format!("avg={:.2}", sum / *count as f64)
+                    }
                 };
                 format!("📊 {}: {}", metric.name, val)
             }

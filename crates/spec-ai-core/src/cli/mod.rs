@@ -833,7 +833,7 @@ impl CliState {
                     self.config.audio.speak_responses = new_state;
                     self.agent.set_speak_responses(new_state);
                     let status = if new_state { "enabled" } else { "disabled" };
-                    return Ok(Some(format!("Speech playback {}", status)));
+                    Ok(Some(format!("Speech playback {}", status)))
                 }
 
                 #[cfg(not(target_os = "macos"))]

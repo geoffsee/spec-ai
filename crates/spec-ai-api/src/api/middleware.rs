@@ -44,7 +44,9 @@ pub async fn auth_middleware(
 
     // Must be Bearer token
     let Some(token) = auth_str.strip_prefix("Bearer ") else {
-        return unauthorized_response("Invalid Authorization header format. Expected: Bearer <token>");
+        return unauthorized_response(
+            "Invalid Authorization header format. Expected: Bearer <token>",
+        );
     };
 
     // Validate token
@@ -53,7 +55,9 @@ pub async fn auth_middleware(
     };
 
     // Add authenticated user to request extensions
-    request.extensions_mut().insert(AuthenticatedUser { username });
+    request
+        .extensions_mut()
+        .insert(AuthenticatedUser { username });
 
     next.run(request).await
 }

@@ -1,7 +1,6 @@
 //! Glass/holographic theme
 
 use super::Palette;
-use crate::renderer::Color;
 
 /// Glass/holographic theme settings
 #[derive(Debug, Clone)]

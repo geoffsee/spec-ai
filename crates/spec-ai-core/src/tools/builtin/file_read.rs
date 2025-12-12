@@ -252,7 +252,7 @@ impl Tool for FileReadTool {
                     .join("\n")
             };
 
-            let bytes = processed_content.as_bytes().len();
+            let bytes = processed_content.len();
             ("utf-8", processed_content, bytes)
         } else {
             // Read entire file (existing behavior)

@@ -1,9 +1,9 @@
 //! Terminal backend implementation
 
 use crossterm::{
-    cursor, execute, queue,
-    style::{self, Print, SetBackgroundColor, SetForegroundColor},
-    terminal::{self, ClearType},
+    cursor, queue,
+    style::{Print, SetBackgroundColor, SetForegroundColor},
+    terminal::{self},
 };
 use std::io::{self, Write};
 
@@ -315,12 +315,10 @@ impl RenderBackend for TerminalBackend {
                             } else {
                                 "┐"
                             }
+                        } else if dx == 0 {
+                            "└"
                         } else {
-                            if dx == 0 {
-                                "└"
-                            } else {
-                                "┘"
-                            }
+                            "┘"
                         }
                     } else {
                         "─"

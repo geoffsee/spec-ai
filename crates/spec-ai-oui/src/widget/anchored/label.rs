@@ -1,6 +1,6 @@
 //! World-anchored text label
 
-use crate::context::{DisplayContext, Priority};
+use crate::context::DisplayContext;
 use crate::input::OpticalEvent;
 use crate::renderer::{Color, RenderBackend};
 use crate::spatial::{Bounds, Point3D, SpatialAnchor, Transform};

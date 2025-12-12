@@ -115,7 +115,7 @@ impl Quaternion {
 
     /// Spherical linear interpolation between two quaternions
     pub fn slerp(&self, other: &Quaternion, t: f32) -> Self {
-        let mut dot = self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w;
+        let dot = self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w;
 
         // If the dot product is negative, negate one quaternion to take the shorter path
         let (other, dot) = if dot < 0.0 {

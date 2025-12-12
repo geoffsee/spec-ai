@@ -113,9 +113,7 @@ impl AuthService {
     pub fn disabled() -> Self {
         Self {
             credentials: Arc::new(HashMap::new()),
-            signing_key: Arc::new(
-                hmac::Key::new(hmac::HMAC_SHA256, b"disabled-auth-not-used"),
-            ),
+            signing_key: Arc::new(hmac::Key::new(hmac::HMAC_SHA256, b"disabled-auth-not-used")),
             token_expiry_secs: DEFAULT_TOKEN_EXPIRY_SECS,
             enabled: false,
         }
@@ -292,8 +290,8 @@ pub struct TokenResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::NamedTempFile;
     use std::io::Write;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn test_password_hashing() {
@@ -319,12 +317,8 @@ mod tests {
         let mut file = NamedTempFile::new().unwrap();
         write!(file, "{}", serde_json::to_string(&credentials).unwrap()).unwrap();
 
-        let auth = AuthService::new(
-            Some(file.path()),
-            Some("test_secret"),
-            Some(3600),
-            true,
-        ).unwrap();
+        let auth =
+            AuthService::new(Some(file.path()), Some("test_secret"), Some(3600), true).unwrap();
 
         // Correct password should verify
         assert!(auth.verify_password("testuser", password));
@@ -379,7 +373,8 @@ mod tests {
         let parts: Vec<&str> = token.split('.').collect();
 
         // Tamper with payload
-        let tampered_payload = URL_SAFE_NO_PAD.encode(b"{\"sub\":\"admin\",\"iat\":0,\"exp\":9999999999,\"jti\":\"fake\"}");
+        let tampered_payload = URL_SAFE_NO_PAD
+            .encode(b"{\"sub\":\"admin\",\"iat\":0,\"exp\":9999999999,\"jti\":\"fake\"}");
         let tampered_token = format!("{}.{}", tampered_payload, parts[1]);
 
         assert!(auth.validate_token(&tampered_token).is_none());

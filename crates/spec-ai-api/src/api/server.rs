@@ -4,8 +4,7 @@ use crate::api::graph_handlers::{
     list_edges, list_nodes, stream_changelog, update_node,
 };
 use crate::api::handlers::{
-    generate_token, hash_password, health_check, list_agents, query, search, stream_query,
-    AppState,
+    generate_token, hash_password, health_check, list_agents, query, search, stream_query, AppState,
 };
 use crate::api::mesh::{
     acknowledge_messages, deregister_instance, get_messages, heartbeat, list_instances,
@@ -103,7 +102,11 @@ impl ApiConfig {
         self
     }
 
-    pub fn with_tls_cert(mut self, cert_path: impl Into<PathBuf>, key_path: impl Into<PathBuf>) -> Self {
+    pub fn with_tls_cert(
+        mut self,
+        cert_path: impl Into<PathBuf>,
+        key_path: impl Into<PathBuf>,
+    ) -> Self {
         self.tls_cert_path = Some(cert_path.into());
         self.tls_key_path = Some(key_path.into());
         self
@@ -219,10 +222,7 @@ impl ApiServer {
             // Health endpoint is always public
             .route("/health", get(health_check))
             // Certificate info endpoint - clients can use this to get/verify the fingerprint
-            .route(
-                "/cert",
-                get(move || async move { Json(cert_info.clone()) }),
-            )
+            .route("/cert", get(move || async move { Json(cert_info.clone()) }))
             // Auth endpoints are public (needed to get tokens)
             .route("/auth/token", post(generate_token))
             .route("/auth/hash", post(hash_password));
@@ -260,7 +260,10 @@ impl ApiServer {
             // Graph sync endpoints
             .route("/sync/request", post(handle_sync_request))
             .route("/sync/apply", post(handle_sync_apply))
-            .route("/sync/status/{session_id}/{graph_name}", get(get_sync_status))
+            .route(
+                "/sync/status/{session_id}/{graph_name}",
+                get(get_sync_status),
+            )
             .route("/sync/enable/{session_id}/{graph_name}", post(toggle_sync))
             .route("/sync/configs/{session_id}", get(list_sync_configs))
             .route("/sync/bulk/{session_id}", post(bulk_toggle_sync))
@@ -317,7 +320,10 @@ impl ApiServer {
         }
 
         let app = self.build_router();
-        let bind_addr: SocketAddr = self.config.bind_address().parse()
+        let bind_addr: SocketAddr = self
+            .config
+            .bind_address()
+            .parse()
             .context("Invalid bind address")?;
 
         // Build rustls config
@@ -389,7 +395,10 @@ impl ApiServer {
         }
 
         let app = self.build_router();
-        let bind_addr: SocketAddr = self.config.bind_address().parse()
+        let bind_addr: SocketAddr = self
+            .config
+            .bind_address()
+            .parse()
             .context("Invalid bind address")?;
 
         // Build rustls config

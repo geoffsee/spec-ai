@@ -83,7 +83,13 @@ fn render_content(state: &AppState, backend: &mut dyn RenderBackend) {
     };
 
     // Draw box background
-    backend.draw_hud_rect(x - 0.01, y - 0.02, width + 0.02, height, Color::Rgb(12, 14, 18));
+    backend.draw_hud_rect(
+        x - 0.01,
+        y - 0.02,
+        width + 0.02,
+        height,
+        Color::Rgb(12, 14, 18),
+    );
 
     // Title with count
     let count = state.content_len();
@@ -167,7 +173,12 @@ fn render_traces(state: &AppState, backend: &mut dyn RenderBackend, x: f32, y: f
         return;
     }
 
-    for (i, trace) in traces.iter().skip(state.scroll_offset).take(visible_count).enumerate() {
+    for (i, trace) in traces
+        .iter()
+        .skip(state.scroll_offset)
+        .take(visible_count)
+        .enumerate()
+    {
         let actual_index = state.scroll_offset + i;
         let ty = y + (i as f32 * 0.05);
         let selected = state.content_index == actual_index;
@@ -233,7 +244,12 @@ fn render_spans(state: &AppState, backend: &mut dyn RenderBackend, x: f32, y: f3
         return;
     }
 
-    for (i, span) in spans.iter().skip(state.scroll_offset).take(visible_count).enumerate() {
+    for (i, span) in spans
+        .iter()
+        .skip(state.scroll_offset)
+        .take(visible_count)
+        .enumerate()
+    {
         let actual_index = state.scroll_offset + i;
         let sy = y + (i as f32 * 0.05);
         let selected = state.content_index == actual_index;
@@ -269,13 +285,24 @@ fn render_spans(state: &AppState, backend: &mut dyn RenderBackend, x: f32, y: f3
 
         // Service name if selected
         if selected {
-            backend.draw_hud_text(x + 0.04, sy + 0.025, &span.service_name, Color::Rgb(80, 85, 90));
+            backend.draw_hud_text(
+                x + 0.04,
+                sy + 0.025,
+                &span.service_name,
+                Color::Rgb(80, 85, 90),
+            );
         }
     }
 }
 
 /// Render services view
-fn render_services(state: &AppState, backend: &mut dyn RenderBackend, x: f32, y: f32, focused: bool) {
+fn render_services(
+    state: &AppState,
+    backend: &mut dyn RenderBackend,
+    x: f32,
+    y: f32,
+    focused: bool,
+) {
     let visible_count = 6;
     let services: Vec<_> = state.services.values().collect();
 
@@ -284,7 +311,12 @@ fn render_services(state: &AppState, backend: &mut dyn RenderBackend, x: f32, y:
         return;
     }
 
-    for (i, service) in services.iter().skip(state.scroll_offset).take(visible_count).enumerate() {
+    for (i, service) in services
+        .iter()
+        .skip(state.scroll_offset)
+        .take(visible_count)
+        .enumerate()
+    {
         let actual_index = state.scroll_offset + i;
         let sy = y + (i as f32 * 0.05);
         let selected = state.content_index == actual_index;

@@ -10,8 +10,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use crate::types::{
-    EdgeType, GraphEdge, GraphNode, GraphPath, MemoryVector, Message, MessageRole, NodeType,
-    PolicyEntry, TraversalDirection,
+    GraphEdge, GraphNode, GraphPath, MemoryVector, Message, MessageRole,
+    PolicyEntry,
 };
 
 #[derive(Clone)]

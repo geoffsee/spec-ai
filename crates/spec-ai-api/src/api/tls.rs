@@ -8,8 +8,7 @@
 use anyhow::{Context, Result};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use rcgen::{
-    CertificateParams, DnType, ExtendedKeyUsagePurpose, IsCa, KeyPair, KeyUsagePurpose,
-    SanType,
+    CertificateParams, DnType, ExtendedKeyUsagePurpose, IsCa, KeyPair, KeyUsagePurpose, SanType,
 };
 use ring::digest::{digest, SHA256};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
@@ -83,9 +82,10 @@ impl TlsConfig {
         params
             .distinguished_name
             .push(DnType::OrganizationName, CERT_ORG_NAME);
-        params
-            .distinguished_name
-            .push(DnType::CommonName, format!("{}-{}", CERT_CN_PREFIX, hostname));
+        params.distinguished_name.push(
+            DnType::CommonName,
+            format!("{}-{}", CERT_CN_PREFIX, hostname),
+        );
 
         // Set validity period
         let now = time::OffsetDateTime::now_utc();
@@ -103,9 +103,9 @@ impl TlsConfig {
         params.is_ca = IsCa::NoCa;
 
         // Add Subject Alternative Names
-        let mut sans = vec![
-            SanType::DnsName(hostname.try_into().context("Invalid hostname")?),
-        ];
+        let mut sans = vec![SanType::DnsName(
+            hostname.try_into().context("Invalid hostname")?,
+        )];
 
         // Always add localhost variants
         if hostname != "localhost" {
@@ -149,7 +149,8 @@ impl TlsConfig {
         let cert_pem = cert.pem();
 
         // Format expiry date
-        let not_after = not_after_time.format(&time::format_description::well_known::Rfc3339)
+        let not_after = not_after_time
+            .format(&time::format_description::well_known::Rfc3339)
             .unwrap_or_else(|_| "unknown".to_string());
 
         tracing::info!(
@@ -269,7 +270,11 @@ impl TlsConfig {
             not_before: "see certificate".to_string(),
             not_after: self.not_after.clone(),
             subject: format!("CN={}-{}, O={}", CERT_CN_PREFIX, hostname, CERT_ORG_NAME),
-            san: vec![hostname.to_string(), "localhost".to_string(), "127.0.0.1".to_string()],
+            san: vec![
+                hostname.to_string(),
+                "localhost".to_string(),
+                "127.0.0.1".to_string(),
+            ],
         }
     }
 
@@ -336,10 +341,7 @@ mod tests {
 
     #[test]
     fn test_additional_sans() {
-        let additional = vec![
-            "192.168.1.100".to_string(),
-            "myserver.local".to_string(),
-        ];
+        let additional = vec!["192.168.1.100".to_string(), "myserver.local".to_string()];
         let config = TlsConfig::generate("primary.local", &additional, None).unwrap();
 
         assert!(!config.certificate.is_empty());

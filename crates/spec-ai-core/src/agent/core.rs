@@ -3,8 +3,6 @@
 //! The heart of the agent system - orchestrates reasoning, memory, and model interaction.
 
 use crate::agent::model::{GenerationConfig, ModelProvider};
-use futures::Stream;
-use std::pin::Pin;
 pub use crate::agent::output::{
     AgentOutput, GraphDebugInfo, GraphDebugNode, MemoryRecallMatch, MemoryRecallStats,
     MemoryRecallStrategy, ToolInvocation,
@@ -19,10 +17,12 @@ use crate::types::{Message, MessageRole};
 use crate::SYNC_GRAPH_NAMESPACE;
 use anyhow::{Context, Result};
 use chrono::Utc;
+use futures::Stream;
 use serde_json::{json, Value};
 use spec_ai_knowledge_graph::{EdgeType, NodeType, TraversalDirection};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::RwLock;

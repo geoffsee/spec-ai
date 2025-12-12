@@ -15,12 +15,11 @@ use axum::{
 use futures::stream::Stream;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
+use spec_ai_core::bootstrap_self::plugin::BootstrapPlugin;
 use spec_ai_core::bootstrap_self::plugin::{BootstrapMode, PluginContext};
 use spec_ai_core::bootstrap_self::plugins::universal_code::UniversalCodePlugin;
-use spec_ai_core::bootstrap_self::plugin::BootstrapPlugin;
 use spec_ai_knowledge_graph::{EdgeType, NodeType};
 use std::convert::Infallible;
-use std::path::PathBuf;
 use std::time::Duration;
 
 // ============================================================================
@@ -343,11 +342,10 @@ pub async fn list_edges(
     State(state): State<AppState>,
     Query(query): Query<ListEdgesQuery>,
 ) -> Response {
-    match state.persistence.list_graph_edges(
-        &query.session_id,
-        query.source_id,
-        query.target_id,
-    ) {
+    match state
+        .persistence
+        .list_graph_edges(&query.session_id, query.source_id, query.target_id)
+    {
         Ok(edges) => {
             let response_edges: Vec<EdgeResponse> = edges
                 .into_iter()
@@ -478,7 +476,9 @@ pub async fn stream_changelog(
     Query(query): Query<ChangelogStreamQuery>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     let session_id = query.session_id;
-    let since = query.since.unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
+    let since = query
+        .since
+        .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
 
     let stream = async_stream::stream! {
         let mut last_timestamp = since;
@@ -547,7 +547,9 @@ pub async fn bootstrap_graph(
     State(state): State<AppState>,
     Json(request): Json<BootstrapRequest>,
 ) -> Response {
-    let session_id = request.session_id.unwrap_or_else(|| "visionos-dashboard".to_string());
+    let session_id = request
+        .session_id
+        .unwrap_or_else(|| "visionos-dashboard".to_string());
 
     // Get current working directory
     let cwd = match std::env::current_dir() {
@@ -555,7 +557,10 @@ pub async fn bootstrap_graph(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new("cwd_error", format!("Failed to get current directory: {}", e))),
+                Json(ErrorResponse::new(
+                    "cwd_error",
+                    format!("Failed to get current directory: {}", e),
+                )),
             )
                 .into_response()
         }

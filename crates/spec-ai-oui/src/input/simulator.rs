@@ -3,12 +3,11 @@
 //! Maps keyboard inputs to simulated spatial inputs for development without AR hardware.
 
 use std::collections::VecDeque;
-use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use super::{GestureEvent, GestureType, Hand, HeadGestureType, OpticalEvent, SwipeDirection};
-use crate::spatial::{Point3D, Quaternion, Transform, Vector3D};
+use crate::spatial::{Point3D, Quaternion, Transform};
 
 /// Simulates spatial inputs from keyboard for development
 pub struct InputSimulator {

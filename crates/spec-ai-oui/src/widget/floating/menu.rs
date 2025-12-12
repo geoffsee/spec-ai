@@ -3,7 +3,7 @@
 use crate::context::{DisplayContext, Priority};
 use crate::input::{GestureType, OpticalEvent, SwipeDirection};
 use crate::renderer::{Color, RenderBackend};
-use crate::spatial::{Bounds, Point3D, SpatialAnchor, Transform, Vector3D};
+use crate::spatial::{Bounds, Point3D, SpatialAnchor, Transform};
 use crate::widget::OpticalWidget;
 use std::time::Duration;
 

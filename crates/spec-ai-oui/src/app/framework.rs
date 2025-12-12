@@ -12,7 +12,6 @@ use crossterm::{
 use crate::context::DisplayContext;
 use crate::input::{InputSimulator, OpticalEvent};
 use crate::renderer::{terminal::TerminalBackend, RenderBackend};
-use crate::spatial::Transform;
 
 /// Optical application trait
 pub trait OpticalApp {
@@ -49,7 +48,7 @@ impl<A: OpticalApp> OpticalAppRunner<A> {
     /// Create a new app runner
     pub fn new(app: A) -> io::Result<Self> {
         let backend = TerminalBackend::new()
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+            .map_err(|e| io::Error::other(e.to_string()))?;
 
         Ok(Self {
             app,
@@ -122,13 +121,13 @@ impl<A: OpticalApp> OpticalAppRunner<A> {
                 // Render
                 self.backend
                     .begin_frame()
-                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+                    .map_err(|e| io::Error::other(e.to_string()))?;
 
                 self.app.render(&state, &mut self.backend);
 
                 self.backend
                     .end_frame()
-                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+                    .map_err(|e| io::Error::other(e.to_string()))?;
 
                 // Send tick event
                 self.app.handle_event(OpticalEvent::Tick, &mut state);

@@ -1,7 +1,7 @@
 //! Audio backend trait
 
 use super::Notification;
-use crate::spatial::{Point3D, Transform};
+use crate::spatial::Transform;
 
 /// Audio backend trait for optical UI
 pub trait AudioBackend: Send + Sync {

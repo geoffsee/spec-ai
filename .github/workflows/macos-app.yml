@@ -1,0 +1,76 @@
+name: macOS App
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
+
+jobs:
+  build-macos:
+    name: Build macOS App
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Build macOS App (Debug)
+        if: ${{ inputs.build_type == 'debug' }}
+        working-directory: crates/spec-ai-desktop/macOS
+        run: |
+          xcodebuild build \
+            -project SpecAI.xcodeproj \
+            -scheme SpecAI \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Build macOS App (Release)
+        if: ${{ inputs.build_type == 'release' }}
+        working-directory: crates/spec-ai-desktop/macOS
+        run: |
+          xcodebuild build \
+            -project SpecAI.xcodeproj \
+            -scheme SpecAI \
+            -configuration Release \
+            -destination 'platform=macOS' \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Archive App (Release only)
+        if: ${{ inputs.build_type == 'release' }}
+        working-directory: crates/spec-ai-desktop/macOS
+        run: |
+          xcodebuild archive \
+            -project SpecAI.xcodeproj \
+            -scheme SpecAI \
+            -configuration Release \
+            -archivePath build/SpecAI.xcarchive \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Upload Archive
+        if: ${{ inputs.build_type == 'release' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpecAI-macOS
+          path: crates/spec-ai-desktop/macOS/build/SpecAI.xcarchive
+          retention-days: 7

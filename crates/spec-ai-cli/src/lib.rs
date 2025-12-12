@@ -532,6 +532,9 @@ async fn run_specs_command(config_path: Option<PathBuf>, spec_paths: Vec<PathBuf
                 eprintln!();
                 eprintln!("Only one instance can access the database at a time.");
                 eprintln!("Please close the other instance or wait for it to finish.");
+                eprintln!();
+                eprintln!("To run multiple instances, configure a different database path");
+                eprintln!("in your config file: [database] path = \"~/.spec-ai/other.db\"");
                 std::process::exit(1);
             }
             return Err(e);
@@ -599,6 +602,9 @@ async fn run_repl_with_config(config: Option<PathBuf>) -> Result<()> {
                 eprintln!();
                 eprintln!("Only one instance can access the database at a time.");
                 eprintln!("Please close the other instance or wait for it to finish.");
+                eprintln!();
+                eprintln!("To run multiple instances, configure a different database path");
+                eprintln!("in your config file: [database] path = \"~/.spec-ai/other.db\"");
                 std::process::exit(1);
             }
             return Err(e);

@@ -1,3 +1,6 @@
 [submodule "crates/spec-ai-oui-app/visionOS/spec-ai"]
 	path = crates/spec-ai-oui-app/visionOS/spec-ai
 	url = https://github.com/geoffsee/spec-ai-vision-os.git
+[submodule "crates/spec-ai-desktop/macOS"]
+	path = crates/spec-ai-desktop/macOS
+	url = https://github.com/geoffsee/macOS.git

@@ -35,8 +35,6 @@ crates/spec-ai-desktop/macOS
 /default_macos.provisionprofile
 /mac_installer.cer
 /crates/spec-ai-desktop/dist/
-
-# macOS Xcode project
 /crates/spec-ai-desktop/macOS/SpecAI.xcodeproj/xcuserdata/
 /crates/spec-ai-desktop/macOS/SpecAI.xcodeproj/project.xcworkspace/xcuserdata/
 /crates/spec-ai-desktop/macOS/.DS_Store

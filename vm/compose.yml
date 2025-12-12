@@ -1,0 +1,8 @@
+services:
+  spec-ai:
+    build:
+      dockerfile: Slim.Containerfile
+      context: .
+    ports:
+      - "3000:3000"
+    command: ["server", "-p", "3000"]

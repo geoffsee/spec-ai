@@ -6,7 +6,7 @@ pub mod registry;
 // Re-export common types for convenience
 pub use agent::AgentProfile;
 pub use agent_config::{
-    AppConfig, AudioConfig, DatabaseConfig, LoggingConfig, MeshConfig, ModelConfig, PluginConfig,
-    SyncConfig, SyncNamespace, UiConfig,
+    AppConfig, AudioConfig, AuthConfig, DatabaseConfig, LoggingConfig, MeshConfig, ModelConfig,
+    PluginConfig, SyncConfig, SyncNamespace, UiConfig,
 };
 pub use registry::AgentRegistry;

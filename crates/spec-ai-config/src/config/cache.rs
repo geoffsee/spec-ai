@@ -18,7 +18,7 @@ impl ConfigCache {
         Self { persistence }
     }
 
-    /// Store the effective configuration in the cache
+    /// Store the effective configuration in the cacheo
     pub fn store_effective_config(&self, config: &AppConfig) -> Result<()> {
         let value = serde_json::to_value(config).context("serializing config to JSON")?;
 
@@ -144,8 +144,8 @@ mod tests {
 
     fn create_test_config() -> AppConfig {
         use crate::config::{
-            AudioConfig, DatabaseConfig, LoggingConfig, ModelConfig, PluginConfig, SyncConfig,
-            UiConfig,
+            AudioConfig, AuthConfig, DatabaseConfig, LoggingConfig, ModelConfig, PluginConfig,
+            SyncConfig, UiConfig,
         };
         use std::collections::HashMap;
         use std::path::PathBuf;
@@ -172,6 +172,7 @@ mod tests {
             mesh: crate::config::MeshConfig::default(),
             plugins: PluginConfig::default(),
             sync: SyncConfig::default(),
+            auth: AuthConfig::default(),
             agents: HashMap::new(),
             default_agent: None,
         }

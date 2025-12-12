@@ -1334,7 +1334,8 @@ mod tests {
     use crate::agent::model::TokenUsage;
     use crate::agent::AgentOutput;
     use crate::config::{
-        AudioConfig, DatabaseConfig, LoggingConfig, ModelConfig, PluginConfig, SyncConfig, UiConfig,
+        AudioConfig, AuthConfig, DatabaseConfig, LoggingConfig, ModelConfig, PluginConfig,
+        SyncConfig, UiConfig,
     };
     use serde_json::json;
     use std::collections::HashMap;
@@ -1536,6 +1537,7 @@ mod tests {
             mesh: crate::config::MeshConfig::default(),
             plugins: PluginConfig::default(),
             sync: SyncConfig::default(),
+            auth: AuthConfig::default(),
             agents,
             default_agent: Some("test".into()),
         };
@@ -1600,6 +1602,7 @@ mod tests {
             mesh: crate::config::MeshConfig::default(),
             plugins: PluginConfig::default(),
             sync: SyncConfig::default(),
+            auth: AuthConfig::default(),
             agents,
             default_agent: Some("coder".into()),
         };
@@ -1652,6 +1655,7 @@ mod tests {
             mesh: crate::config::MeshConfig::default(),
             plugins: PluginConfig::default(),
             sync: SyncConfig::default(),
+            auth: AuthConfig::default(),
             agents,
             default_agent: Some("test".into()),
         };
@@ -1700,6 +1704,7 @@ mod tests {
             mesh: crate::config::MeshConfig::default(),
             plugins: PluginConfig::default(),
             sync: SyncConfig::default(),
+            auth: AuthConfig::default(),
             agents,
             default_agent: Some("test".into()),
         };

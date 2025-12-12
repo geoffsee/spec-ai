@@ -511,8 +511,8 @@ mod tests {
     use super::*;
     use crate::agent::providers::MockProvider;
     use crate::config::{
-        AgentProfile, AudioConfig, DatabaseConfig, LoggingConfig, ModelConfig, PluginConfig,
-        SyncConfig, UiConfig,
+        AgentProfile, AudioConfig, AuthConfig, DatabaseConfig, LoggingConfig, ModelConfig,
+        PluginConfig, SyncConfig, UiConfig,
     };
     use std::collections::HashMap;
     use tempfile::tempdir;
@@ -541,6 +541,7 @@ mod tests {
             mesh: crate::config::MeshConfig::default(),
             plugins: PluginConfig::default(),
             sync: SyncConfig::default(),
+            auth: AuthConfig::default(),
             agents: HashMap::new(),
             default_agent: None,
         }

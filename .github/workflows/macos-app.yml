@@ -21,6 +21,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          token: ${{ secrets.SUBMODULE_PAT }}
 
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_15.4.app

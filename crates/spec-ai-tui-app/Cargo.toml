@@ -10,7 +10,7 @@ description = "Interactive terminal UI for spec-ai built on spec-ai-tui"
 anyhow = { workspace = true }
 chrono = { workspace = true }
 futures = { workspace = true }
-spec-ai-core = { path = "../spec-ai-core", version = "0.6.0-prerelease.2", features = ["openai", "vttrs"] }
-spec-ai-tui = { path = "../spec-ai-tui", version = "0.6.0-prerelease.2" }
+spec-ai-core = { path = "../spec-ai-core", version = "0.6.0-prerelease.9", features = ["openai", "vttrs"] }
+spec-ai-tui = { path = "../spec-ai-tui", version = "0.6.0-prerelease.9" }
 tokio = { workspace = true }
 strip-ansi-escapes = "0.1"

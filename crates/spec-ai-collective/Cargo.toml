@@ -21,4 +21,4 @@ tracing.workspace = true
 uuid.workspace = true
 
 # Internal dependencies
-spec-ai-knowledge-graph = { path = "../spec-ai-knowledge-graph", version = "0.6.0-prerelease.2" }
+spec-ai-knowledge-graph = { path = "../spec-ai-knowledge-graph", version = "0.6.0-prerelease.9" }

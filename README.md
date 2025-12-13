@@ -51,6 +51,22 @@ docs/, examples/, specs/, etc.
 
 ### Installation
 
+#### Download Pre-built Binaries
+
+Pre-built binaries are available for macOS, Linux, and Windows. Download the latest release for your platform from the [GitHub Releases](https://github.com/spec-ai/spec-ai/releases) page.
+
+1. Download the appropriate archive for your platform
+2. Extract the archive
+3. Move the `spec-ai` binary to a directory in your `PATH` (e.g., `/usr/local/bin` on macOS/Linux)
+
+```bash
+# Example for macOS/Linux
+tar -xzf spec-ai-<version>-<platform>.tar.gz
+sudo mv spec-ai /usr/local/bin/
+```
+
+#### Install via Cargo
+
 ```bash
 cargo install spec-ai --features bundled
 # OR (requires additional configuration of duckdb)

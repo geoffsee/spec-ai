@@ -34,10 +34,10 @@ tower = { workspace = true }
 tower-http = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
-spec-ai-core = { path = "../spec-ai-core", version = "0.6.0-prerelease.2", features = ["api"] }
-spec-ai-config = { path = "../spec-ai-config", version = "0.6.0-prerelease.2" }
-spec-ai-knowledge-graph = { path = "../spec-ai-knowledge-graph", version = "0.6.0-prerelease.2" }
-spec-ai-policy = { path = "../spec-ai-policy", version = "0.6.0-prerelease.2" }
+spec-ai-core = { path = "../spec-ai-core", version = "0.6.0-prerelease.9", features = ["api"] }
+spec-ai-config = { path = "../spec-ai-config", version = "0.6.0-prerelease.9" }
+spec-ai-knowledge-graph = { path = "../spec-ai-knowledge-graph", version = "0.6.0-prerelease.9" }
+spec-ai-policy = { path = "../spec-ai-policy", version = "0.6.0-prerelease.9" }
 
 [dev-dependencies]
 tempfile = { workspace = true }

@@ -11,7 +11,7 @@ use tracing::debug;
 
 use self::builtin::{
     AudioTranscriptionTool, BashTool, CodeSearchTool, EchoTool, FileExtractTool, FileReadTool,
-    FileWriteTool, GraphTool, MathTool, PromptUserTool, SearchTool, ShellTool,
+    FileWriteTool, GraphTool, GrepTool, MathTool, PromptUserTool, SearchTool, ShellTool,
 };
 
 #[cfg(feature = "api")]
@@ -106,6 +106,7 @@ impl ToolRegistry {
         registry.register(Arc::new(FileWriteTool::new()));
         registry.register(Arc::new(PromptUserTool::new()));
         registry.register(Arc::new(SearchTool::new()));
+        registry.register(Arc::new(GrepTool::new()));
         registry.register(Arc::new(CodeSearchTool::new()));
         registry.register(Arc::new(BashTool::new()));
         registry.register(Arc::new(ShellTool::new()));

@@ -6141,7 +6141,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai"
-version = "0.6.0-prerelease.7"
+version = "0.6.0-prerelease.8"
 dependencies = [
  "anyhow",
  "spec-ai-api",
@@ -6153,7 +6153,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-api"
-version = "0.6.0-prerelease.7"
+version = "0.6.0-prerelease.8"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -6191,7 +6191,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-cli"
-version = "0.6.0-prerelease.7"
+version = "0.6.0-prerelease.8"
 dependencies = [
  "anyhow",
  "chrono",
@@ -6210,7 +6210,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-collective"
-version = "0.6.0-prerelease.7"
+version = "0.6.0-prerelease.8"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6226,7 +6226,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-config"
-version = "0.6.0-prerelease.7"
+version = "0.6.0-prerelease.8"
 dependencies = [
  "anyhow",
  "chrono",
@@ -6249,7 +6249,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-core"
-version = "0.6.0-prerelease.7"
+version = "0.6.0-prerelease.8"
 dependencies = [
  "anyhow",
  "async-openai",
@@ -6295,7 +6295,7 @@ version = "0.1.0"
 
 [[package]]
 name = "spec-ai-graph-sync"
-version = "0.6.0-prerelease.7"
+version = "0.6.0-prerelease.8"
 dependencies = [
  "anyhow",
  "chrono",
@@ -6308,7 +6308,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-knowledge-graph"
-version = "0.6.0-prerelease.7"
+version = "0.6.0-prerelease.8"
 dependencies = [
  "anyhow",
  "chrono",
@@ -6319,7 +6319,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-oui"
-version = "0.6.0-prerelease.7"
+version = "0.6.0-prerelease.8"
 dependencies = [
  "crossterm",
  "futures",
@@ -6330,7 +6330,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-oui-app"
-version = "0.6.0-prerelease.7"
+version = "0.6.0-prerelease.8"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -6347,7 +6347,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-plugin"
-version = "0.6.0-prerelease.7"
+version = "0.6.0-prerelease.8"
 dependencies = [
  "abi_stable",
  "anyhow",
@@ -6361,7 +6361,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-policy"
-version = "0.6.0-prerelease.7"
+version = "0.6.0-prerelease.8"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6374,7 +6374,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-tui"
-version = "0.6.0-prerelease.7"
+version = "0.6.0-prerelease.8"
 dependencies = [
  "crossterm",
  "futures",
@@ -6385,7 +6385,7 @@ dependencies = [
 
 [[package]]
 name = "spec-ai-tui-app"
-version = "0.6.0-prerelease.7"
+version = "0.6.0-prerelease.8"
 dependencies = [
  "anyhow",
  "chrono",

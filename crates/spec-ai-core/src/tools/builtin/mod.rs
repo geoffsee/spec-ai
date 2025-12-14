@@ -9,6 +9,7 @@ pub mod file_write;
 pub mod graph;
 pub mod grep;
 pub mod prompt;
+pub mod rg;
 pub mod search;
 pub mod shell;
 
@@ -35,6 +36,7 @@ pub use file_write::FileWriteTool;
 pub use graph::GraphTool;
 pub use grep::GrepTool;
 pub use prompt::PromptUserTool;
+pub use rg::RgTool;
 pub use search::SearchTool;
 pub use shell::ShellTool;
 

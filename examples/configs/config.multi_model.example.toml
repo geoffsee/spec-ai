@@ -13,6 +13,7 @@ path = "~/.spec-ai/demo-multi-model-agent_data.db"
 [model]
 provider = "openai"  # or "anthropic" for Claude
 model_name = "gpt-4"  # or "claude-3-opus-20240229"
+code_model = "gpt-4"  # Optional dedicated model for code-heavy tasks
 embeddings_model = "text-embedding-3-small"  # For semantic search
 api_key_source = "env:OPENAI_API_KEY"  # or "env:ANTHROPIC_API_KEY"
 temperature = 0.7

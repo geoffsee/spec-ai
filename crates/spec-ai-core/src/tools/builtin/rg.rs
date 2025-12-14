@@ -242,8 +242,7 @@ impl Tool for RgTool {
     }
 
     async fn execute(&self, args: Value) -> Result<ToolResult> {
-        let args: RgArgs =
-            serde_json::from_value(args).context("Failed to parse rg arguments")?;
+        let args: RgArgs = serde_json::from_value(args).context("Failed to parse rg arguments")?;
 
         if args.pattern.trim().is_empty() {
             return Err(anyhow!("rg pattern cannot be empty"));

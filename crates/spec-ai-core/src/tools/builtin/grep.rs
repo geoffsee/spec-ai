@@ -124,8 +124,7 @@ impl GrepTool {
                 let path_str = path.to_string_lossy();
                 let filename = path.file_name().map(|s| s.to_string_lossy());
 
-                regex.is_match(&path_str)
-                    || filename.map(|f| regex.is_match(&f)).unwrap_or(false)
+                regex.is_match(&path_str) || filename.map(|f| regex.is_match(&f)).unwrap_or(false)
             }
         }
     }
@@ -141,7 +140,7 @@ impl GrepTool {
                 '*' => {
                     if chars.peek() == Some(&'*') {
                         chars.next(); // consume second *
-                        // Skip path separator if present after **
+                                      // Skip path separator if present after **
                         if chars.peek() == Some(&'/') {
                             chars.next();
                         }
@@ -378,8 +377,13 @@ impl Tool for GrepTool {
         if search_path.is_file() {
             // Search single file
             if self.matches_glob(&search_path, &glob_regex) {
-                let file_matches =
-                    self.collect_matches(&search_path, &regex, &args, max_matches, &mut match_count)?;
+                let file_matches = self.collect_matches(
+                    &search_path,
+                    &regex,
+                    &args,
+                    max_matches,
+                    &mut match_count,
+                )?;
                 all_matches.extend(file_matches);
             }
         } else {
@@ -466,11 +470,7 @@ mod tests {
     async fn test_grep_with_context() {
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("test.txt");
-        fs::write(
-            &file_path,
-            "line 1\nline 2\nMATCH\nline 4\nline 5",
-        )
-        .unwrap();
+        fs::write(&file_path, "line 1\nline 2\nMATCH\nline 4\nline 5").unwrap();
 
         let tool = GrepTool::new().with_root(dir.path());
         let args = serde_json::json!({
@@ -536,7 +536,10 @@ mod tests {
     async fn test_grep_max_matches() {
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("test.txt");
-        let content = (0..100).map(|i| format!("line {}", i)).collect::<Vec<_>>().join("\n");
+        let content = (0..100)
+            .map(|i| format!("line {}", i))
+            .collect::<Vec<_>>()
+            .join("\n");
         fs::write(&file_path, content).unwrap();
 
         let tool = GrepTool::new().with_root(dir.path());

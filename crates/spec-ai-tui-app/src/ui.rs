@@ -39,9 +39,7 @@ fn render_chat(state: &AppState, area: Rect, buf: &mut Buffer) {
         None => "Conversation".to_string(),
     };
 
-    let block = Block::bordered()
-        .title(title)
-        .border_style(border_style);
+    let block = Block::bordered().title(title).border_style(border_style);
     Widget::render(&block, area, buf);
 
     let inner = block.inner(area);

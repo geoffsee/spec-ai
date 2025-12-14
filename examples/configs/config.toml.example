@@ -19,6 +19,8 @@ provider = "openai"
 # Anthropic: "claude-3-opus-20240229", "claude-3-sonnet-20240229"
 # Ollama: "llama3", "mistral"
 # model_name = "gpt-4"
+# Dedicated model for code-heavy tasks (optional)
+# code_model = "gpt-4"
 
 # Embeddings model for semantic search
 embeddings_model = "text-embedding-3-small"

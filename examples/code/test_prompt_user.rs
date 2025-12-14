@@ -12,7 +12,7 @@ async fn main() -> Result<()> {
 
     println!("=== Testing prompt_user Tool ===\n");
 
-    let registry = ToolRegistry::with_builtin_tools(None, None);
+    let registry = ToolRegistry::with_builtin_tools(None, None, None);
     let prompt_tool = registry
         .get("prompt_user")
         .expect("prompt_user should exist");

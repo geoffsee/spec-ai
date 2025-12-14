@@ -11,7 +11,8 @@ use tracing::debug;
 
 use self::builtin::{
     AudioTranscriptionTool, BashTool, CodeSearchTool, EchoTool, FileExtractTool, FileReadTool,
-    FileWriteTool, GraphTool, GrepTool, MathTool, PromptUserTool, RgTool, SearchTool, ShellTool,
+    FileWriteTool, GenerateCodeTool, GraphTool, GrepTool, MathTool, PromptUserTool, RgTool,
+    SearchTool, ShellTool,
 };
 
 #[cfg(feature = "api")]
@@ -19,6 +20,7 @@ use self::builtin::WebSearchTool;
 
 #[cfg(feature = "web-scraping")]
 use self::builtin::WebScraperTool;
+use crate::agent::model::ModelProvider;
 use crate::embeddings::EmbeddingsClient;
 use crate::persistence::Persistence;
 
@@ -95,6 +97,7 @@ impl ToolRegistry {
     pub fn with_builtin_tools(
         persistence: Option<Arc<Persistence>>,
         embeddings: Option<EmbeddingsClient>,
+        code_model_provider: Option<Arc<dyn ModelProvider>>,
     ) -> Self {
         let mut registry = Self::new();
 
@@ -111,6 +114,9 @@ impl ToolRegistry {
         registry.register(Arc::new(CodeSearchTool::new()));
         registry.register(Arc::new(BashTool::new()));
         registry.register(Arc::new(ShellTool::new()));
+        if let Some(provider) = code_model_provider {
+            registry.register(Arc::new(GenerateCodeTool::new(provider)));
+        }
 
         // Register web search if api feature is enabled
         #[cfg(feature = "api")]

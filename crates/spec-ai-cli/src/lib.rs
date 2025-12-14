@@ -273,6 +273,7 @@ async fn start_server(
     let tool_registry = Arc::new(ToolRegistry::with_builtin_tools(
         Some(Arc::new(persistence.clone())),
         embeddings,
+        None,
     ));
 
     // Configure and start API server
@@ -411,6 +412,7 @@ async fn start_mesh_member(
     let tool_registry = Arc::new(ToolRegistry::with_builtin_tools(
         Some(Arc::new(persistence.clone())),
         embeddings,
+        None,
     ));
 
     // Get agent profiles for registration

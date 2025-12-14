@@ -47,8 +47,7 @@ pub struct OpticalAppRunner<A: OpticalApp> {
 impl<A: OpticalApp> OpticalAppRunner<A> {
     /// Create a new app runner
     pub fn new(app: A) -> io::Result<Self> {
-        let backend = TerminalBackend::new()
-            .map_err(|e| io::Error::other(e.to_string()))?;
+        let backend = TerminalBackend::new().map_err(|e| io::Error::other(e.to_string()))?;
 
         Ok(Self {
             app,

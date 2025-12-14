@@ -206,6 +206,9 @@ impl AppConfig {
         if let Some(model_name) = first("AGENT_MODEL_NAME", "SPEC_AI_MODEL") {
             self.model.model_name = Some(model_name);
         }
+        if let Some(code_model) = first("AGENT_CODE_MODEL", "SPEC_AI_CODE_MODEL") {
+            self.model.code_model = Some(code_model);
+        }
         if let Some(api_key_source) = first("AGENT_API_KEY_SOURCE", "SPEC_AI_API_KEY_SOURCE") {
             self.model.api_key_source = Some(api_key_source);
         }
@@ -236,6 +239,9 @@ impl AppConfig {
         summary.push_str(&format!("Model Provider: {}\n", self.model.provider));
         if let Some(model) = &self.model.model_name {
             summary.push_str(&format!("Model Name: {}\n", model));
+        }
+        if let Some(code_model) = &self.model.code_model {
+            summary.push_str(&format!("Code Model: {}\n", code_model));
         }
         summary.push_str(&format!("Temperature: {}\n", self.model.temperature));
         summary.push_str(&format!("Logging Level: {}\n", self.logging.level));
@@ -271,6 +277,9 @@ pub struct ModelConfig {
     /// Model name to use (e.g., "gpt-4", "claude-3-opus")
     #[serde(default)]
     pub model_name: Option<String>,
+    /// Dedicated text model for code generation/review tasks
+    #[serde(default)]
+    pub code_model: Option<String>,
     /// Embeddings model name (optional, for semantic search)
     #[serde(default)]
     pub embeddings_model: Option<String>,
@@ -291,6 +300,7 @@ impl Default for ModelConfig {
         Self {
             provider: "mock".to_string(),
             model_name: None,
+            code_model: None,
             embeddings_model: None,
             api_key_source: None,
             temperature: default_temperature(),

@@ -31,8 +31,7 @@ impl Default for SurfaceCapabilities {
 }
 
 /// Color representation supporting multiple formats
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Color {
     /// Reset to default
     #[default]
@@ -142,4 +141,3 @@ impl Color {
         }
     }
 }
-

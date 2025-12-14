@@ -203,10 +203,9 @@ fn parse_list_item(line: &str) -> Option<(char, &str)> {
         if c.is_ascii_digit() {
             continue;
         }
-        if c == '.' && i > 0
-            && line.get(i + 1..i + 2) == Some(" ") {
-                return Some(('•', &line[i + 2..]));
-            }
+        if c == '.' && i > 0 && line.get(i + 1..i + 2) == Some(" ") {
+            return Some(('•', &line[i + 2..]));
+        }
         break;
     }
 

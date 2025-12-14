@@ -10,6 +10,7 @@ path = "~/.spec-ai/demo-agent_data.db"
 [model]
 provider = "openai"
 model_name = "gpt-4.1"
+code_model = "gpt-4.1"     # Optional dedicated model for code-heavy tasks
 embeddings_model = "text-embedding-3-small"
 
 # API key source (optional)
@@ -161,6 +162,7 @@ temperature = 0.3
 allowed_tools = ["file_read", "file_write", "bash", "search", "file_extract"]
 # prompt_user is implicitly allowed unless you add it to denied_tools.
 memory_k = 25
+preferred_domains = ["code"]
 
 # Use graph for code structure tracking
 enable_graph = true

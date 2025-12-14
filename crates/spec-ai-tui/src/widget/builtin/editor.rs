@@ -556,12 +556,8 @@ impl EditorState {
     /// Handle an event, returns an EditorAction
     pub fn handle_event(&mut self, event: &Event) -> EditorAction {
         match event {
-            Event::Paste(text) => {
-                self.handle_paste(text)
-            }
-            Event::Key(key) => {
-                self.handle_key_inner(key)
-            }
+            Event::Paste(text) => self.handle_paste(text),
+            Event::Key(key) => self.handle_key_inner(key),
             _ => EditorAction::Ignored,
         }
     }
@@ -944,19 +940,23 @@ impl StatefulWidget for Editor {
         }
 
         // Draw cursor at end if needed
-        if state.focused && state.selection.cursor == state.text.len() && !state.has_selection()
-            && cursor_line >= state.scroll && cursor_line < state.scroll + height {
-                let screen_line = cursor_line - state.scroll;
-                let y = area.y + screen_line as u16;
-                let x = area.x + cursor_col as u16;
-                if x < area.right() {
-                    if let Some(cell) = buf.get_mut(x, y) {
-                        cell.symbol = " ".to_string();
-                        cell.bg = self.cursor_style.bg;
-                        cell.fg = self.cursor_style.fg;
-                    }
+        if state.focused
+            && state.selection.cursor == state.text.len()
+            && !state.has_selection()
+            && cursor_line >= state.scroll
+            && cursor_line < state.scroll + height
+        {
+            let screen_line = cursor_line - state.scroll;
+            let y = area.y + screen_line as u16;
+            let x = area.x + cursor_col as u16;
+            if x < area.right() {
+                if let Some(cell) = buf.get_mut(x, y) {
+                    cell.symbol = " ".to_string();
+                    cell.bg = self.cursor_style.bg;
+                    cell.fg = self.cursor_style.fg;
                 }
             }
+        }
 
         // Draw scroll indicator if there's more content
         if total_lines > height {

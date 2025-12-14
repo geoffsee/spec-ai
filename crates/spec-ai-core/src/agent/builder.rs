@@ -160,14 +160,41 @@ impl AgentBuilder {
             None
         };
 
+        // Optional dedicated code model provider (exposed via the generate_code tool)
+        let code_model_provider = if let Some(ref config) = self.config {
+            if let Some(code_model_name) = &config.model.code_model {
+                let mut code_config = config.model.clone();
+                code_config.model_name = Some(code_model_name.clone());
+                code_config.code_model = None;
+
+                match create_provider(&code_config) {
+                    Ok(provider) => Some(provider),
+                    Err(err) => {
+                        warn!(
+                            "Failed to create code model provider {}:{} - {}",
+                            code_config.provider, code_model_name, err
+                        );
+                        None
+                    }
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
         // Get or create tool registry (defaults to built-in tools)
         // Create this before the provider so OpenAI can be configured with tools
         let tool_registry = if let Some(registry) = self.tool_registry {
             registry
         } else {
             let persistence_arc = Arc::new(persistence.clone());
-            let mut registry =
-                ToolRegistry::with_builtin_tools(Some(persistence_arc), embeddings_client.clone());
+            let mut registry = ToolRegistry::with_builtin_tools(
+                Some(persistence_arc),
+                embeddings_client.clone(),
+                code_model_provider.clone(),
+            );
             info!(
                 "Created tool registry with {} builtin tools",
                 registry.len()
@@ -351,6 +378,7 @@ impl AgentBuilder {
                     let fast_config = ModelConfig {
                         provider: provider_name.clone(),
                         model_name: Some(model_name.clone()),
+                        code_model: None,
                         embeddings_model: None,
                         api_key_source: None,
                         temperature: profile.fast_model_temperature,
@@ -526,6 +554,7 @@ mod tests {
             model: ModelConfig {
                 provider: "mock".to_string(),
                 model_name: Some("test-model".to_string()),
+                code_model: None,
                 embeddings_model: None,
                 api_key_source: None,
                 temperature: 0.7,

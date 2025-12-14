@@ -77,8 +77,7 @@ pub async fn run_app(config: AppConfig) -> io::Result<()> {
     };
 
     // Initialize terminal
-    let mut backend =
-        TerminalBackend::new().map_err(|e| io::Error::other(e.to_string()))?;
+    let mut backend = TerminalBackend::new().map_err(|e| io::Error::other(e.to_string()))?;
     let mut input_simulator = InputSimulator::new();
     let mut context = DisplayContext::default();
 

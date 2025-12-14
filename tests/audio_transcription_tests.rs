@@ -29,7 +29,7 @@ async fn test_audio_tool_registration() {
     let (persistence, _dir) = create_test_persistence();
 
     // Create tool registry with persistence
-    let registry = ToolRegistry::with_builtin_tools(Some(persistence), None);
+    let registry = ToolRegistry::with_builtin_tools(Some(persistence), None, None);
 
     // Check that audio_transcribe tool is registered
     assert!(registry.has("audio_transcribe"));

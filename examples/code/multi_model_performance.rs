@@ -22,6 +22,7 @@ async fn main() -> Result<()> {
     let main_model_config = ModelConfig {
         provider: "mock".to_string(), // Change to "openai" or "anthropic" for real usage
         model_name: Some("gpt-4".to_string()),
+        code_model: None,
         embeddings_model: None,
         api_key_source: None,
         temperature: 0.7,
@@ -31,6 +32,7 @@ async fn main() -> Result<()> {
     let fast_model_config = ModelConfig {
         provider: "mock".to_string(), // Change to "lmstudio" for real usage
         model_name: Some("lmstudio-community/Llama-3.2-3B-Instruct".to_string()),
+        code_model: None,
         embeddings_model: None,
         api_key_source: None,
         temperature: 0.3,

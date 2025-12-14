@@ -74,6 +74,7 @@ fn test_env_override_precedence() {
         env::remove_var("AGENT_MODEL_PROVIDER");
         env::remove_var("AGENT_MODEL_TEMPERATURE");
         env::remove_var("AGENT_LOG_LEVEL");
+        env::remove_var("AGENT_CODE_MODEL");
     }
 
     let temp_dir = TempDir::new().unwrap();
@@ -95,6 +96,7 @@ level = "info"
         env::set_var("AGENT_MODEL_PROVIDER", "anthropic");
         env::set_var("AGENT_MODEL_TEMPERATURE", "0.5");
         env::set_var("AGENT_LOG_LEVEL", "debug");
+        env::set_var("AGENT_CODE_MODEL", "code-override");
     }
 
     let mut config = AppConfig::load_from_file(&config_path).unwrap();
@@ -102,6 +104,10 @@ level = "info"
 
     assert_eq!(config.model.provider, "anthropic");
     assert_eq!(config.model.temperature, 0.5);
+    assert_eq!(
+        config.model.code_model,
+        Some("code-override".to_string())
+    );
     assert_eq!(config.logging.level, "debug");
 
     // Cleanup
@@ -109,6 +115,7 @@ level = "info"
         env::remove_var("AGENT_MODEL_PROVIDER");
         env::remove_var("AGENT_MODEL_TEMPERATURE");
         env::remove_var("AGENT_LOG_LEVEL");
+        env::remove_var("AGENT_CODE_MODEL");
     }
 }
 

@@ -1522,6 +1522,7 @@ mod tests {
             model: ModelConfig {
                 provider: "mock".into(),
                 model_name: None,
+                code_model: None,
                 embeddings_model: None,
                 api_key_source: None,
                 temperature: 0.7,
@@ -1587,6 +1588,7 @@ mod tests {
             model: ModelConfig {
                 provider: "mock".into(),
                 model_name: None,
+                code_model: None,
                 embeddings_model: None,
                 api_key_source: None,
                 temperature: 0.7,
@@ -1640,6 +1642,7 @@ mod tests {
             model: ModelConfig {
                 provider: "mock".into(),
                 model_name: Some("test-model".into()),
+                code_model: None,
                 embeddings_model: None,
                 api_key_source: None,
                 temperature: 0.8,
@@ -1689,6 +1692,7 @@ mod tests {
             model: ModelConfig {
                 provider: "mock".into(),
                 model_name: None,
+                code_model: None,
                 embeddings_model: None,
                 api_key_source: None,
                 temperature: 0.7,

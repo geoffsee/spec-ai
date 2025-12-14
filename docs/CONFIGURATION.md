@@ -110,6 +110,10 @@ provider = "openai"  # Required
 # LMStudio: Any model served by LM Studio
 model_name = "gpt-4"  # Optional, provider-specific default used if not set
 
+# Optional dedicated text model for code-heavy tasks
+# Applied when the active agent is code-focused (preferred_domains contains "code" or agent name includes "code")
+code_model = "gpt-4"  # Optional
+
 # Embeddings model for semantic search
 # OpenAI: "text-embedding-3-small", "text-embedding-3-large", "text-embedding-ada-002"
 embeddings_model = "text-embedding-3-small"  # Optional
@@ -124,6 +128,9 @@ api_key_source = "env:OPENAI_API_KEY"  # Optional
 # Temperature for model completions
 # Range: 0.0 (deterministic) to 2.0 (very creative)
 temperature = 0.7  # Default: 0.7
+
+# Tip: When `code_model` is set, call the `generate_code` tool to explicitly
+# route a request through that model without changing your primary chat model.
 ```
 
 ### UI Configuration
@@ -607,6 +614,7 @@ If both are set, `AGENT_*` takes precedence.
 |----------|-------------|---------|
 | `AGENT_MODEL_PROVIDER` | Model provider override | `openai` |
 | `AGENT_MODEL_NAME` | Model name override | `gpt-4` |
+| `AGENT_CODE_MODEL` | Code-focused model override | `o4-mini-high` |
 | `AGENT_API_KEY_SOURCE` | API key source override | `env:OPENAI_API_KEY` |
 | `AGENT_MODEL_TEMPERATURE` | Temperature override | `0.7` |
 | `AGENT_LOG_LEVEL` | Log level override | `debug` |

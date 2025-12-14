@@ -157,6 +157,7 @@ mod tests {
             model: ModelConfig {
                 provider: "test".to_string(),
                 model_name: None,
+                code_model: None,
                 embeddings_model: None,
                 api_key_source: None,
                 temperature: 0.5,

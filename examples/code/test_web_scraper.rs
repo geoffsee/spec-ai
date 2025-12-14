@@ -16,7 +16,7 @@ async fn main() -> Result<()> {
     println!("=== Web Scraper Tool Test ===\n");
 
     // Create tool registry with all built-in tools
-    let registry = ToolRegistry::with_builtin_tools(None, None);
+    let registry = ToolRegistry::with_builtin_tools(None, None, None);
 
     // Get the web_scraper tool
     let scraper = registry

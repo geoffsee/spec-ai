@@ -13,6 +13,7 @@ path = "~/.spec-ai/demo-lmstudio_agent_data.db"
 [model]
 provider = "lmstudio"
 model_name = "qwen/qwen3-vl-8b"
+code_model = "qwen/qwen3-vl-8b"
 embeddings_model = "text-embedding-embeddinggemma-300m"
 temperature = 0.7
 

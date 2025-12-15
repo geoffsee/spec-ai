@@ -271,12 +271,6 @@ checksum = "76a2e8124351fda1ef8aaaa3bbd7ebbcb486bbcd4225aca0aa0d84bb2db8fecb"
 
 [[package]]
 name = "arrayvec"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
-
-[[package]]
-name = "arrayvec"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
@@ -586,7 +580,7 @@ dependencies = [
  "aligned",
  "anyhow",
  "arg_enum_proc_macro",
- "arrayvec 0.7.6",
+ "arrayvec",
  "log",
  "num-rational",
  "num-traits",
@@ -604,7 +598,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8cfddb07216410377231960af4fcab838eaa12e013417781b78bd95ee22077f8"
 dependencies = [
  "anyhow",
- "arrayvec 0.7.6",
+ "arrayvec",
  "log",
  "nom 8.0.0",
  "num-rational",
@@ -617,7 +611,7 @@ version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47c8fbc0f831f4519fe8b810b6a7a91410ec83031b8233f730a0480029f6a23f"
 dependencies = [
- "arrayvec 0.7.6",
+ "arrayvec",
 ]
 
 [[package]]
@@ -906,7 +900,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3888aaa89e4b2a40fca9848e400f6a658a5a3978de7be858e209cafa8be9a4a0"
 dependencies = [
  "arrayref",
- "arrayvec 0.7.6",
+ "arrayvec",
  "cc",
  "cfg-if",
  "constant_time_eq",
@@ -5159,7 +5153,7 @@ dependencies = [
  "aligned-vec",
  "arbitrary",
  "arg_enum_proc_macro",
- "arrayvec 0.7.6",
+ "arrayvec",
  "av-scenechange",
  "av1-grain",
  "bitstream-io",
@@ -5562,7 +5556,7 @@ version = "1.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "35affe401787a9bd846712274d97654355d21b2a2c092a3139aabe31e9022282"
 dependencies = [
- "arrayvec 0.7.6",
+ "arrayvec",
  "borsh",
  "bytes",
  "num-traits",
@@ -6743,9 +6737,9 @@ dependencies = [
 
 [[package]]
 name = "strip-ansi-escapes"
-version = "0.1.1"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "011cbb39cf7c1f62871aea3cc46e5817b0937b49e9447370c93cacbe93a766d8"
+checksum = "2a8f8038e7e7969abb3f1b7c2a811225e9296da208539e0f79c5251d6cac0025"
 dependencies = [
  "vte",
 ]
@@ -7858,23 +7852,11 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vte"
-version = "0.10.1"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6cbce692ab4ca2f1f3047fcf732430249c0e971bfdd2b234cf2c47ad93af5983"
+checksum = "231fdcd7ef3037e8330d8e17e61011a2c244126acc0a982f4040ac3f9f0bc077"
 dependencies = [
- "arrayvec 0.5.2",
- "utf8parse",
- "vte_generate_state_changes",
-]
-
-[[package]]
-name = "vte_generate_state_changes"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e369bee1b05d510a7b4ed645f5faa90619e05437111783ea5848f28d97d3c2e"
-dependencies = [
- "proc-macro2",
- "quote",
+ "memchr",
 ]
 
 [[package]]

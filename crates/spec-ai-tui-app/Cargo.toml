@@ -13,4 +13,4 @@ futures = { workspace = true }
 spec-ai-core = { path = "../spec-ai-core", version = "0.6.0-prerelease.11", features = ["openai", "vttrs"] }
 spec-ai-tui = { path = "../spec-ai-tui", version = "0.6.0-prerelease.11" }
 tokio = { workspace = true }
-strip-ansi-escapes = "0.1"
+strip-ansi-escapes = "0.2"
